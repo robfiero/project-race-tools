@@ -61,7 +61,7 @@ export default function ParticipationSection({ participation, teams }: Props) {
 
       {teams.hasTeams && (
         <>
-          <SectionHeader title="Teams" />
+          <SectionHeader title="Teams" level={3} />
           <div className="stat-cards-row">
             <StatCard label="Teams" value={teams.totalTeams.toLocaleString()} />
             <StatCard label="Avg Team Size" value={teams.avgTeamSize} />
@@ -78,8 +78,9 @@ export default function ParticipationSection({ participation, teams }: Props) {
             <div className="chart-subsection">
               <h3 className="chart-subsection-title">Team Gender Composition</h3>
               <table className="stats-table stats-table--narrow">
+                <caption className="sr-only">Team gender composition counts</caption>
                 <thead>
-                  <tr><th>Composition</th><th>Teams</th></tr>
+                  <tr><th scope="col">Composition</th><th scope="col">Teams</th></tr>
                 </thead>
                 <tbody>
                   {teams.allFemaleTeams > 0 && (

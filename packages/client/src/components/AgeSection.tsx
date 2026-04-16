@@ -20,7 +20,7 @@ export default function AgeSection({ stats }: Props) {
         <StatCard label="Youngest" value={stats.min ?? '—'} />
         <StatCard label="Oldest" value={stats.max ?? '—'} />
       </div>
-      <div className="chart-wrap chart-wrap--full">
+      <div className="chart-wrap chart-wrap--full" role="img" aria-label="Bar chart: participant counts by age group">
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={stats.buckets} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />

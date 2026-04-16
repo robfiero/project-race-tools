@@ -2,7 +2,7 @@ import './EventFilter.css';
 
 interface Props {
   events: string[];
-  selected: string[];  // empty = all
+  selected: string[];  // empty = all, otherwise first value is the selected event
   onChange: (selected: string[]) => void;
 }
 
@@ -16,17 +16,12 @@ export default function EventFilter({ events, selected, onChange }: Props) {
   }
 
   function toggleEvent(event: string) {
-    if (selected.includes(event)) {
-      const next = selected.filter(e => e !== event);
-      onChange(next.length === events.length ? [] : next);
-    } else {
-      const next = [...selected, event];
-      onChange(next.length === events.length ? [] : next);
-    }
+    if (selected[0] === event) return;
+    onChange([event]);
   }
 
   function isActive(event: string): boolean {
-    return allSelected || selected.includes(event);
+    return !allSelected && selected[0] === event;
   }
 
   return (
@@ -47,7 +42,7 @@ export default function EventFilter({ events, selected, onChange }: Props) {
           key={event}
           className={`event-chip${isActive(event) && !allSelected ? ' event-chip--active' : ''}`}
           onClick={() => toggleEvent(event)}
-          aria-pressed={isActive(event) && !allSelected}
+          aria-pressed={isActive(event)}
           aria-describedby="event-filter-label"
         >
           {event}

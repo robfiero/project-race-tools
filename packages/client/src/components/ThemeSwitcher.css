@@ -3,6 +3,19 @@
   flex-shrink: 0;
 }
 
+.theme-switcher-field {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.theme-switcher-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #555;
+  white-space: nowrap;
+}
+
 /* ── Trigger button ──────────────────────────────────────────────────────── */
 
 .theme-dropdown-trigger {

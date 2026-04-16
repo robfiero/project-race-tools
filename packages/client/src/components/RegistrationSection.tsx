@@ -21,11 +21,12 @@ function ProfileTable({ label, profile }: { label: string; profile: RegistrantPr
     <div className="profile-block">
       <h4 className="profile-label">{label} <span className="profile-count">({profile.count} registrants)</span></h4>
       <table className="stats-table stats-table--narrow">
+        <caption className="sr-only">{label} profile statistics</caption>
         <tbody>
-          <tr><td>Female</td><td>{profile.femalePercent}%</td></tr>
-          <tr><td>Avg Age</td><td>{profile.avgAge ?? '—'}</td></tr>
+          <tr><th scope="row">Female</th><td>{profile.femalePercent}%</td></tr>
+          <tr><th scope="row">Avg Age</th><td>{profile.avgAge ?? '—'}</td></tr>
           {profile.medianDistanceMiles !== null && (
-            <tr><td>Median Distance</td><td>{profile.medianDistanceMiles} mi</td></tr>
+            <tr><th scope="row">Median Distance</th><td>{profile.medianDistanceMiles} mi</td></tr>
           )}
         </tbody>
       </table>
@@ -65,7 +66,7 @@ export default function RegistrationSection({ stats }: Props) {
       {/* Monthly registrations */}
       <div className="chart-subsection">
         <h3 className="chart-subsection-title">Registrations by Month</h3>
-        <div className="chart-wrap chart-wrap--full">
+        <div className="chart-wrap chart-wrap--full" role="img" aria-label="Bar chart: registrations by month">
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={monthData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
@@ -82,7 +83,7 @@ export default function RegistrationSection({ stats }: Props) {
       {cumulativeData.length > 1 && (
         <div className="chart-subsection">
           <h3 className="chart-subsection-title">Cumulative Registrations</h3>
-          <div className="chart-wrap chart-wrap--full">
+          <div className="chart-wrap chart-wrap--full" role="img" aria-label="Area chart: cumulative registrations over time">
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={cumulativeData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
                 <defs>
@@ -113,31 +114,35 @@ export default function RegistrationSection({ stats }: Props) {
       <div className="two-col">
         <div className="chart-subsection">
           <h3 className="chart-subsection-title">Registrations by Day of Week</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={stats.byDayOfWeek} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-              <XAxis dataKey="day" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(0, 3)} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v: number) => [v, 'Registrations']} />
-              <Bar dataKey="count" fill={c2} radius={[4, 4, 0, 0]} name="Registrations" />
-            </BarChart>
-          </ResponsiveContainer>
+          <div role="img" aria-label="Bar chart: registrations by day of week">
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={stats.byDayOfWeek} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                <XAxis dataKey="day" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(0, 3)} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(v: number) => [v, 'Registrations']} />
+                <Bar dataKey="count" fill={c2} radius={[4, 4, 0, 0]} name="Registrations" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
         <div className="chart-subsection">
           <h3 className="chart-subsection-title">Registrations by Hour of Day</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={stats.byHourOfDay} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-              <XAxis dataKey="hour" tick={{ fontSize: 10 }} tickFormatter={h => h % 6 === 0 ? hourLabel(h) : ''} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip
-                labelFormatter={h => hourLabel(Number(h))}
-                formatter={(v: number) => [v, 'Registrations']}
-              />
-              <Bar dataKey="count" fill={c3} radius={[4, 4, 0, 0]} name="Registrations" />
-            </BarChart>
-          </ResponsiveContainer>
+          <div role="img" aria-label="Bar chart: registrations by hour of day">
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={stats.byHourOfDay} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                <XAxis dataKey="hour" tick={{ fontSize: 10 }} tickFormatter={h => h % 6 === 0 ? hourLabel(h) : ''} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip
+                  labelFormatter={h => hourLabel(Number(h))}
+                  formatter={(v: number) => [v, 'Registrations']}
+                />
+                <Bar dataKey="count" fill={c3} radius={[4, 4, 0, 0]} name="Registrations" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 

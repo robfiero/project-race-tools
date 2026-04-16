@@ -37,7 +37,7 @@ export default function DistanceSection({ stats }: Props) {
           sub={`${((stats.destination / total) * 100).toFixed(0)}%`}
         />
       </div>
-      <div className="chart-wrap chart-wrap--full">
+      <div className="chart-wrap chart-wrap--full" role="img" aria-label="Bar chart: participant counts by distance traveled">
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={stats.buckets} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />

@@ -19,17 +19,18 @@ export default function CrossEventSection({ stats }: Props) {
       />
       <div className="cross-event-scroll">
         <table className="stats-table cross-event-table">
+          <caption className="sr-only">Side-by-side comparison of participant statistics across events</caption>
           <thead>
             <tr>
-              <th>Event</th>
-              <th>Participants</th>
-              <th>Female %</th>
-              <th>Male %</th>
-              <th>Avg Age</th>
-              <th>Median Age</th>
-              {hasDistance && <th>Median Distance</th>}
-              {hasDistance && <th>Local %</th>}
-              {hasDistance && <th>Destination %</th>}
+              <th scope="col">Event</th>
+              <th scope="col">Participants</th>
+              <th scope="col">Female %</th>
+              <th scope="col">Male %</th>
+              <th scope="col">Avg Age</th>
+              <th scope="col">Median Age</th>
+              {hasDistance && <th scope="col">Median Distance</th>}
+              {hasDistance && <th scope="col">Local %</th>}
+              {hasDistance && <th scope="col">Destination %</th>}
             </tr>
           </thead>
           <tbody>

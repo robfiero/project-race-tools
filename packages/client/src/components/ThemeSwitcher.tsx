@@ -71,24 +71,27 @@ export default function ThemeSwitcher() {
 
   return (
     <div className="theme-switcher" ref={rootRef}>
-      <button
-        ref={triggerRef}
-        type="button"
-        className="theme-dropdown-trigger"
-        onClick={() => setOpen(o => !o)}
-        onKeyDown={onTriggerKeyDown}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        aria-controls={menuId}
-        aria-label={`Theme selector. Current theme: ${theme.label}`}
-      >
+      <div className="theme-switcher-field">
+        <span className="theme-switcher-label" id={`${menuId}-label`} aria-hidden="true">Theme</span>
+        <button
+          ref={triggerRef}
+          type="button"
+          className="theme-dropdown-trigger"
+          onClick={() => setOpen(o => !o)}
+          onKeyDown={onTriggerKeyDown}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          aria-controls={menuId}
+          aria-label={`Theme: ${theme.label}`}
+        >
         <span className="theme-dots">
           <span className="theme-dot" style={{ background: theme.primary }} />
           <span className="theme-dot" style={{ background: theme.chart[1] }} />
         </span>
         <span className="theme-dropdown-name">{theme.label}</span>
         <span className="theme-dropdown-arrow" aria-hidden="true">{open ? '▲' : '▼'}</span>
-      </button>
+          </button>
+      </div>
 
       {open && (
         <div

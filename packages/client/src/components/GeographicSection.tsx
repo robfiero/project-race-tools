@@ -26,7 +26,7 @@ export default function GeographicSection({ stats }: Props) {
       <div className="chart-subsection">
         <h3 className="chart-subsection-title">Top States / Provinces</h3>
         <div className="two-col">
-          <div className="chart-wrap">
+          <div className="chart-wrap" aria-hidden="true">
             <ResponsiveContainer width="100%" height={Math.max(200, topStates.length * 24)}>
               <BarChart
                 data={topStates}
@@ -42,8 +42,9 @@ export default function GeographicSection({ stats }: Props) {
             </ResponsiveContainer>
           </div>
           <table className="stats-table">
+            <caption className="sr-only">Top states and provinces by participant count</caption>
             <thead>
-              <tr><th>State</th><th>Count</th><th>%</th></tr>
+              <tr><th scope="col">State</th><th scope="col">Count</th><th scope="col">%</th></tr>
             </thead>
             <tbody>
               {topStates.map(row => (
@@ -62,8 +63,9 @@ export default function GeographicSection({ stats }: Props) {
         <div className="chart-subsection">
           <h3 className="chart-subsection-title">Countries</h3>
           <table className="stats-table stats-table--narrow">
+            <caption className="sr-only">Participants by country</caption>
             <thead>
-              <tr><th>Country</th><th>Count</th></tr>
+              <tr><th scope="col">Country</th><th scope="col">Count</th></tr>
             </thead>
             <tbody>
               {topCountries.map(row => (

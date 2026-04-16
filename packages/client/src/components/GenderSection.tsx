@@ -22,7 +22,7 @@ export default function GenderSection({ stats }: Props) {
     <section className="chart-section">
       <SectionHeader title="Gender" />
       <div className="chart-section-body two-col">
-        <div className="chart-wrap">
+        <div className="chart-wrap" aria-hidden="true">
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie
@@ -45,8 +45,9 @@ export default function GenderSection({ stats }: Props) {
         </div>
 
         <table className="stats-table">
+          <caption className="sr-only">Gender breakdown by participant count and percentage</caption>
           <thead>
-            <tr><th>Gender</th><th>Count</th><th>%</th></tr>
+            <tr><th scope="col">Gender</th><th scope="col">Count</th><th scope="col">%</th></tr>
           </thead>
           <tbody>
             {data.map(d => (
