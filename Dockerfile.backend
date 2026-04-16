@@ -1,0 +1,44 @@
+# ── Build stage ──────────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Copy workspace manifests first so npm ci is cached unless deps change
+COPY package*.json ./
+COPY packages/server/package*.json ./packages/server/
+
+# Provide a stub for the client workspace so npm doesn't error on the missing package
+RUN mkdir -p packages/client && \
+    echo '{"name":"@racestats/client","version":"0.0.0"}' > packages/client/package.json
+
+RUN npm ci --workspace=packages/server
+
+# Copy source and static data
+COPY tsconfig.base.json ./
+COPY packages/server/src ./packages/server/src
+COPY packages/server/data ./packages/server/data
+COPY packages/server/tsconfig.json ./packages/server/
+
+RUN npm run build --workspace=packages/server
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
+FROM node:20-alpine AS runtime
+WORKDIR /app
+
+# Copy workspace manifests again for production install
+COPY package*.json ./
+COPY packages/server/package*.json ./packages/server/
+RUN mkdir -p packages/client && \
+    echo '{"name":"@racestats/client","version":"0.0.0"}' > packages/client/package.json
+
+RUN npm ci --workspace=packages/server --omit=dev
+
+# Copy compiled output and static data from builder
+COPY --from=builder /app/packages/server/dist ./packages/server/dist
+COPY --from=builder /app/packages/server/data ./packages/server/data
+
+ENV NODE_ENV=production
+ENV PORT=8080
+
+EXPOSE 8080
+
+CMD ["node", "packages/server/dist/index.js"]

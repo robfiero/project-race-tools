@@ -1,0 +1,134 @@
+.chart-section {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.stat-cards-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.stat-cards-row .stat-card {
+  flex: 1 1 130px;
+  min-width: 110px;
+  box-shadow: none;
+  background: #f9f9f9;
+  border: 1px solid #eee;
+  padding: 0.85rem 1rem;
+}
+
+.chart-wrap {
+  min-width: 0;
+}
+
+.chart-wrap--full {
+  width: 100%;
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.chart-subsection-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+/* Data tables */
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.stats-table--narrow {
+  max-width: 320px;
+}
+
+.stats-table th {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 2px solid #eee;
+  font-weight: 600;
+  color: #555;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stats-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid #f3f3f3;
+  color: #333;
+}
+
+.stats-table .total-row td {
+  font-weight: 600;
+  border-top: 2px solid #eee;
+  border-bottom: none;
+}
+
+/* Cross-event table */
+.cross-event-scroll {
+  overflow-x: auto;
+}
+
+.cross-event-table {
+  min-width: 560px;
+  white-space: nowrap;
+}
+
+.cross-event-name {
+  font-weight: 500;
+  max-width: 220px;
+  white-space: normal;
+}
+
+/* Early vs late registrant profiles */
+.profile-row {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.profile-block {
+  flex: 1 1 200px;
+}
+
+.profile-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: #444;
+}
+
+.profile-count {
+  font-weight: 400;
+  color: #666;
+  font-size: 0.82rem;
+}

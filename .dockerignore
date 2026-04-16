@@ -1,0 +1,10 @@
+node_modules
+packages/client/node_modules
+packages/server/node_modules
+packages/client/dist
+packages/server/dist
+.git
+.env
+.env.local
+scripts/env/prod.local.env
+*.md

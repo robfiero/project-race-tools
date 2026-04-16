@@ -1,0 +1,30 @@
+.section-header {
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  position: relative;
+}
+
+.section-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background-image: var(--section-divider-image, linear-gradient(90deg, var(--color-primary), var(--color-primary)));
+  border-radius: 999px;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #1a1a1a;
+}
+
+.section-sub {
+  font-size: 0.88rem;
+  color: #666;
+  margin: 0.25rem 0 0;
+}

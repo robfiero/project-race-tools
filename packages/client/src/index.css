@@ -1,0 +1,52 @@
+/* Theme variables — overridden at runtime by ThemeContext */
+:root {
+  --color-primary: #e05c2a;
+  --color-primary-hover: #c44d20;
+  --color-primary-light: #fdf3ef;
+  --color-background: #fdf3ef;
+  --color-on-primary: #ffffff;
+  --color-on-primary-hover: #ffffff;
+  --header-background: #1a1a1a;
+  --header-foreground: #ffffff;
+  --section-divider-image: linear-gradient(90deg, var(--color-primary), var(--color-primary));
+  --burst-color-a: var(--color-primary);
+  --burst-color-b: #f59e0b;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: var(--color-background);
+  color: #1a1a1a;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4 { margin: 0 0 0.5rem 0; font-weight: 600; }
+
+a { color: var(--color-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+input, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[role="option"]:focus-visible {
+  outline: 3px solid #111111;
+  outline-offset: 2px;
+}

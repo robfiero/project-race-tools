@@ -1,0 +1,25 @@
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.stat-card-value {
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-primary);
+}
+
+.stat-card-label {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-card-sub {
+  font-size: 0.82rem;
+  color: #666;
+}
