@@ -199,6 +199,15 @@
   padding-top: 1rem;
 }
 
+.interval-tab-panel--inactive {
+  display: none;
+}
+
+/* Year badge shown only in print output */
+.interval-tab-label-print {
+  display: none;
+}
+
 /* Race name + count info bar */
 .interval-tab-meta {
   display: flex;

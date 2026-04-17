@@ -60,7 +60,7 @@ export default function DashboardPage({ session, label, onBack }: Props) {
     <div className="dashboard">
       <div className="dashboard-header">
         <div className="dashboard-header-left">
-          <button type="button" className="btn-ghost dashboard-back" onClick={onBack}>
+          <button type="button" className="btn-ghost dashboard-back no-print" onClick={onBack}>
             ← New analysis
           </button>
           <h1 ref={pageHeadingRef} tabIndex={-1} className="dashboard-title">
@@ -87,6 +87,14 @@ export default function DashboardPage({ session, label, onBack }: Props) {
             )}
           </dl>
         </div>
+        <button
+          type="button"
+          className="btn btn-primary no-print"
+          onClick={() => window.print()}
+          aria-label="Save analysis as PDF"
+        >
+          Save as PDF
+        </button>
       </div>
 
       <EventFilter

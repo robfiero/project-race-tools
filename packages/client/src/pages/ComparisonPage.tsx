@@ -198,12 +198,10 @@ interface IntervalTabsProps {
 
 function IntervalTabs({ intervals }: IntervalTabsProps) {
   const [activeIdx, setActiveIdx] = useState(0);
-  const active = intervals[activeIdx];
-  const s = active.stats;
 
   return (
     <div className="interval-tabs">
-      <div className="interval-tab-strip" role="tablist" aria-label="Race intervals">
+      <div className="interval-tab-strip no-print" role="tablist" aria-label="Race intervals">
         {intervals.map((iv, i) => (
           <button
             key={iv.sessionId}
@@ -219,26 +217,36 @@ function IntervalTabs({ intervals }: IntervalTabsProps) {
         ))}
       </div>
 
-      <div
-        role="tabpanel"
-        id={`interval-panel-${activeIdx}`}
-        aria-labelledby={`interval-tab-${activeIdx}`}
-        className="interval-tab-panel"
-      >
-        <div className="interval-tab-meta">
-          <span className="interval-tab-meta-name">{active.raceName}</span>
-          <span className="interval-tab-meta-count">
-            {active.participantCount.toLocaleString()} participants
-          </span>
-        </div>
-        <GenderSection stats={s.gender} />
-        <AgeSection stats={s.age} />
-        <GeographicSection stats={s.geographic} />
-        {s.distance && <DistanceSection stats={s.distance} />}
-        <RegistrationSection stats={s.registration} />
-        <CrossEventSection stats={s.crossEvent} />
-        <ParticipationSection participation={s.participation} teams={s.teams} />
-      </div>
+      {/* All panels are always in the DOM so @media print can reveal them all.
+          Inactive panels are visually hidden via CSS only. */}
+      {intervals.map((iv, i) => {
+        const s = iv.stats;
+        return (
+          <div
+            key={iv.sessionId}
+            role="tabpanel"
+            id={`interval-panel-${i}`}
+            aria-labelledby={`interval-tab-${i}`}
+            className={`interval-tab-panel${i !== activeIdx ? ' interval-tab-panel--inactive' : ''}`}
+            aria-hidden={i !== activeIdx}
+          >
+            <div className="interval-tab-meta">
+              <span className="interval-tab-meta-name">{iv.raceName}</span>
+              <span className="interval-tab-meta-count">
+                {iv.participantCount.toLocaleString()} participants
+              </span>
+              <span className="interval-tab-label-print">{iv.label}</span>
+            </div>
+            <GenderSection stats={s.gender} />
+            <AgeSection stats={s.age} />
+            <GeographicSection stats={s.geographic} />
+            {s.distance && <DistanceSection stats={s.distance} />}
+            <RegistrationSection stats={s.registration} />
+            <CrossEventSection stats={s.crossEvent} />
+            <ParticipationSection participation={s.participation} teams={s.teams} />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -286,7 +294,7 @@ export default function ComparisonPage({ sessions, onBack }: Props) {
     <div className="comparison-page">
       <div className="comparison-header">
         <div className="comparison-header-left">
-          <button type="button" className="btn-ghost dashboard-back" onClick={onBack}>
+          <button type="button" className="btn-ghost dashboard-back no-print" onClick={onBack}>
             ← New analysis
           </button>
           <h1 ref={pageHeadingRef} tabIndex={-1} className="comparison-title">
@@ -298,6 +306,14 @@ export default function ComparisonPage({ sessions, onBack }: Props) {
             ))}
           </div>
         </div>
+        <button
+          type="button"
+          className="btn btn-primary no-print"
+          onClick={() => window.print()}
+          aria-label="Save comparison as PDF"
+        >
+          Save as PDF
+        </button>
       </div>
 
       {loading && (

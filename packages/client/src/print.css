@@ -1,0 +1,74 @@
+@media print {
+  /* ── Hide interactive chrome ─────────────────────────────────────────── */
+  .app-header,
+  .no-print,
+  .event-filter,
+  .skip-link {
+    display: none !important;
+  }
+
+  /* ── Full-width layout ───────────────────────────────────────────────── */
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .app-main {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* ── Remove decorative shadows and colored borders ───────────────────── */
+  .card,
+  .chart-section {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    border-top-width: 1px !important;
+    break-inside: avoid;
+  }
+
+  /* ── Keep stat cards and summary rows together ───────────────────────── */
+  .summary-cards,
+  .stat-cards-row {
+    break-inside: avoid;
+  }
+
+  /* ── Ensure charts are visible and sized correctly ───────────────────── */
+  .chart-wrap,
+  .chart-section-body {
+    break-inside: avoid;
+  }
+
+  /* Recharts SVG containers: let them size naturally for print */
+  .recharts-responsive-container {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  /* ── Section spacing ─────────────────────────────────────────────────── */
+  .dashboard,
+  .comparison-page {
+    gap: 1rem !important;
+  }
+
+  /* ── Multi-year comparison: reveal all tab panels ────────────────────── */
+  .interval-tab-panel--inactive {
+    display: flex !important;
+    break-before: page;
+  }
+
+  /* Show the year badge in the meta bar for each panel */
+  .interval-tab-label-print {
+    display: inline !important;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #000;
+    margin-left: auto;
+  }
+
+  /* ── Page margins ────────────────────────────────────────────────────── */
+  @page {
+    margin: 1.5cm;
+  }
+}
