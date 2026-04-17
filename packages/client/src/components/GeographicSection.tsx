@@ -1,8 +1,9 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { GeographicStats } from '../types.ts';
 import SectionHeader from './SectionHeader.tsx';
 import StatCard from './StatCard.tsx';
 import { useTheme } from '../ThemeContext.tsx';
+import { chartPalette } from '../chartColors.ts';
 import './ChartSection.css';
 
 interface Props { stats: GeographicStats; }
@@ -11,6 +12,7 @@ export default function GeographicSection({ stats }: Props) {
   const { theme } = useTheme();
   const topStates = stats.topStates.slice(0, 15);
   const topCountries = stats.topCountries.slice(0, 10);
+  const stateColors = chartPalette(theme, topStates.length);
 
   return (
     <section className="chart-section">
@@ -37,7 +39,9 @@ export default function GeographicSection({ stats }: Props) {
                 <XAxis type="number" tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="state" tick={{ fontSize: 12 }} width={32} />
                 <Tooltip formatter={(v: number) => [v, 'Participants']} />
-                <Bar dataKey="count" fill={theme.chart[1]} radius={[0, 4, 4, 0]} name="Participants" />
+                <Bar dataKey="count" radius={[0, 4, 4, 0]} name="Participants">
+                  {topStates.map((_, i) => <Cell key={i} fill={stateColors[i]} />)}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>

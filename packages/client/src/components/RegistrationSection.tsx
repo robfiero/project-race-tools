@@ -1,12 +1,13 @@
 import {
   AreaChart, Area,
-  BarChart, Bar,
+  BarChart, Bar, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import type { RegistrationStats, RegistrantProfile } from '../types.ts';
 import SectionHeader from './SectionHeader.tsx';
 import StatCard from './StatCard.tsx';
 import { useTheme } from '../ThemeContext.tsx';
+import { chartPalette } from '../chartColors.ts';
 import './ChartSection.css';
 
 interface Props { stats: RegistrationStats; }
@@ -36,7 +37,9 @@ function ProfileTable({ label, profile }: { label: string; profile: RegistrantPr
 
 export default function RegistrationSection({ stats }: Props) {
   const { theme } = useTheme();
-  const [c0, c1, c2, c3] = theme.chart;
+  const [c0, c1, , c3] = theme.chart;
+  const monthColors = chartPalette(theme, stats.byMonth.length);
+  const dowColors = chartPalette(theme, stats.byDayOfWeek.length);
   const monthData = stats.byMonth.map(m => ({ ...m, month: formatMonth(m.month) }));
 
   // For the cumulative chart, show every Nth point to keep it readable
@@ -73,7 +76,9 @@ export default function RegistrationSection({ stats }: Props) {
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip formatter={(v: number) => [v, 'Registrations']} />
-              <Bar dataKey="count" fill={c0} radius={[4, 4, 0, 0]} name="Registrations" />
+              <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Registrations">
+                {monthData.map((_, i) => <Cell key={i} fill={monthColors[i]} />)}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -121,7 +126,9 @@ export default function RegistrationSection({ stats }: Props) {
                 <XAxis dataKey="day" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(0, 3)} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(v: number) => [v, 'Registrations']} />
-                <Bar dataKey="count" fill={c2} radius={[4, 4, 0, 0]} name="Registrations" />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Registrations">
+                  {stats.byDayOfWeek.map((_, i) => <Cell key={i} fill={dowColors[i]} />)}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>

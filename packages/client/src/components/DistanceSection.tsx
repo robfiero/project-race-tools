@@ -1,8 +1,9 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { DistanceStats } from '../types.ts';
 import SectionHeader from './SectionHeader.tsx';
 import StatCard from './StatCard.tsx';
 import { useTheme } from '../ThemeContext.tsx';
+import { chartPalette } from '../chartColors.ts';
 import './ChartSection.css';
 
 interface Props { stats: DistanceStats; }
@@ -10,11 +11,12 @@ interface Props { stats: DistanceStats; }
 export default function DistanceSection({ stats }: Props) {
   const { theme } = useTheme();
   const total = stats.local + stats.regional + stats.destination || 1;
+  const colors = chartPalette(theme, stats.buckets.length);
 
   return (
     <section className="chart-section">
       <SectionHeader
-        title="Distance Traveled"
+        title="Distance Traveled to the Race"
         sub={`Venue: ${stats.venueAddress}`}
       />
 
@@ -44,7 +46,9 @@ export default function DistanceSection({ stats }: Props) {
             <XAxis dataKey="label" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip formatter={(v: number) => [v, 'Participants']} />
-            <Bar dataKey="count" fill={theme.chart[2]} radius={[4, 4, 0, 0]} name="Participants" />
+            <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Participants">
+              {stats.buckets.map((_, i) => <Cell key={i} fill={colors[i]} />)}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>

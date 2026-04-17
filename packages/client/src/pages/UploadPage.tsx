@@ -1,206 +1,359 @@
-import { useEffect, useState, useRef, type DragEvent, type ChangeEvent, type FormEvent } from 'react';
+import {
+  useEffect, useState, useRef,
+  type DragEvent, type ChangeEvent, type FormEvent,
+} from 'react';
 import { apiUrl } from '../api.ts';
 import type { UploadResponse } from '../types.ts';
 import './UploadPage.css';
 
+export type UploadResult =
+  | { mode: 'single'; session: UploadResponse; label: string }
+  | { mode: 'comparison'; sessions: Array<{ response: UploadResponse; label: string }> };
+
 interface Props {
-  onUploadComplete: (data: UploadResponse) => void;
+  onUploadComplete: (result: UploadResult) => void;
 }
 
-// Common timezones for race directors.
+const NUM_ROWS = 5;
+
 const TIMEZONES = [
-  { value: 'America/New_York',     label: 'Eastern (ET)' },
-  { value: 'UTC',                  label: 'UTC' },
-  { value: 'America/Chicago',      label: 'Central (CT)' },
-  { value: 'America/Denver',       label: 'Mountain (MT)' },
-  { value: 'America/Los_Angeles',  label: 'Pacific (PT)' },
-  { value: 'America/Anchorage',    label: 'Alaska (AKT)' },
-  { value: 'Pacific/Honolulu',     label: 'Hawaii (HST)' },
-  { value: 'Europe/London',        label: 'London (GMT/BST)' },
-  { value: 'Europe/Paris',         label: 'Central Europe (CET)' },
-  { value: 'Australia/Sydney',     label: 'Sydney (AEST)' },
+  { value: 'America/New_York',    label: 'Eastern (ET)' },
+  { value: 'UTC',                 label: 'UTC' },
+  { value: 'America/Chicago',     label: 'Central (CT)' },
+  { value: 'America/Denver',      label: 'Mountain (MT)' },
+  { value: 'America/Los_Angeles', label: 'Pacific (PT)' },
+  { value: 'America/Anchorage',   label: 'Alaska (AKT)' },
+  { value: 'Pacific/Honolulu',    label: 'Hawaii (HST)' },
+  { value: 'Europe/London',       label: 'London (GMT/BST)' },
+  { value: 'Europe/Paris',        label: 'Central Europe (CET)' },
+  { value: 'Australia/Sydney',    label: 'Sydney (AEST)' },
 ];
+
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: 16 }, (_, i) => String(CURRENT_YEAR + 1 - i));
+
+function detectYear(filename: string): string {
+  // Match first 4-digit year like "2017" — no word-boundary required since
+  // filenames like "GhostTrain2017.csv" have no separator before the digits.
+  const m = filename.match(/(?<!\d)(20\d{2})(?!\d)/);
+  return m ? m[1] : '';
+}
+
+interface UploadRow {
+  id: string;
+  file: File | null;
+  year: string;
+}
+
+function makeRow(): UploadRow {
+  return { id: crypto.randomUUID(), file: null, year: '' };
+}
+
+// ─── Info icon ────────────────────────────────────────────────────────────────
+
+function InfoIcon() {
+  return <span className="info-icon" aria-hidden="true">i</span>;
+}
+
+// ─── File row ─────────────────────────────────────────────────────────────────
+
+interface FileRowProps {
+  row: UploadRow;
+  index: number;
+  required: boolean;
+  dragging: boolean;
+  fileInputRef: (el: HTMLInputElement | null) => void;
+  onFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onDragEnter: () => void;
+  onDragLeave: () => void;
+  onDrop: (e: DragEvent<HTMLLabelElement>) => void;
+  onClear: () => void;
+  onYearChange: (year: string) => void;
+}
+
+function FileRow({
+  row, index, required, dragging,
+  fileInputRef, onFileChange,
+  onDragEnter, onDragLeave, onDrop, onClear, onYearChange,
+}: FileRowProps) {
+  const inputId = `file-input-${row.id}`;
+  const yearId = `year-${row.id}`;
+
+  return (
+    <div className="file-row">
+      <span
+        className={`file-row-num${required ? ' file-row-num--required' : ' file-row-num--optional'}`}
+        aria-label={required ? 'Required' : 'Optional'}
+      >
+        {index + 1}
+      </span>
+
+      <label
+        htmlFor={inputId}
+        className={[
+          'file-row-zone',
+          dragging ? 'file-row-zone--active' : '',
+          row.file ? 'file-row-zone--has-file' : '',
+        ].filter(Boolean).join(' ')}
+        onDragOver={e => { e.preventDefault(); onDragEnter(); }}
+        onDragLeave={onDragLeave}
+        onDrop={e => { e.preventDefault(); onDrop(e); }}
+      >
+        <input
+          id={inputId}
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,.xlsx,.xls"
+          onChange={onFileChange}
+          style={{ display: 'none' }}
+          aria-label={`${required ? 'Required: ' : ''}File for row ${index + 1}`}
+        />
+
+        {row.file ? (
+          <>
+            <span className="file-row-checkmark" aria-hidden="true">✓</span>
+            <span className="file-row-filename">{row.file.name}</span>
+            <span className="file-row-size">{(row.file.size / 1024).toFixed(0)} KB</span>
+          </>
+        ) : (
+          <>
+            <span className="file-row-upload-icon" aria-hidden="true">↑</span>
+            <span className="file-row-prompt">
+              Drop file or <span className="file-row-browse-link">browse</span>
+            </span>
+            {required && <span className="file-row-required-badge">required</span>}
+          </>
+        )}
+      </label>
+
+      <select
+        id={yearId}
+        className="file-row-year"
+        value={row.year}
+        onChange={e => onYearChange(e.target.value)}
+        aria-label={`Year for row ${index + 1} file`}
+      >
+        <option value="">—</option>
+        {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
+      </select>
+
+      {row.file ? (
+        <button
+          type="button"
+          className="file-row-clear"
+          onClick={e => { e.preventDefault(); onClear(); }}
+          aria-label={`Clear file from row ${index + 1}`}
+        >
+          ×
+        </button>
+      ) : (
+        <span className="file-row-clear-placeholder" aria-hidden="true" />
+      )}
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function UploadPage({ onUploadComplete }: Props) {
   const pageHeadingRef = useRef<HTMLHeadingElement>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [rows, setRows] = useState<UploadRow[]>(() =>
+    Array.from({ length: NUM_ROWS }, makeRow)
+  );
   const [raceName, setRaceName] = useState('');
   const [venueAddress, setVenueAddress] = useState('');
-  const [timezone, setTimezone] = useState('America/New_York');
-  const [dragging, setDragging] = useState(false);
+  const [timezone, setTimezone] = useState('UTC');
+  const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
-  useEffect(() => {
-    pageHeadingRef.current?.focus();
-  }, []);
+  useEffect(() => { pageHeadingRef.current?.focus(); }, []);
 
-  function handleFileSelect(f: File) {
+  const filledRows = rows.filter(r => r.file !== null);
+  const firstRowFilled = rows[0].file !== null;
+  const canSubmit = firstRowFilled && !uploading;
+
+  function handleFileSelect(rowId: string, file: File) {
     setError(null);
-    setFile(f);
+    const detectedYear = detectYear(file.name);
+    setRows(prev => prev.map(r =>
+      r.id === rowId
+        ? { ...r, file, year: r.year || detectedYear }
+        : r
+    ));
   }
 
-  function onFileInputChange(e: ChangeEvent<HTMLInputElement>) {
-    if (e.target.files?.[0]) handleFileSelect(e.target.files[0]);
+  function onFileChange(rowId: string, e: ChangeEvent<HTMLInputElement>) {
+    if (e.target.files?.[0]) handleFileSelect(rowId, e.target.files[0]);
   }
 
-  function onDrop(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    setDragging(false);
+  function onDrop(rowId: string, e: DragEvent<HTMLLabelElement>) {
+    setDraggingRowId(null);
     const f = e.dataTransfer.files[0];
-    if (f) handleFileSelect(f);
+    if (f) handleFileSelect(rowId, f);
   }
 
-  async function handleSubmit(e?: FormEvent<HTMLFormElement>) {
-    e?.preventDefault();
-    if (!file) return;
+  function clearRow(rowId: string) {
+    setRows(prev => prev.map(r => r.id === rowId ? { ...r, file: null, year: '' } : r));
+    // Reset the file input so the same file can be re-selected later
+    const input = fileInputRefs.current.get(rowId);
+    if (input) input.value = '';
+  }
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!firstRowFilled) return;
     setUploading(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.append('file', file);
-    if (raceName.trim()) formData.append('raceName', raceName.trim());
-    formData.append('timezone', timezone);
-    if (venueAddress.trim()) {
-      formData.append('venueAddress', venueAddress.trim());
-    }
+    const results: Array<{ response: UploadResponse; label: string }> = [];
+    const toUpload = filledRows;
 
-    try {
-      const res = await fetch(apiUrl('/api/upload'), { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Upload failed. Please try again.');
+    for (let i = 0; i < toUpload.length; i++) {
+      const row = toUpload[i];
+      const formData = new FormData();
+      formData.append('file', row.file!);
+      if (raceName.trim()) formData.append('raceName', raceName.trim());
+      formData.append('timezone', timezone);
+      if (venueAddress.trim()) formData.append('venueAddress', venueAddress.trim());
+
+      try {
+        const res = await fetch(apiUrl('/api/upload'), { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!res.ok) {
+          const rowLabel = toUpload.length > 1
+            ? ` (${row.year || row.file!.name.replace(/\.(csv|xlsx|xls)$/i, '')})`
+            : '';
+          setError((data.error ?? 'Upload failed.') + rowLabel);
+          setUploading(false);
+          return;
+        }
+        // Use year as label; fall back to filename without extension
+        const label = row.year || row.file!.name.replace(/\.(csv|xlsx|xls)$/i, '');
+        results.push({ response: data as UploadResponse, label });
+      } catch {
+        setError('Could not reach the server. Make sure it is running.');
+        setUploading(false);
         return;
       }
-      onUploadComplete(data as UploadResponse);
-    } catch {
-      setError('Could not reach the server. Make sure it is running.');
-    } finally {
-      setUploading(false);
+    }
+
+    if (results.length === 1) {
+      onUploadComplete({ mode: 'single', session: results[0].response, label: results[0].label });
+    } else {
+      onUploadComplete({ mode: 'comparison', sessions: results });
     }
   }
+
+  const submitLabel = uploading
+    ? (filledRows.length > 1 ? `Uploading ${filledRows.length} files…` : 'Analyzing…')
+    : (filledRows.length >= 2 ? `Compare ${filledRows.length} Years` : 'Analyze Race Data');
 
   return (
     <div className="upload-page">
       <div className="upload-intro">
         <h1 ref={pageHeadingRef} tabIndex={-1}>Race Participant Analytics</h1>
         <p>
-          Upload a participant export from your race registration platform. Names, email
+          Upload participant exports from your race registration platform. Names, email
           and physical addresses, and phone numbers are stripped immediately on upload —
           only aggregate statistics are retained and displayed.
         </p>
         <p className="upload-supported">
           Supported platforms: <strong>UltraSignup</strong> &nbsp;·&nbsp; More coming soon
-        </p>
-        <p className="upload-supported">
-          Accepted formats: <strong>CSV</strong> &nbsp;·&nbsp; <strong>Excel (.xlsx, .xls)</strong>
+          &nbsp;·&nbsp; Formats: <strong>CSV</strong>, <strong>Excel (.xlsx, .xls)</strong>
         </p>
       </div>
 
-      <form className="card upload-card" onSubmit={handleSubmit} noValidate>
-        {/* Drop zone */}
-        <div
-          className={`drop-zone${dragging ? ' drop-zone--active' : ''}${file ? ' drop-zone--has-file' : ''}`}
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-          aria-label="Upload area. Drag and drop a file here, or use the browse button."
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            onChange={onFileInputChange}
-            style={{ display: 'none' }}
-          />
-          {file ? (
-            <div className="drop-zone-file">
-              <span className="drop-zone-icon">✓</span>
-              <span className="drop-zone-filename">{file.name}</span>
-              <span className="drop-zone-size">({(file.size / 1024).toFixed(0)} KB)</span>
-              <button
-                type="button"
-                className="drop-zone-browse"
-                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-              >
-                Replace
-              </button>
-              <button
-                type="button"
-                className="drop-zone-clear"
-                onClick={(e) => { e.stopPropagation(); setFile(null); }}
-              >
-                Remove
-              </button>
-            </div>
-          ) : (
-            <div className="drop-zone-prompt">
-              <span className="drop-zone-icon">↑</span>
-              <span>Drop your CSV here, or browse from your computer</span>
-              <button
-                type="button"
-                className="drop-zone-browse"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Choose File
-              </button>
-              <span className="drop-zone-limit">CSV or Excel · Up to 5,000 participants · 5 MB</span>
-            </div>
-          )}
+      <form onSubmit={handleSubmit} noValidate>
+        {/* ── Shared fields ── */}
+        <div className="upload-shared card">
+          <div className="upload-field">
+            <label htmlFor="race-name">
+              Race name <span className="optional">(optional)</span>
+            </label>
+            <input
+              id="race-name"
+              type="text"
+              placeholder="e.g. Ghost Train Trail Races"
+              value={raceName}
+              onChange={e => setRaceName(e.target.value)}
+            />
+          </div>
+
+          <div className="upload-field">
+            <label htmlFor="venue-address">
+              Venue address <span className="optional">(optional)</span>
+            </label>
+            <input
+              id="venue-address"
+              type="text"
+              placeholder="e.g. 123 Trail Head Rd, Franconia, NH 03580"
+              value={venueAddress}
+              onChange={e => setVenueAddress(e.target.value)}
+            />
+            <p className="upload-hint">
+              <InfoIcon />
+              Enables distance-traveled statistics. Geocoded once at upload and never
+              stored with participant data.
+            </p>
+          </div>
+
+          <div className="upload-field">
+            <label htmlFor="timezone">Registration timestamp timezone</label>
+            <select
+              id="timezone"
+              value={timezone}
+              onChange={e => setTimezone(e.target.value)}
+              className="upload-select"
+            >
+              {TIMEZONES.map(tz => (
+                <option key={tz.value} value={tz.value}>{tz.label}</option>
+              ))}
+            </select>
+            <p className="upload-hint">
+              <InfoIcon />
+              Used for hour-of-day and day-of-week registration charts. Select the
+              timezone that matches your registration platform's timestamps.
+            </p>
+          </div>
         </div>
 
-        {/* Race name (optional) */}
-        <div className="upload-venue">
-          <label htmlFor="race-name">
-            Race name <span className="optional">(optional)</span>
-          </label>
-          <input
-            id="race-name"
-            type="text"
-            placeholder="e.g. Ghost Train Trail Races 2026"
-            value={raceName}
-            onChange={(e) => setRaceName(e.target.value)}
-          />
-        </div>
+        {/* ── File rows ── */}
+        <div className="upload-files card">
+          <div className="upload-files-col-header" aria-hidden="true">
+            <span />
+            <span>File <span className="upload-files-hint-inline">· up to 5,000 participants · 5 MB each</span></span>
+            <span>Year</span>
+            <span />
+          </div>
 
-        {/* Venue address (optional) */}
-        <div className="upload-venue">
-          <label htmlFor="venue-address">
-            Venue address <span className="optional">(optional)</span>
-          </label>
-          <input
-            id="venue-address"
-            type="text"
-            placeholder="e.g. 123 Trail Head Rd, Franconia, NH 03580"
-            value={venueAddress}
-            onChange={(e) => setVenueAddress(e.target.value)}
-          />
-          <p className="upload-venue-hint">
-            Providing an address enables distance-traveled statistics. The address is
-            geocoded once and never stored alongside participant data.
-          </p>
-        </div>
+          {rows.map((row, i) => (
+            <FileRow
+              key={row.id}
+              row={row}
+              index={i}
+              required={i === 0}
+              dragging={draggingRowId === row.id}
+              fileInputRef={el => {
+                if (el) fileInputRefs.current.set(row.id, el);
+                else fileInputRefs.current.delete(row.id);
+              }}
+              onFileChange={e => onFileChange(row.id, e)}
+              onDragEnter={() => setDraggingRowId(row.id)}
+              onDragLeave={() => setDraggingRowId(null)}
+              onDrop={e => onDrop(row.id, e)}
+              onClear={() => clearRow(row.id)}
+              onYearChange={year => setRows(prev =>
+                prev.map(r => r.id === row.id ? { ...r, year } : r)
+              )}
+            />
+          ))}
 
-        {/* Timestamp timezone */}
-        <div className="upload-venue">
-          <label htmlFor="timezone">
-            Registration timestamp timezone
-          </label>
-          <select
-            id="timezone"
-            value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
-            className="upload-select"
-          >
-            {TIMEZONES.map(tz => (
-              <option key={tz.value} value={tz.value}>{tz.label}</option>
-            ))}
-          </select>
-          <p className="upload-venue-hint">
-            Used for hour-of-day and day-of-week registration charts. UltraSignup
-            timestamps are in Eastern time — Eastern (ET) is the correct default for
-            UltraSignup exports.
+          <p className="upload-files-footer-hint">
+            Upload one file for a single race analysis, or multiple files (same race,
+            different years) for year-over-year comparison. Year is auto-detected from
+            the filename when available.
           </p>
         </div>
 
@@ -209,9 +362,9 @@ export default function UploadPage({ onUploadComplete }: Props) {
         <button
           type="submit"
           className="btn btn-primary upload-submit"
-          disabled={!file || uploading}
+          disabled={!canSubmit}
         >
-          {uploading ? 'Analyzing…' : 'Analyze Race Data'}
+          {submitLabel}
         </button>
       </form>
     </div>

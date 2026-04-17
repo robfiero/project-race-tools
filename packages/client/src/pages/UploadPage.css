@@ -1,176 +1,367 @@
 .upload-page {
-  max-width: 680px;
+  max-width: 700px;
   margin: 0 auto;
 }
 
+/* ── Intro ──────────────────────────────────────────────────────────────────── */
+
 .upload-intro {
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.25rem;
 }
 
 .upload-intro h1 {
   font-size: 1.6rem;
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.5rem;
 }
 
 .upload-intro p {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.4rem;
   color: #444;
 }
 
 .upload-supported {
-  font-size: 0.9rem;
-  color: #666;
-}
-
-.upload-card {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-/* Drop zone */
-.drop-zone {
-  border: 2px dashed #ccc;
-  border-radius: 8px;
-  padding: 2rem;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-  user-select: none;
-}
-
-.drop-zone:hover,
-.drop-zone--active {
-  border-color: var(--color-primary);
-  background: var(--color-primary-light);
-}
-
-.drop-zone--has-file {
-  border-color: #4caf50;
-  background: #f3fbf3;
-}
-
-.drop-zone-icon {
-  display: block;
-  font-size: 1.8rem;
-  margin-bottom: 0.5rem;
-}
-
-.drop-zone-prompt {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.35rem;
-  color: #555;
-}
-
-.drop-zone-limit {
-  font-size: 0.82rem;
-  color: #666;
-}
-
-.drop-zone-file {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  color: #2e7d32;
-}
-
-.drop-zone-filename {
-  font-weight: 600;
-}
-
-.drop-zone-size {
-  color: #666;
   font-size: 0.88rem;
-}
-
-.drop-zone-browse {
-  background: #fff;
-  border: 1px solid var(--color-primary);
-  border-radius: 5px;
-  padding: 0.2rem 0.65rem;
-  font-size: 0.82rem;
-  color: var(--color-primary);
-}
-
-.drop-zone-browse:hover {
-  background: var(--color-primary-light);
-}
-
-.drop-zone-clear {
-  background: none;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 0.1rem 0.5rem;
-  font-size: 0.82rem;
   color: #666;
-  margin-left: 0.5rem;
 }
 
-.drop-zone-clear:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+/* ── Shared fields card ─────────────────────────────────────────────────────── */
+
+.upload-shared {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
-/* Venue address */
-.upload-venue label {
-  display: block;
+/* Race name spans full width */
+.upload-shared .upload-field:first-child {
+  grid-column: 1 / -1;
+}
+
+.upload-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.upload-field label {
   font-weight: 600;
-  margin-bottom: 0.4rem;
+  font-size: 0.88rem;
 }
 
 .optional {
   font-weight: 400;
-  color: #666;
-  font-size: 0.88rem;
+  color: #888;
+  font-size: 0.82rem;
 }
 
-.upload-venue input {
-  width: 100%;
-  padding: 0.55rem 0.75rem;
+.upload-field input,
+.upload-select {
+  padding: 0.48rem 0.7rem;
   border: 1px solid #ccc;
   border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  background: #fff;
   transition: border-color 0.15s;
 }
 
-.upload-venue input:focus {
+.upload-field input:focus,
+.upload-select:focus {
   border-color: var(--color-primary);
+  outline: none;
 }
 
 .upload-select {
-  width: 100%;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  background: #fff;
-  transition: border-color 0.15s;
   cursor: pointer;
 }
 
-.upload-select:focus {
-  border-color: var(--color-primary);
+/* ── Info icon + hint ────────────────────────────────────────────────────────── */
+
+.upload-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  margin: 0.1rem 0 0;
+  font-size: 0.8rem;
+  color: #777;
+  line-height: 1.4;
 }
 
-.upload-venue-hint {
-  margin: 0.4rem 0 0;
-  font-size: 0.84rem;
-  color: #666;
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #9ca3af;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1;
+  margin-top: 1px;
 }
+
+/* ── File rows card ──────────────────────────────────────────────────────────── */
+
+.upload-files {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 1rem 1.25rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Column header row */
+.upload-files-col-header {
+  display: grid;
+  grid-template-columns: 22px 1fr 84px 26px;
+  gap: 0.5rem;
+  align-items: center;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #aaa;
+}
+
+.upload-files-hint-inline {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.7rem;
+  color: #bbb;
+}
+
+/* Individual file row */
+.file-row {
+  display: grid;
+  grid-template-columns: 22px 1fr 84px 26px;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.25rem 0;
+}
+
+/* Row number badge */
+.file-row-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  justify-self: center;
+}
+
+.file-row-num--required {
+  background: var(--color-primary);
+  color: var(--color-on-primary, #fff);
+}
+
+.file-row-num--optional {
+  background: #e5e7eb;
+  color: #9ca3af;
+}
+
+/* Drop zone — compact, single line */
+.file-row-zone {
+  height: 38px;
+  border: 1.5px dashed #d1d5db;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.65rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  user-select: none;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.file-row-zone:hover,
+.file-row-zone--active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.file-row-zone--has-file {
+  border-style: solid;
+  border-color: #4ade80;
+  background: #f0fdf4;
+  cursor: pointer; /* still clickable to replace */
+}
+
+.file-row-zone--has-file:hover {
+  border-color: #16a34a;
+  background: #dcfce7;
+}
+
+/* Zone contents — empty state */
+.file-row-upload-icon {
+  color: #d1d5db;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.file-row-prompt {
+  font-size: 0.82rem;
+  color: #9ca3af;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-row-browse-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.file-row-required-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary);
+  border-radius: 3px;
+  padding: 0.1rem 0.35rem;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+/* Zone contents — file loaded state */
+.file-row-checkmark {
+  color: #16a34a;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.file-row-filename {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #166534;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.file-row-size {
+  font-size: 0.75rem;
+  color: #6b7280;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Year selector */
+.file-row-year {
+  width: 84px;
+  height: 38px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0 0.35rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  color: #374151;
+}
+
+.file-row-year:focus {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+/* Clear button */
+.file-row-clear {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: none;
+  font-size: 1rem;
+  line-height: 1;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+  justify-self: center;
+}
+
+.file-row-clear:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.file-row-clear-placeholder {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+/* Footer hint inside the file card */
+.upload-files-footer-hint {
+  margin: 0.65rem 0 0;
+  padding-top: 0.55rem;
+  border-top: 1px solid #f3f4f6;
+  font-size: 0.79rem;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+/* ── Submit area ────────────────────────────────────────────────────────────── */
 
 .upload-error {
   background: #fef2f2;
   border: 1px solid #fca5a5;
   color: #b91c1c;
   border-radius: 6px;
-  padding: 0.75rem 1rem;
-  margin: 0;
+  padding: 0.65rem 0.9rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
 }
 
 .upload-submit {
-  align-self: flex-start;
   padding: 0.65rem 2rem;
   font-size: 1rem;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 540px) {
+  .upload-shared {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-shared .upload-field:first-child {
+    grid-column: 1;
+  }
+
+  .upload-files-col-header,
+  .file-row {
+    grid-template-columns: 22px 1fr 72px 26px;
+  }
+
+  .file-row-year {
+    width: 72px;
+  }
 }

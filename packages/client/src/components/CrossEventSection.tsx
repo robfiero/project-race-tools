@@ -30,7 +30,7 @@ export default function CrossEventSection({ stats }: Props) {
               <th scope="col">Median Age</th>
               {hasDistance && <th scope="col">Median Distance</th>}
               {hasDistance && <th scope="col">Local %</th>}
-              {hasDistance && <th scope="col">Destination %</th>}
+              {hasDistance && <th scope="col">Destination % (≥ 200 mi)</th>}
             </tr>
           </thead>
           <tbody>

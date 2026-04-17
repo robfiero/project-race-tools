@@ -15,9 +15,10 @@ import './DashboardPage.css';
 
 interface Props {
   session: UploadResponse;
+  label: string;
 }
 
-export default function DashboardPage({ session }: Props) {
+export default function DashboardPage({ session, label }: Props) {
   const pageHeadingRef = useRef<HTMLHeadingElement>(null);
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const [data, setData] = useState<StatsResponse | null>(null);
@@ -59,7 +60,9 @@ export default function DashboardPage({ session }: Props) {
     <div className="dashboard">
       <div className="dashboard-header">
         <div className="dashboard-header-left">
-          <h1 ref={pageHeadingRef} tabIndex={-1} className="dashboard-title">{session.raceName} — Participant Analysis</h1>
+          <h1 ref={pageHeadingRef} tabIndex={-1} className="dashboard-title">
+            {session.raceName} — Participant Analysis{/^\d{4}$/.test(label) && ` ${label}`}
+          </h1>
           <dl className="dashboard-meta">
             <div className="dashboard-meta-row">
               <dt>Participants</dt>

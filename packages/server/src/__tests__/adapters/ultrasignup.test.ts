@@ -136,6 +136,19 @@ describe('ultraSignupAdapter.transform — gender', () => {
     expect(transform({ gender: 'm' })!.gender).toBe('M');
     expect(transform({ gender: 'f' })!.gender).toBe('F');
   });
+  it('maps "x" in Identified Gender column to NB (newer UltraSignup non-binary field)', () => {
+    expect(transform({ 'Identified Gender': 'x' })!.gender).toBe('NB');
+    expect(transform({ 'Identified Gender': 'X' })!.gender).toBe('NB');
+  });
+  it('Identified Gender "x" takes precedence over gender column', () => {
+    // Some exports may have an empty or binary gender column alongside a newer x field
+    expect(transform({ gender: '', 'Identified Gender': 'x' })!.gender).toBe('NB');
+    expect(transform({ gender: 'M', 'Identified Gender': 'x' })!.gender).toBe('NB');
+  });
+  it('non-x Identified Gender values do not override the gender column', () => {
+    expect(transform({ gender: 'F', 'Identified Gender': 'Female' })!.gender).toBe('F');
+    expect(transform({ gender: 'M', 'Identified Gender': '' })!.gender).toBe('M');
+  });
 });
 
 // ─── transform() — age parsing ───────────────────────────────────────────────

@@ -49,6 +49,7 @@ export interface GenderStats {
   unknown: number;
   malePercent: number;
   femalePercent: number;
+  nonBinaryPercent: number;
 }
 
 export interface AgeStats {
@@ -147,4 +148,43 @@ export interface TeamStats {
   mixedTeams: number;
   teamAvgAge: number | null;
   soloAvgAge: number | null;
+}
+
+// ─── Comparison types ────────────────────────────────────────────────────────
+
+export interface TrendPoint {
+  label: string;
+  value: number | null;
+}
+
+export interface IntervalStats {
+  sessionId: string;
+  label: string;
+  raceName: string;
+  participantCount: number;
+  stats: RaceStats;
+}
+
+export interface ComparisonTrends {
+  participantCount: TrendPoint[];
+  activeParticipants: TrendPoint[];
+  femalePercent: TrendPoint[];
+  medianAge: TrendPoint[];
+  meanAge: TrendPoint[];
+  stateCount: TrendPoint[];
+  countryCount: TrendPoint[];
+  internationalPercent: TrendPoint[];
+  nonBinaryPercent: TrendPoint[];
+  malePercent: TrendPoint[];
+  compedPercent: TrendPoint[];
+  couponUsagePercent: TrendPoint[];
+  medianDistanceMiles: TrendPoint[];
+  localPercent: TrendPoint[];
+  destinationPercent: TrendPoint[];
+}
+
+export interface ComparisonStats {
+  intervals: IntervalStats[];
+  trends: ComparisonTrends;
+  hasDistanceTrend: boolean;
 }

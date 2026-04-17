@@ -12,6 +12,7 @@ aws apprunner update-service \
   --region "${AWS_REGION}" \
   --service-arn "${SERVICE_ARN}" \
   --source-configuration \
-    "ImageRepository={ImageIdentifier=${IMAGE_IDENTIFIER},ImageRepositoryType=ECR}"
+    "ImageRepository={ImageIdentifier=${IMAGE_IDENTIFIER},ImageRepositoryType=ECR}" \
+  > /dev/null
 
 echo "✓ Deployment triggered. Monitor progress in the App Runner console."

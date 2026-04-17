@@ -139,14 +139,21 @@ export const ultraSignupAdapter: Adapter = {
     const state = cleanState(row['State'] ?? '');
     const zip = cleanZip(row['Zip'] ?? '', row['Country'] ?? '');
 
+    const identifiedGender = row['Identified Gender']?.trim() ?? '';
+    const parsedGender = parseGender(row['gender'] ?? '');
+    // "Identified Gender" is UltraSignup's newer self-identification field.
+    // An "x" here means the participant selected non-binary; it takes precedence.
+    const gender: ParticipantRecord['gender'] =
+      identifiedGender.toLowerCase() === 'x' ? 'NB' : parsedGender;
+
     return {
       orderId,
       registrationDate: parseDate(row['Registration Date'] ?? ''),
       event: row['distance']?.trim() ?? 'Unknown',
       orderType: row['order_type']?.trim() ?? '',
       hasCoupon: parseNumber(row['Coupon'] ?? '0') > 0,
-      gender: parseGender(row['gender'] ?? ''),
-      identifiedGender: row['Identified Gender']?.trim() ?? '',
+      gender,
+      identifiedGender,
       age: parseAge(row['Age'] ?? ''),
       state,
       country,

@@ -92,6 +92,7 @@ function computeGender(participants: ParticipantRecord[]): GenderStats {
     male, female, nonBinary, unknown,
     malePercent: round2(male / total * 100),
     femalePercent: round2(female / total * 100),
+    nonBinaryPercent: round2(nonBinary / total * 100),
   };
 }
 
@@ -347,7 +348,12 @@ function computeRegistration(
   const earlyProfile = buildRegistrantProfile(sorted.slice(0, quartile), venueLat, venueLng);
   const lateProfile = buildRegistrantProfile(sorted.slice(-quartile), venueLat, venueLng);
 
-  const couponUsers = participants.filter(p => p.hasCoupon).length;
+  // Relay joins register at $0 via the captain-pays model — any coupon code on
+  // those rows reflects the relay mechanism, not a promotional discount.
+  // Exclude them from both the count and the denominator so the metric
+  // represents "paying registrants who applied a discount code."
+  const payingParticipants = participants.filter(p => !p.isRelayJoin);
+  const couponUsers = payingParticipants.filter(p => p.hasCoupon).length;
 
   return {
     byMonth,
@@ -357,7 +363,7 @@ function computeRegistration(
     earlyProfile,
     lateProfile,
     couponUsageCount: couponUsers,
-    couponUsagePercent: round2(couponUsers / (participants.length || 1) * 100),
+    couponUsagePercent: round2(couponUsers / (payingParticipants.length || 1) * 100),
   };
 }
 

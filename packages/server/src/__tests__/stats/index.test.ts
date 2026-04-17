@@ -479,6 +479,19 @@ describe('computeStats — registration timing', () => {
     expect(reg.couponUsagePercent).toBeCloseTo(66.67, 1);
   });
 
+  it('relay joins are excluded from coupon usage count and denominator', () => {
+    const participants = [
+      makeParticipant({ orderId: '1', hasCoupon: true }),
+      makeParticipant({ orderId: '2', hasCoupon: false }),
+      // relay join with hasCoupon — should NOT count toward coupon metric
+      makeParticipant({ orderId: '3', hasCoupon: true, isRelayJoin: true }),
+    ];
+    const reg = stats(participants).registration;
+    // Only 2 paying participants; 1 used a coupon
+    expect(reg.couponUsageCount).toBe(1);
+    expect(reg.couponUsagePercent).toBeCloseTo(50, 1);
+  });
+
   it('early profile count is the first quartile of sorted registrations', () => {
     const participants = Array.from({ length: 8 }, (_, i) =>
       makeParticipant({

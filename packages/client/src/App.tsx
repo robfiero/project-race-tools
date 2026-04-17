@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import UploadPage from './pages/UploadPage.tsx';
+import UploadPage, { type UploadResult } from './pages/UploadPage.tsx';
 import DashboardPage from './pages/DashboardPage.tsx';
+import ComparisonPage from './pages/ComparisonPage.tsx';
 import { ThemeProvider, useTheme } from './ThemeContext.tsx';
 import { isHolidayTheme } from './themes.ts';
 import type { UploadResponse } from './types.ts';
@@ -16,18 +17,42 @@ const HOLIDAY_BADGES: Record<string, string> = {
   christmas: '🎄',
 };
 
+type AppSession =
+  | { mode: 'single'; session: UploadResponse; label: string }
+  | { mode: 'comparison'; sessions: Array<{ sessionId: string; label: string; raceName: string }> }
+  | null;
+
 function AppShell() {
   const { theme } = useTheme();
-  const [session, setSession] = useState<UploadResponse | null>(null);
+  const [appSession, setAppSession] = useState<AppSession>(null);
   const [showBurst, setShowBurst] = useState(false);
   const previousThemeRef = useRef(theme.id);
 
-  function handleUploadComplete(data: UploadResponse) {
-    setSession(data);
+  function handleUploadComplete(result: UploadResult) {
+    if (result.mode === 'single') {
+      setAppSession({ mode: 'single', session: result.session, label: result.label });
+    } else {
+      // Always present oldest → newest so trend charts read left-to-right.
+      // Sort numerically when labels are years; fall back to lexicographic.
+      const sorted = [...result.sessions].sort((a, b) => {
+        const ya = parseInt(a.label, 10);
+        const yb = parseInt(b.label, 10);
+        if (!isNaN(ya) && !isNaN(yb)) return ya - yb;
+        return a.label.localeCompare(b.label);
+      });
+      setAppSession({
+        mode: 'comparison',
+        sessions: sorted.map(s => ({
+          sessionId: s.response.sessionId,
+          label: s.label,
+          raceName: s.response.raceName,
+        })),
+      });
+    }
   }
 
   function handleReset() {
-    setSession(null);
+    setAppSession(null);
   }
 
   useEffect(() => {
@@ -52,7 +77,7 @@ function AppShell() {
             RaceStats
             {holidayBadge && <span className="app-logo-badge" aria-hidden="true">{holidayBadge}</span>}
           </span>
-          {session && (
+          {appSession !== null && (
             <button type="button" className="btn-ghost" onClick={handleReset}>
               ← Upload another file
             </button>
@@ -61,10 +86,15 @@ function AppShell() {
       </header>
 
       <main id="main-content" className="app-main" tabIndex={-1}>
-        {session === null
-          ? <UploadPage onUploadComplete={handleUploadComplete} />
-          : <DashboardPage session={session} />
-        }
+        {appSession === null && (
+          <UploadPage onUploadComplete={handleUploadComplete} />
+        )}
+        {appSession?.mode === 'single' && (
+          <DashboardPage session={appSession.session} label={appSession.label} />
+        )}
+        {appSession?.mode === 'comparison' && (
+          <ComparisonPage sessions={appSession.sessions} />
+        )}
       </main>
     </div>
   );

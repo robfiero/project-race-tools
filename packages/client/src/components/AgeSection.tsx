@@ -1,8 +1,9 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { AgeStats } from '../types.ts';
 import SectionHeader from './SectionHeader.tsx';
 import StatCard from './StatCard.tsx';
 import { useTheme } from '../ThemeContext.tsx';
+import { chartPalette } from '../chartColors.ts';
 import './ChartSection.css';
 
 interface Props { stats: AgeStats; }
@@ -10,6 +11,7 @@ interface Props { stats: AgeStats; }
 export default function AgeSection({ stats }: Props) {
   const { theme } = useTheme();
   if (stats.mean === null) return null;
+  const colors = chartPalette(theme, stats.buckets.length);
 
   return (
     <section className="chart-section">
@@ -27,7 +29,9 @@ export default function AgeSection({ stats }: Props) {
             <XAxis dataKey="label" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip formatter={(v: number) => [v, 'Participants']} />
-            <Bar dataKey="count" fill={theme.chart[0]} radius={[4, 4, 0, 0]} name="Participants" />
+            <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Participants">
+              {stats.buckets.map((_, i) => <Cell key={i} fill={colors[i]} />)}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
