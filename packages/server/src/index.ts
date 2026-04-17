@@ -3,6 +3,7 @@ import cors from 'cors';
 import uploadRouter from './routes/upload.js';
 import statsRouter from './routes/stats.js';
 import compareRouter from './routes/compare.js';
+import sampleRouter from './routes/sample.js';
 import { loadZipCentroids } from './geo/zipLoader.js';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
@@ -16,16 +17,25 @@ async function main() {
     allowedOrigins.add(process.env.CLIENT_ORIGIN);
   }
 
-  // Temporary broader CORS handling for deployment diagnosis.
+  const isDev = !process.env.CLIENT_ORIGIN;
+  const LOCALHOST_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
   const corsOptions: cors.CorsOptions = {
     origin(origin, callback) {
       if (!origin || allowedOrigins.has(origin)) {
         callback(null, true);
         return;
       }
+      // In development (no CLIENT_ORIGIN set) allow any localhost port so that
+      // JSON preflights work regardless of the Vite dev-server port in use.
+      if (isDev && LOCALHOST_RE.test(origin)) {
+        callback(null, true);
+        return;
+      }
       callback(new Error('Not allowed by CORS'));
     },
     methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type'],
     optionsSuccessStatus: 204,
   };
 
@@ -57,6 +67,7 @@ async function main() {
   app.use('/api/upload', uploadRouter);
   app.use('/api/stats', statsRouter);
   app.use('/api/compare', compareRouter);
+  app.use('/api/sample', sampleRouter);
 
   app.listen(PORT, () => {
     console.info(`[server] RaceStats API listening on http://localhost:${PORT}`);

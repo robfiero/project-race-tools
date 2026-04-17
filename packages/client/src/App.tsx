@@ -2,10 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import UploadPage, { type UploadResult } from './pages/UploadPage.tsx';
 import DashboardPage from './pages/DashboardPage.tsx';
 import ComparisonPage from './pages/ComparisonPage.tsx';
+import HomePage from './pages/HomePage.tsx';
+import AboutPage from './pages/AboutPage.tsx';
+import RaceResultsPage from './pages/RaceResultsPage.tsx';
+import FinancialsPage from './pages/FinancialsPage.tsx';
 import { ThemeProvider, useTheme } from './ThemeContext.tsx';
+import ThemeSwitcher from './components/ThemeSwitcher.tsx';
 import { isHolidayTheme } from './themes.ts';
 import type { UploadResponse } from './types.ts';
 import './App.css';
+
+export type Section = 'home' | 'participants' | 'results' | 'financials' | 'about';
 
 const HOLIDAY_BADGES: Record<string, string> = {
   newyear: '🥂',
@@ -17,30 +24,45 @@ const HOLIDAY_BADGES: Record<string, string> = {
   christmas: '🎄',
 };
 
-type AppSession =
+export type ParticipantSession =
   | { mode: 'single'; session: UploadResponse; label: string }
   | { mode: 'comparison'; sessions: Array<{ sessionId: string; label: string; raceName: string }> }
   | null;
 
+const NAV_ITEMS: Array<{ id: Section; label: string; shortLabel: string }> = [
+  { id: 'home',         label: 'Home',                  shortLabel: 'Home' },
+  { id: 'participants', label: 'Participant Analytics',  shortLabel: 'Participants' },
+  { id: 'results',      label: 'Race Results',           shortLabel: 'Results' },
+  { id: 'financials',   label: 'Financials',             shortLabel: 'Financials' },
+  { id: 'about',        label: 'About',                  shortLabel: 'About' },
+];
+
 function AppShell() {
   const { theme } = useTheme();
-  const [appSession, setAppSession] = useState<AppSession>(null);
+  const [activeSection, setActiveSection] = useState<Section>('home');
+  const [participantSession, setParticipantSession] = useState<ParticipantSession>(null);
   const [showBurst, setShowBurst] = useState(false);
   const previousThemeRef = useRef(theme.id);
 
+  function navigateTo(section: Section) {
+    // Leaving participants resets any loaded session
+    if (section !== 'participants') {
+      setParticipantSession(null);
+    }
+    setActiveSection(section);
+  }
+
   function handleUploadComplete(result: UploadResult) {
     if (result.mode === 'single') {
-      setAppSession({ mode: 'single', session: result.session, label: result.label });
+      setParticipantSession({ mode: 'single', session: result.session, label: result.label });
     } else {
-      // Always present oldest → newest so trend charts read left-to-right.
-      // Sort numerically when labels are years; fall back to lexicographic.
       const sorted = [...result.sessions].sort((a, b) => {
         const ya = parseInt(a.label, 10);
         const yb = parseInt(b.label, 10);
         if (!isNaN(ya) && !isNaN(yb)) return ya - yb;
         return a.label.localeCompare(b.label);
       });
-      setAppSession({
+      setParticipantSession({
         mode: 'comparison',
         sessions: sorted.map(s => ({
           sessionId: s.response.sessionId,
@@ -49,10 +71,16 @@ function AppShell() {
         })),
       });
     }
+    setActiveSection('participants');
   }
 
-  function handleReset() {
-    setAppSession(null);
+  function handleDemoLaunch(session: ParticipantSession) {
+    setParticipantSession(session);
+    setActiveSection('participants');
+  }
+
+  function handleParticipantReset() {
+    setParticipantSession(null);
   }
 
   useEffect(() => {
@@ -71,30 +99,60 @@ function AppShell() {
     <div className="app">
       {showBurst && <div className="holiday-burst" aria-hidden="true" />}
       <a href="#main-content" className="skip-link">Skip to main content</a>
+
       <header className={`app-header${holidayBadge ? ' app-header--holiday' : ''}`}>
         <div className="app-header-inner">
           <span className="app-logo">
             RaceStats
             {holidayBadge && <span className="app-logo-badge" aria-hidden="true">{holidayBadge}</span>}
           </span>
-          {appSession !== null && (
-            <button type="button" className="btn-ghost" onClick={handleReset}>
-              ← Upload another file
-            </button>
-          )}
+
+          <nav className="app-nav" aria-label="Main navigation">
+            {NAV_ITEMS.map(item => (
+              <button
+                key={item.id}
+                type="button"
+                className={`app-nav-btn${activeSection === item.id ? ' app-nav-btn--active' : ''}`}
+                onClick={() => navigateTo(item.id)}
+                aria-current={activeSection === item.id ? 'page' : undefined}
+              >
+                <span className="app-nav-label">{item.label}</span>
+                <span className="app-nav-label--short">{item.shortLabel}</span>
+              </button>
+            ))}
+          </nav>
+
+          <div className="app-header-right">
+            <ThemeSwitcher />
+          </div>
         </div>
       </header>
 
       <main id="main-content" className="app-main" tabIndex={-1}>
-        {appSession === null && (
+        {activeSection === 'home' && (
+          <HomePage onDemoLaunch={handleDemoLaunch} onNavigate={navigateTo} />
+        )}
+
+        {activeSection === 'participants' && participantSession === null && (
           <UploadPage onUploadComplete={handleUploadComplete} />
         )}
-        {appSession?.mode === 'single' && (
-          <DashboardPage session={appSession.session} label={appSession.label} />
+        {activeSection === 'participants' && participantSession?.mode === 'single' && (
+          <DashboardPage
+            session={participantSession.session}
+            label={participantSession.label}
+            onBack={handleParticipantReset}
+          />
         )}
-        {appSession?.mode === 'comparison' && (
-          <ComparisonPage sessions={appSession.sessions} />
+        {activeSection === 'participants' && participantSession?.mode === 'comparison' && (
+          <ComparisonPage
+            sessions={participantSession.sessions}
+            onBack={handleParticipantReset}
+          />
         )}
+
+        {activeSection === 'results' && <RaceResultsPage />}
+        {activeSection === 'financials' && <FinancialsPage />}
+        {activeSection === 'about' && <AboutPage />}
       </main>
     </div>
   );

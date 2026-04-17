@@ -14,11 +14,11 @@ import DistanceSection from '../components/DistanceSection.tsx';
 import RegistrationSection from '../components/RegistrationSection.tsx';
 import CrossEventSection from '../components/CrossEventSection.tsx';
 import ParticipationSection from '../components/AttritionSection.tsx';
-import ThemeSwitcher from '../components/ThemeSwitcher.tsx';
 import './ComparisonPage.css';
 
 interface Props {
   sessions: Array<{ sessionId: string; label: string; raceName: string }>;
+  onBack: () => void;
 }
 
 // ─── Trend card ───────────────────────────────────────────────────────────────
@@ -245,7 +245,7 @@ function IntervalTabs({ intervals }: IntervalTabsProps) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-export default function ComparisonPage({ sessions }: Props) {
+export default function ComparisonPage({ sessions, onBack }: Props) {
   const pageHeadingRef = useRef<HTMLHeadingElement>(null);
   const [data, setData] = useState<ComparisonStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -286,6 +286,9 @@ export default function ComparisonPage({ sessions }: Props) {
     <div className="comparison-page">
       <div className="comparison-header">
         <div className="comparison-header-left">
+          <button type="button" className="btn-ghost dashboard-back" onClick={onBack}>
+            ← New analysis
+          </button>
           <h1 ref={pageHeadingRef} tabIndex={-1} className="comparison-title">
             {raceName} — {intervalCount}-Interval Comparison
           </h1>
@@ -295,7 +298,6 @@ export default function ComparisonPage({ sessions }: Props) {
             ))}
           </div>
         </div>
-        <ThemeSwitcher />
       </div>
 
       {loading && (

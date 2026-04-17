@@ -23,14 +23,14 @@ export default function GenderSection({ stats }: Props) {
       <SectionHeader title="Gender" />
       <div className="chart-section-body two-col">
         <div className="chart-wrap" aria-hidden="true">
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
                 data={data}
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
-                cy="50%"
+                cy="54%"
                 outerRadius={85}
                 label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                 labelLine={false}

@@ -21,21 +21,22 @@
   left: 0.75rem;
 }
 
+/* ─── Header ─────────────────────────────────────────────────────────────── */
+
 .app-header {
   background: var(--header-background, #1a1a1a);
   color: var(--header-foreground, #fff);
   padding: 0 1.5rem;
-  height: 52px;
   flex-shrink: 0;
 }
 
 .app-header-inner {
   max-width: 1200px;
   margin: 0 auto;
-  height: 100%;
+  height: 56px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 1rem;
 }
 
 .app-logo {
@@ -46,12 +47,71 @@
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--header-foreground, #fff);
+  flex-shrink: 0;
 }
 
 .app-logo-badge {
   font-size: 0.92rem;
   transform: translateY(-1px);
 }
+
+/* ─── Nav ────────────────────────────────────────────────────────────────── */
+
+.app-nav {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: 1;
+  height: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.app-nav::-webkit-scrollbar { display: none; }
+
+.app-nav-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0 0.85rem;
+  height: 100%;
+  border-bottom: 3px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.app-nav-btn:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.app-nav-btn--active {
+  color: #fff;
+  border-bottom-color: var(--color-primary, #2563eb);
+  font-weight: 600;
+}
+
+/* Responsive label switching */
+.app-nav-label { display: inline; }
+.app-nav-label--short { display: none; }
+
+@media (max-width: 860px) {
+  .app-nav-label { display: none; }
+  .app-nav-label--short { display: inline; }
+}
+
+/* ─── Header right ───────────────────────────────────────────────────────── */
+
+.app-header-right {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* ─── Main content ───────────────────────────────────────────────────────── */
 
 .app-main {
   flex: 1;
@@ -61,7 +121,8 @@
   padding: 2rem 1.5rem;
 }
 
-/* Shared button styles */
+/* ─── Shared button styles ───────────────────────────────────────────────── */
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -70,6 +131,7 @@
   border-radius: 6px;
   font-weight: 600;
   border: none;
+  cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
 }
 
@@ -90,14 +152,18 @@
 .btn-ghost {
   background: transparent;
   border: none;
-  color: #ccc;
-  font-size: 0.9rem;
+  color: var(--color-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
   padding: 0.3rem 0;
+  cursor: pointer;
 }
 
 .btn-ghost:hover {
-  color: #fff;
+  text-decoration: underline;
 }
+
+/* ─── Holiday burst ──────────────────────────────────────────────────────── */
 
 .holiday-burst {
   position: fixed;
@@ -115,29 +181,17 @@
 }
 
 @keyframes holiday-burst-fade {
-  0% {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.98);
-    filter: saturate(1.2);
-  }
-  20% {
-    opacity: 0.85;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(12px) scale(1.03);
-    filter: saturate(1);
-  }
+  0%   { opacity: 0; transform: translateY(-8px) scale(0.98); filter: saturate(1.2); }
+  20%  { opacity: 0.85; }
+  100% { opacity: 0; transform: translateY(12px) scale(1.03); filter: saturate(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .holiday-burst {
-    animation: none;
-    opacity: 0;
-  }
+  .holiday-burst { animation: none; opacity: 0; }
 }
 
-/* Shared card style */
+/* ─── Shared card style ──────────────────────────────────────────────────── */
+
 .card {
   background: #fff;
   border-radius: 10px;

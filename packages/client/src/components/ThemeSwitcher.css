@@ -12,7 +12,7 @@
 .theme-switcher-label {
   font-size: 0.82rem;
   font-weight: 500;
-  color: #555;
+  color: rgba(255, 255, 255, 0.65);
   white-space: nowrap;
 }
 

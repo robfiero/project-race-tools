@@ -10,15 +10,15 @@ import DistanceSection from '../components/DistanceSection.tsx';
 import CrossEventSection from '../components/CrossEventSection.tsx';
 import RegistrationSection from '../components/RegistrationSection.tsx';
 import ParticipationSection from '../components/AttritionSection.tsx';
-import ThemeSwitcher from '../components/ThemeSwitcher.tsx';
 import './DashboardPage.css';
 
 interface Props {
   session: UploadResponse;
   label: string;
+  onBack: () => void;
 }
 
-export default function DashboardPage({ session, label }: Props) {
+export default function DashboardPage({ session, label, onBack }: Props) {
   const pageHeadingRef = useRef<HTMLHeadingElement>(null);
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const [data, setData] = useState<StatsResponse | null>(null);
@@ -60,6 +60,9 @@ export default function DashboardPage({ session, label }: Props) {
     <div className="dashboard">
       <div className="dashboard-header">
         <div className="dashboard-header-left">
+          <button type="button" className="btn-ghost dashboard-back" onClick={onBack}>
+            ← New analysis
+          </button>
           <h1 ref={pageHeadingRef} tabIndex={-1} className="dashboard-title">
             {session.raceName} — Participant Analysis{/^\d{4}$/.test(label) && ` ${label}`}
           </h1>
@@ -84,7 +87,6 @@ export default function DashboardPage({ session, label }: Props) {
             )}
           </dl>
         </div>
-        <ThemeSwitcher />
       </div>
 
       <EventFilter

@@ -1,0 +1,164 @@
+.about-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ─── Header card ────────────────────────────────────────────────────────── */
+
+.about-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--color-text, #111);
+  margin: 0 0 1rem;
+}
+
+.about-creator {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: #f8f9fb;
+  border: 1px solid #e8eaf0;
+  border-radius: 8px;
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.about-creator-photo {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center top;
+  flex-shrink: 0;
+  border: 2px solid #e0e4ed;
+}
+
+.about-creator-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.about-links {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.about-link {
+  font-size: 0.875rem;
+  color: var(--color-primary, #2563eb);
+  text-decoration: none;
+  font-weight: 500;
+  background: #fff;
+  border: 1px solid var(--color-primary-light, #d0dcff);
+  border-radius: 5px;
+  padding: 0.25rem 0.6rem;
+  transition: background 0.12s;
+}
+
+.about-link:hover {
+  background: var(--color-primary-light, #eef2ff);
+}
+
+.about-header p {
+  margin: 0.75rem 0 0;
+  color: #444;
+  line-height: 1.65;
+  font-size: 0.95rem;
+}
+
+/* ─── Two-column grid ────────────────────────────────────────────────────── */
+
+.about-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 700px) {
+  .about-grid { grid-template-columns: 1fr; }
+}
+
+/* ─── Section cards ──────────────────────────────────────────────────────── */
+
+.about-section h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  color: var(--color-text, #111);
+}
+
+.about-section-subtitle {
+  font-size: 0.82rem;
+  color: var(--color-primary, #2563eb);
+  margin: 0 0 0.9rem;
+  font-style: italic;
+}
+
+.about-section p {
+  margin: 0.65rem 0 0;
+  color: #444;
+  line-height: 1.65;
+  font-size: 0.9rem;
+}
+
+.about-section ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: #444;
+  line-height: 1.65;
+  font-size: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.about-section code {
+  background: #f0f2f5;
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  font-size: 0.85em;
+  color: #333;
+}
+
+/* ─── Tech grid ──────────────────────────────────────────────────────────── */
+
+.about-tech-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 800px) {
+  .about-tech-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 500px) {
+  .about-tech-grid { grid-template-columns: 1fr; }
+}
+
+.about-tech-col h3 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-primary, #2563eb);
+  margin: 0 0 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.78rem;
+}
+
+.about-tech-col ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #444;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
