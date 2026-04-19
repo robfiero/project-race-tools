@@ -1,0 +1,100 @@
+.wx-venue {
+  font-size: 0.88rem;
+  color: #555;
+  margin: 0 0 0.75rem;
+}
+
+.wx-venue-label {
+  font-weight: 600;
+  color: #333;
+}
+
+/* ── Grid layout ─────────────────────────────────────────────────────────── */
+
+.wx-grid-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 0.75rem;
+}
+
+.wx-grid {
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Row label (sticky so it stays visible when scrolling horizontally) */
+.wx-row-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #888;
+  text-align: left;
+  padding: 0.45rem 1rem 0.45rem 0;
+  white-space: nowrap;
+  vertical-align: middle;
+  border-right: 2px solid #e5e7eb;
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 1;
+}
+
+/* Alternating row backgrounds — keep label in sync */
+.wx-grid tr:nth-child(even) .wx-row-label {
+  background: #f8faff;
+}
+
+/* Data cells */
+.wx-grid-cell {
+  text-align: center;
+  padding: 0.45rem 0.9rem;
+  color: #222;
+  white-space: nowrap;
+  vertical-align: middle;
+  min-width: 96px;
+}
+
+.wx-grid tr:nth-child(even) .wx-grid-cell {
+  background: #f8faff;
+}
+
+/* Vertical separator between label column and data */
+.wx-grid-cell:first-of-type {
+  border-left: none;
+}
+
+/* Bottom border between rows (skip last) */
+.wx-grid tr:not(:last-child) .wx-row-label,
+.wx-grid tr:not(:last-child) .wx-grid-cell {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* Condition row: slightly larger for the emoji */
+.wx-condition-cell {
+  font-size: 0.9rem;
+}
+
+.wx-source {
+  font-size: 0.78rem;
+  color: #888;
+  margin: 0;
+}
+
+.wx-source a {
+  color: inherit;
+}
+
+@media (max-width: 560px) {
+  .wx-row-label {
+    font-size: 0.68rem;
+    padding-right: 0.6rem;
+  }
+  .wx-grid-cell {
+    padding: 0.4rem 0.6rem;
+    min-width: 78px;
+    font-size: 0.82rem;
+  }
+}

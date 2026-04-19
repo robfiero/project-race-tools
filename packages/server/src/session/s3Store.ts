@@ -4,7 +4,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
-import type { SessionData } from '../types.js';
+import type { SessionData, ResultsSessionData } from '../types.js';
 
 // S3-backed session store for production (App Runner).
 // SESSION_BUCKET must be set. Sessions are stored as JSON objects at
@@ -64,5 +64,42 @@ export async function deleteSession(sessionId: string): Promise<void> {
   await client.send(new DeleteObjectCommand({
     Bucket: BUCKET,
     Key: objectKey(sessionId),
+  }));
+}
+
+function resultsKey(sessionId: string): string {
+  return `results/${sessionId}.json`;
+}
+
+export async function saveResultsSession(data: ResultsSessionData): Promise<void> {
+  await client.send(new PutObjectCommand({
+    Bucket: BUCKET,
+    Key: resultsKey(data.sessionId),
+    Body: JSON.stringify(data),
+    ContentType: 'application/json',
+  }));
+}
+
+export async function getResultsSession(sessionId: string): Promise<ResultsSessionData | null> {
+  try {
+    const response = await client.send(new GetObjectCommand({
+      Bucket: BUCKET,
+      Key: resultsKey(sessionId),
+    }));
+    const body = await response.Body?.transformToString();
+    if (!body) return null;
+    // ResultsSessionData has no Date fields beyond createdAt
+    const raw = JSON.parse(body) as ResultsSessionData & { createdAt: string };
+    return { ...raw, createdAt: new Date(raw.createdAt) };
+  } catch (err) {
+    if ((err as { name?: string }).name === 'NoSuchKey') return null;
+    throw err;
+  }
+}
+
+export async function deleteResultsSession(sessionId: string): Promise<void> {
+  await client.send(new DeleteObjectCommand({
+    Bucket: BUCKET,
+    Key: resultsKey(sessionId),
   }));
 }

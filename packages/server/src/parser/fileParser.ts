@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import type { ParticipantRecord } from '../types.js';
 import { detectAdapter } from '../adapters/index.js';
 import type { RawRow } from '../adapters/types.js';
@@ -22,9 +22,9 @@ export interface ParseResult {
 
 // ─── Excel helpers ───────────────────────────────────────────────────────────
 
-// Normalize any native Excel cell type to a plain string so the adapter layer
+// Normalize any ExcelJS cell value to a plain string so the adapter layer
 // can use its existing helpers (parseDate, parseNumber, etc.) unchanged.
-function cellToString(val: unknown): string {
+function cellToString(val: ExcelJS.CellValue): string {
   if (val === null || val === undefined) return '';
   if (val instanceof Date) {
     // UltraSignup stores timestamps as text strings, not date-formatted cells,
@@ -40,27 +40,58 @@ function cellToString(val: unknown): string {
     if (h === 0) h = 12;
     return `${mo}/${da}/${yr} ${h}:${mi}:${sc} ${ampm}`;
   }
+  if (typeof val === 'object') {
+    // Formula or shared formula — use the computed result
+    if ('formula' in val || 'sharedFormula' in val) {
+      const result = (val as { result?: ExcelJS.CellValue }).result;
+      return result != null ? cellToString(result) : '';
+    }
+    // Rich text — join all text runs
+    if ('richText' in val) {
+      return (val as ExcelJS.CellRichTextValue).richText.map(rt => rt.text).join('');
+    }
+    // Hyperlink — use the display text
+    if ('text' in val) {
+      return String((val as ExcelJS.CellHyperlinkValue).text);
+    }
+    // Error value (#DIV/0!, #REF!, etc.) — treat as empty
+    if ('error' in val) return '';
+  }
   return String(val);
 }
 
-function excelToRows(buffer: Buffer): { headers: string[]; rows: RawRow[] } {
-  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  // header:1 gives raw arrays; defval ensures missing cells become '' not undefined
-  const raw = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '' });
+async function excelToRows(buffer: Buffer): Promise<{ headers: string[]; rows: RawRow[] }> {
+  const workbook = new ExcelJS.Workbook();
+  // ExcelJS's Buffer type predates Node's generic Buffer<T> — cast to satisfy TS
+  await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
 
-  if (raw.length < 2) return { headers: [], rows: [] };
+  const ws = workbook.worksheets[0];
+  if (!ws) return { headers: [], rows: [] };
 
-  const headers = (raw[0] as unknown[]).map(h => String(h).trim());
+  const allRows: ExcelJS.Row[] = [];
+  ws.eachRow({ includeEmpty: false }, row => allRows.push(row));
+
+  if (allRows.length < 2) return { headers: [], rows: [] };
+
+  const headerRow = allRows[0];
+  const colCount = headerRow.cellCount;
+  const headers: string[] = [];
+  for (let col = 1; col <= colCount; col++) {
+    headers.push(String(headerRow.getCell(col).value ?? '').trim());
+  }
+
   const rows: RawRow[] = [];
+  for (let i = 1; i < allRows.length; i++) {
+    const exRow = allRows[i];
+    const cells: string[] = [];
+    for (let col = 1; col <= colCount; col++) {
+      cells.push(cellToString(exRow.getCell(col).value));
+    }
+    if (cells.every(c => c === '')) continue;
 
-  for (let i = 1; i < raw.length; i++) {
-    const cells = raw[i] as unknown[];
-    // Skip entirely blank rows
-    if (cells.every(c => c === '' || c === null || c === undefined)) continue;
     const row: RawRow = {};
     for (let j = 0; j < headers.length; j++) {
-      row[headers[j]] = cellToString(cells[j]);
+      row[headers[j]] = cells[j] ?? '';
     }
     rows.push(row);
   }
@@ -70,7 +101,27 @@ function excelToRows(buffer: Buffer): { headers: string[]; rows: RawRow[] } {
 
 // ─── Shared processing ───────────────────────────────────────────────────────
 
+// PapaParse and the Excel builder both key rows by header name, so multiple
+// blank-header columns collapse onto the same '' key (last writer wins).
+// Checking for '' in both the header list and at least one row value is
+// sufficient to detect any column whose header is missing but contains data.
+function assertNoBlankHeadersWithData(headers: string[], rows: RawRow[]): void {
+  if (!headers.some(h => h === '')) return;
+  const hasData = rows.some(row => {
+    const val = row[''];
+    return typeof val === 'string' && val.trim() !== '';
+  });
+  if (!hasData) return;
+  throw new ParseError(
+    'This file has one or more columns with no header label that contain data. ' +
+    'Every data column must have a header for the file to be processed correctly. ' +
+    'Open the file in a spreadsheet application, add the missing column headers, and re-upload.',
+  );
+}
+
 function processRows(headers: string[], rows: RawRow[]): ParseResult {
+  assertNoBlankHeadersWithData(headers, rows);
+
   if (rows.length === 0) {
     throw new ParseError('The file appears to be empty or has no data rows.');
   }
@@ -111,11 +162,11 @@ function processRows(headers: string[], rows: RawRow[]): ParseResult {
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
-export function parseFile(
+export async function parseFile(
   buffer: Buffer,
   filename: string,
   fileSizeBytes: number,
-): ParseResult {
+): Promise<ParseResult> {
   if (fileSizeBytes > MAX_BYTES) {
     throw new ParseError(
       `File size (${(fileSizeBytes / 1024 / 1024).toFixed(1)} MB) exceeds the 5 MB limit. ` +
@@ -125,8 +176,14 @@ export function parseFile(
 
   const ext = filename.toLowerCase().split('.').pop() ?? '';
 
-  if (ext === 'xlsx' || ext === 'xls') {
-    const { headers, rows } = excelToRows(buffer);
+  if (ext === 'xls') {
+    throw new ParseError(
+      'The legacy .xls format is not supported. Please open the file in Excel and save it as .xlsx, then re-upload.'
+    );
+  }
+
+  if (ext === 'xlsx') {
+    const { headers, rows } = await excelToRows(buffer);
     return processRows(headers, rows);
   }
 

@@ -1,4 +1,4 @@
-import type { ParticipantRecord } from '../types.js';
+import type { ParticipantRecord, ResultRecord } from '../types.js';
 import type { RawRow } from '../adapters/types.js';
 
 // ─── UltraSignup CSV helpers ──────────────────────────────────────────────────
@@ -98,5 +98,32 @@ export function makeParticipant(overrides: Partial<ParticipantRecord> = {}): Par
 export function makeParticipants(count: number, overrides: Partial<ParticipantRecord> = {}): ParticipantRecord[] {
   return Array.from({ length: count }, (_, i) =>
     makeParticipant({ orderId: String(10001 + i), ...overrides }),
+  );
+}
+
+// ─── ResultRecord builder ─────────────────────────────────────────────────────
+
+/** Minimal valid ResultRecord — a finisher at 50 miles in 4:30:00. */
+export function makeResultRecord(overrides: Partial<ResultRecord> = {}): ResultRecord {
+  return {
+    bib: '100',
+    age: 35,
+    gender: 'M',
+    city: 'Boston',
+    state: 'MA',
+    country: 'USA',
+    distanceMiles: 50,
+    timeSeconds: 16200, // 4:30:00
+    finishStatus: 1,
+    overallPlace: 1,
+    divisionName: '',
+    ...overrides,
+  };
+}
+
+/** Build n ResultRecords with sequential bibs and shared overrides. */
+export function makeResultRecords(count: number, overrides: Partial<ResultRecord> = {}): ResultRecord[] {
+  return Array.from({ length: count }, (_, i) =>
+    makeResultRecord({ bib: String(100 + i), ...overrides }),
   );
 }

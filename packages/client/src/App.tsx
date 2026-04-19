@@ -4,15 +4,16 @@ import DashboardPage from './pages/DashboardPage.tsx';
 import ComparisonPage from './pages/ComparisonPage.tsx';
 import HomePage from './pages/HomePage.tsx';
 import AboutPage from './pages/AboutPage.tsx';
-import RaceResultsPage from './pages/RaceResultsPage.tsx';
+import RaceResultsPage, { type UploadResult as ResultsUploadResult } from './pages/RaceResultsPage.tsx';
 import FinancialsPage from './pages/FinancialsPage.tsx';
+import LearnPage from './pages/LearnPage.tsx';
 import { ThemeProvider, useTheme } from './ThemeContext.tsx';
 import ThemeSwitcher from './components/ThemeSwitcher.tsx';
 import { isHolidayTheme } from './themes.ts';
 import type { UploadResponse } from './types.ts';
 import './App.css';
 
-export type Section = 'home' | 'participants' | 'results' | 'financials' | 'about';
+export type Section = 'home' | 'learn' | 'participants' | 'results' | 'financials' | 'about';
 
 const HOLIDAY_BADGES: Record<string, string> = {
   newyear: '🥂',
@@ -31,8 +32,9 @@ export type ParticipantSession =
 
 const NAV_ITEMS: Array<{ id: Section; label: string; shortLabel: string }> = [
   { id: 'home',         label: 'Home',                  shortLabel: 'Home' },
+  { id: 'learn',        label: 'Analytics Guide',        shortLabel: 'Guide' },
   { id: 'participants', label: 'Participant Analytics',  shortLabel: 'Participants' },
-  { id: 'results',      label: 'Race Results',           shortLabel: 'Results' },
+  { id: 'results',      label: 'Race Analytics',          shortLabel: 'Results' },
   { id: 'financials',   label: 'Financials',             shortLabel: 'Financials' },
   { id: 'about',        label: 'About',                  shortLabel: 'About' },
 ];
@@ -41,14 +43,19 @@ function AppShell() {
   const { theme } = useTheme();
   const [activeSection, setActiveSection] = useState<Section>('home');
   const [participantSession, setParticipantSession] = useState<ParticipantSession>(null);
+  const [resultsSession, setResultsSession] = useState<ResultsUploadResult | null>(null);
+  const [resultsDemoKey, setResultsDemoKey] = useState(0);
   const [showBurst, setShowBurst] = useState(false);
   const previousThemeRef = useRef(theme.id);
 
+  useEffect(() => {
+    const item = NAV_ITEMS.find(n => n.id === activeSection);
+    document.title = item && item.id !== 'home' ? `${item.label} | RaceStats` : 'RaceStats';
+  }, [activeSection]);
+
   function navigateTo(section: Section) {
-    // Leaving participants resets any loaded session
-    if (section !== 'participants') {
-      setParticipantSession(null);
-    }
+    if (section !== 'participants') setParticipantSession(null);
+    if (section !== 'results') setResultsSession(null);
     setActiveSection(section);
   }
 
@@ -79,6 +86,12 @@ function AppShell() {
     setActiveSection('participants');
   }
 
+  function handleResultsDemoLaunch(result: ResultsUploadResult) {
+    setResultsDemoKey(k => k + 1);
+    setResultsSession(result);
+    setActiveSection('results');
+  }
+
   function handleParticipantReset() {
     setParticipantSession(null);
   }
@@ -102,10 +115,15 @@ function AppShell() {
 
       <header className={`app-header${holidayBadge ? ' app-header--holiday' : ''}`}>
         <div className="app-header-inner">
-          <span className="app-logo">
+          <button
+            type="button"
+            className="app-logo"
+            onClick={() => navigateTo('home')}
+            aria-label="RaceStats — go to home"
+          >
             RaceStats
             {holidayBadge && <span className="app-logo-badge" aria-hidden="true">{holidayBadge}</span>}
-          </span>
+          </button>
 
           <nav className="app-nav" aria-label="Main navigation">
             {NAV_ITEMS.map(item => (
@@ -130,7 +148,7 @@ function AppShell() {
 
       <main id="main-content" className="app-main" tabIndex={-1}>
         {activeSection === 'home' && (
-          <HomePage onDemoLaunch={handleDemoLaunch} onNavigate={navigateTo} />
+          <HomePage onDemoLaunch={handleDemoLaunch} onResultsDemoLaunch={handleResultsDemoLaunch} onNavigate={navigateTo} />
         )}
 
         {activeSection === 'participants' && participantSession === null && (
@@ -150,7 +168,11 @@ function AppShell() {
           />
         )}
 
-        {activeSection === 'results' && <RaceResultsPage />}
+        {activeSection === 'learn' && <LearnPage />}
+
+        {activeSection === 'results' && (
+          <RaceResultsPage key={resultsDemoKey} initialResult={resultsSession ?? undefined} />
+        )}
         {activeSection === 'financials' && <FinancialsPage />}
         {activeSection === 'about' && <AboutPage />}
       </main>

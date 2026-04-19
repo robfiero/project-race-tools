@@ -16,7 +16,7 @@ export default function GeographicSection({ stats }: Props) {
 
   return (
     <section className="chart-section">
-      <SectionHeader title="Geographic" />
+      <SectionHeader title="Geographic Distribution" />
 
       <div className="stat-cards-row">
         <StatCard label="US Participants" value={stats.usParticipants.toLocaleString()} />

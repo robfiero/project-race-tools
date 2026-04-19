@@ -1,0 +1,564 @@
+/* ── Upload phase ─────────────────────────────────────────────────────────── */
+
+.rr-upload-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.rr-upload-intro {
+  margin-bottom: 1.25rem;
+}
+
+.rr-upload-intro h1 {
+  font-size: 1.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.rr-upload-intro p {
+  margin: 0 0 0.4rem;
+  color: #444;
+}
+
+.rr-upload-supported {
+  font-size: 0.88rem;
+  color: #666;
+}
+
+/* ── Unified upload card ─────────────────────────────────────────────────── */
+
+.rr-upload-card {
+  padding: 0;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+/* ── Race details section (top of card) ──────────────────────────────────── */
+
+.rr-upload-details {
+  padding: 1rem 1.25rem 0.9rem;
+  background: var(--color-primary-light, #f8f5ff);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.rr-upload-details-heading {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  margin-bottom: 0.7rem;
+}
+
+.rr-upload-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1rem;
+}
+
+.rr-upload-details-hint {
+  font-size: 0.75rem;
+  color: #777;
+  margin: 0.55rem 0 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.rr-upload-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.rr-upload-field label {
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+/* ── Files section (bottom of card) ─────────────────────────────────────── */
+
+.rr-upload-files-section {
+  padding: 0.75rem 1.25rem 1rem;
+}
+
+/* ── Per-row race date fields ─────────────────────────────────────────────── */
+
+.file-row-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.file-row-dates {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem 0.55rem;
+  flex-wrap: wrap;
+  padding: 0.25rem 0 0.35rem calc(22px + 0.5rem);
+}
+
+.file-row-dates-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #888;
+  white-space: nowrap;
+}
+
+.file-row-datetime {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  background: #fff;
+  transition: border-color 0.15s;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.file-row-datetime:focus {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.file-row-datetime.datetime-empty {
+  color: #9ca3af;
+}
+
+.file-row-duration {
+  width: 4.5rem;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  background: #fff;
+  transition: border-color 0.15s;
+  text-align: right;
+}
+
+.file-row-duration:focus {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.file-row-dates-unit {
+  font-size: 0.78rem;
+  color: #888;
+}
+
+.upload-files-dates-hint {
+  font-size: 0.75rem;
+  color: #999;
+  margin: 0 0 0.5rem;
+  padding-left: calc(22px + 0.5rem);
+}
+
+input[type="datetime-local"].datetime-empty {
+  color: #9ca3af;
+}
+
+.rr-upload-error {
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+.rr-upload-submit {
+  width: 100%;
+}
+
+.rr-upload-format-note {
+  font-size: 0.85rem;
+  color: #555;
+  margin: 0.25rem 0 0;
+}
+
+.rr-upload-format-links {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  margin: 0.2rem 0 0;
+}
+
+.rr-upload-format-sep {
+  color: #ccc;
+}
+
+.rr-upload-format-hint {
+  font-size: 0.78rem;
+  color: #999;
+  margin: 0.2rem 0 0;
+  font-style: italic;
+}
+
+.rr-upload-format-link {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.rr-upload-format-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 560px) {
+  .rr-upload-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .file-row-dates {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ── Dashboard layout ─────────────────────────────────────────────────────── */
+
+.rr-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.rr-dashboard-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── Race dates row ───────────────────────────────────────────────────────── */
+
+.rr-race-dates {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+
+.rr-race-date-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.rr-race-date-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #888;
+}
+
+.rr-race-date-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.rr-race-date-time {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+/* ── Summary event cards ──────────────────────────────────────────────────── */
+
+.rr-event-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.rr-event-card {
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.rr-event-card-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.rr-event-card-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.88rem;
+  color: #444;
+}
+
+.rr-event-record {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid #f0f0f0;
+  font-size: 0.85rem;
+}
+
+.rr-event-record-label {
+  color: #666;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.rr-event-record-value {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+/* Single-event record groups */
+.rr-records-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.rr-record-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.rr-record-group-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #888;
+}
+
+.rr-record-group-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  align-items: baseline;
+}
+
+.rr-record-group-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.rr-record-group-gender {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #666;
+}
+
+.rr-record-group-time {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+/* ── Performance section ──────────────────────────────────────────────────── */
+
+.rr-perf-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 2px solid #e5e7eb;
+  margin-bottom: 0.75rem;
+}
+
+.rr-perf-tab {
+  padding: 0.45rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #666;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.rr-perf-tab:hover { color: var(--color-primary); }
+
+.rr-perf-tab--active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.rr-perf-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.rr-perf-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.rr-perf-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 120px;
+}
+
+.rr-perf-stat-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #666;
+}
+
+.rr-perf-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-primary);
+}
+
+.rr-perf-intro {
+  font-size: 0.82rem;
+  color: #555;
+  margin: 0 0 0.75rem;
+  line-height: 1.55;
+}
+
+.rr-percentile-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background: #f9f9f9;
+  border-radius: 8px;
+  padding: 0.55rem 0.8rem 0.65rem;
+}
+
+.rr-percentile-heading {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #888;
+}
+
+.rr-percentile-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.rr-percentile-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 80px;
+}
+
+.rr-percentile-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: #888;
+  font-weight: 600;
+}
+
+.rr-percentile-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.rr-perf-chart {
+  margin-top: 0.5rem;
+}
+
+.rr-perf-chart-label {
+  font-size: 0.78rem;
+  color: #888;
+  margin: 0 0 0.25rem;
+  font-style: italic;
+}
+
+.rr-gender-time-table {
+  margin-top: 0.25rem;
+}
+
+/* ── Interval comparison expanders ───────────────────────────────────────── */
+
+.cmp-expander-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  text-align: left;
+  width: 100%;
+  line-height: inherit;
+}
+
+.cmp-expander-btn:hover {
+  color: var(--color-primary);
+}
+
+.cmp-expander-icon {
+  font-size: 0.65em;
+  color: #aaa;
+  flex-shrink: 0;
+  display: inline-block;
+  width: 0.75em;
+  text-align: center;
+}
+
+.cmp-sub-row--hidden {
+  display: none;
+}
+
+@media print {
+  .cmp-sub-row--hidden {
+    display: table-row !important;
+  }
+  .cmp-expander-icon {
+    display: none !important;
+  }
+}
+
+/* ── Attrition section ────────────────────────────────────────────────────── */
+
+.rr-attrition-overall td {
+  font-weight: 600;
+  background: #f9fafb;
+}
+
+.rr-attrition-chart {
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 480px) {
+  .rr-event-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rr-perf-summary {
+    gap: 0.6rem;
+  }
+
+  .rr-perf-stat {
+    min-width: calc(50% - 0.3rem);
+  }
+}

@@ -79,9 +79,13 @@ function cleanZip(zip: string, country: string): string {
 
 function cleanCountry(s: string): string {
   const v = s.trim().toUpperCase();
-  if (v === 'USA' || v === 'US') return 'USA';
-  if (v === 'CAN' || v === 'CA') return 'CAN';
-  return v || 'Unknown';
+  if (!v) return 'Unknown';
+  if (v === 'USA' || v === 'US' || v === 'UNITED STATES' || v === 'UNITED STATES OF AMERICA' || v === 'U.S.' || v === 'U.S.A.') return 'USA';
+  if (v === 'CAN' || v === 'CA' || v === 'CANADA') return 'CAN';
+  if (v === 'GBR' || v === 'UK' || v === 'UNITED KINGDOM' || v === 'GREAT BRITAIN') return 'GBR';
+  if (v === 'AUS' || v === 'AUSTRALIA') return 'AUS';
+  if (v === 'NZL' || v === 'NEW ZEALAND') return 'NZL';
+  return v;
 }
 
 function cleanState(s: string): string {

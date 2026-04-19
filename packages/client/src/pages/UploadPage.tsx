@@ -103,7 +103,7 @@ function FileRow({
           id={inputId}
           ref={fileInputRef}
           type="file"
-          accept=".csv,.xlsx,.xls"
+          accept=".csv,.xlsx"
           onChange={onFileChange}
           style={{ display: 'none' }}
           aria-label={`${required ? 'Required: ' : ''}File for row ${index + 1}`}
@@ -223,14 +223,14 @@ export default function UploadPage({ onUploadComplete }: Props) {
         const data = await res.json();
         if (!res.ok) {
           const rowLabel = toUpload.length > 1
-            ? ` (${row.year || row.file!.name.replace(/\.(csv|xlsx|xls)$/i, '')})`
+            ? ` (${row.year || row.file!.name.replace(/\.(csv|xlsx)$/i, '')})`
             : '';
           setError((data.error ?? 'Upload failed.') + rowLabel);
           setUploading(false);
           return;
         }
         // Use year as label; fall back to filename without extension
-        const label = row.year || row.file!.name.replace(/\.(csv|xlsx|xls)$/i, '');
+        const label = row.year || row.file!.name.replace(/\.(csv|xlsx)$/i, '');
         results.push({ response: data as UploadResponse, label });
       } catch {
         setError('Could not reach the server. Make sure it is running.');
@@ -261,7 +261,7 @@ export default function UploadPage({ onUploadComplete }: Props) {
         </p>
         <p className="upload-supported">
           Supported platforms: <strong>UltraSignup</strong> &nbsp;·&nbsp; More coming soon
-          &nbsp;·&nbsp; Formats: <strong>CSV</strong>, <strong>Excel (.xlsx, .xls)</strong>
+          &nbsp;·&nbsp; Formats: <strong>CSV</strong>, <strong>Excel (.xlsx)</strong>
         </p>
       </div>
 
@@ -275,7 +275,7 @@ export default function UploadPage({ onUploadComplete }: Props) {
             <input
               id="race-name"
               type="text"
-              placeholder="e.g. Ghost Train Trail Races"
+              placeholder="e.g. Ridgeline Trail Races"
               value={raceName}
               onChange={e => setRaceName(e.target.value)}
             />
@@ -288,7 +288,7 @@ export default function UploadPage({ onUploadComplete }: Props) {
             <input
               id="venue-address"
               type="text"
-              placeholder="e.g. 123 Trail Head Rd, Franconia, NH 03580"
+              placeholder="e.g. 1 Mason Road, Brookline, NH 03033"
               value={venueAddress}
               onChange={e => setVenueAddress(e.target.value)}
             />

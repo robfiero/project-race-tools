@@ -103,7 +103,7 @@ export default function DashboardPage({ session, label, onBack }: Props) {
         onChange={setSelectedEvents}
       />
 
-      {loading && <div className="dashboard-loading" role="status" aria-live="polite">Loading statistics…</div>}
+      {loading && <div className="dashboard-loading" role="status" aria-live="polite" aria-busy="true">Loading statistics…</div>}
       {error && <div className="dashboard-error" role="alert">{error}</div>}
 
       {stats && !loading && (

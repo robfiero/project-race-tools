@@ -132,13 +132,33 @@ function computeAge(participants: ParticipantRecord[]): AgeStats {
 
 // ─── Geographic ─────────────────────────────────────────────────────────────
 
+const US_STATES_P = new Set([
+  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
+  'KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
+  'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT',
+  'VA','WA','WV','WI','WY','DC','PR','VI','GU','AS','MP',
+]);
+
+const CA_PROVINCES_P = new Set([
+  'AB','BC','MB','NB','NL','NS','NT','NU','ON','PE','QC','SK','YT',
+]);
+
+function inferCountryP(state: string, existingCountry: string): string {
+  if (existingCountry && existingCountry !== 'Unknown') return existingCountry;
+  const s = state.toUpperCase().trim();
+  if (US_STATES_P.has(s)) return 'USA';
+  if (CA_PROVINCES_P.has(s)) return 'CAN';
+  return existingCountry || '';
+}
+
 function computeGeographic(participants: ParticipantRecord[]): GeographicStats {
   const byState: Record<string, number> = {};
   const byCountry: Record<string, number> = {};
 
   for (const p of participants) {
     if (p.state) byState[p.state] = (byState[p.state] ?? 0) + 1;
-    if (p.country) byCountry[p.country] = (byCountry[p.country] ?? 0) + 1;
+    const country = inferCountryP(p.state, p.country);
+    if (country && country !== 'Unknown') byCountry[country] = (byCountry[country] ?? 0) + 1;
   }
 
   const topStates = Object.entries(byState)
@@ -151,13 +171,15 @@ function computeGeographic(participants: ParticipantRecord[]): GeographicStats {
     .sort((a, b) => b.count - a.count)
     .slice(0, 20);
 
+  const usParticipants = byCountry['USA'] ?? 0;
+
   return {
     byState,
     byCountry,
     topStates,
     topCountries,
-    usParticipants: byCountry['USA'] ?? 0,
-    internationalParticipants: participants.filter(p => p.country !== 'USA').length,
+    usParticipants,
+    internationalParticipants: participants.length - usParticipants,
   };
 }
 

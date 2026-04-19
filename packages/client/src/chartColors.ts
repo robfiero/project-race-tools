@@ -31,3 +31,9 @@ export function chartPalette(theme: Theme, count: number): string[] {
   const full: string[] = [...theme.chart, ...EXTRA_COLORS];
   return Array.from({ length: count }, (_, i) => full[i % full.length]);
 }
+
+// Consistent gender color assignment using the active theme palette.
+// Always use this instead of hard-coding colors per gender.
+export function genderColors(theme: Theme): { M: string; F: string; NB: string; Unknown: string } {
+  return { F: theme.chart[0], M: theme.chart[1], NB: theme.chart[2], Unknown: '#bbb' };
+}

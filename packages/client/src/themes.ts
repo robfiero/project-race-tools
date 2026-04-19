@@ -62,6 +62,12 @@ const STANDARD: Theme[] = [
     chart: ['#c65a1e', '#2563eb', '#15803d', '#7c3aed'],
   },
   {
+    id: 'ultrasignup',
+    label: 'UltraSignup',
+    primary: '#3a7d32', primaryHover: '#2d6227', primaryLight: '#f0f8ee',
+    chart: ['#3a7d32', '#c8a017', '#1e6b8a', '#7c5a28'],
+  },
+  {
     id: 'forest',
     label: 'Forest',
     primary: '#1f6b3a', primaryHover: '#17542d', primaryLight: '#eef8f1',
@@ -198,6 +204,14 @@ function getThemeVisuals(themeId: string, primary: string): ThemeVisuals {
   };
 
   switch (themeId) {
+    case 'ultrasignup':
+      return {
+        headerBackground: 'linear-gradient(110deg, #1a2332 0%, #2c3e50 55%, #3a7d32 100%)',
+        headerForeground: '#ffffff',
+        sectionDividerImage: 'repeating-linear-gradient(90deg, #3a7d32 0 11px, #c8a017 11px 20px, #f0f8ee 20px 24px)',
+        burstColorA: '#3a7d32',
+        burstColorB: '#c8a017',
+      };
     case 'newyear':
       return {
         headerBackground: 'linear-gradient(110deg, #0f172a 0%, #312e81 45%, #b8870b 100%)',

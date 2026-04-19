@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { apiUrl } from '../api.ts';
-import type { UploadResponse } from '../types.ts';
+import type { UploadResponse, ResultsUploadResponse } from '../types.ts';
 import type { Section, ParticipantSession } from '../App.tsx';
+import type { UploadResult as ResultsUploadResult } from './RaceResultsPage.tsx';
 import './HomePage.css';
 
 interface Props {
   onDemoLaunch: (session: ParticipantSession) => void;
+  onResultsDemoLaunch: (result: ResultsUploadResult) => void;
   onNavigate: (section: Section) => void;
 }
 
@@ -47,6 +49,44 @@ async function fetchSample(sampleId: string): Promise<UploadResponse> {
   return data as unknown as UploadResponse;
 }
 
+// ─── Race Analytics demo data ─────────────────────────────────────────────────
+
+const RESULTS_SINGLE_DEMOS = [
+  { id: 'ghost-train-2024',                label: 'Ridgeline Trail Races — single 50K, ~90 starters',   year: '2024' },
+  { id: 'white-mountains-results-2024',    label: 'White Mountains Challenge — HM + 50K, ~240 starters',  year: '2024' },
+  { id: 'mountain-endurance-results-2024', label: 'Mountain Endurance Challenge — 4 events, ~650 starters', year: '2024' },
+];
+
+const RESULTS_MULTI_DEMOS = [
+  {
+    label: 'Ridgeline Trail Races — 2022, 2023, 2024',
+    years: [
+      { id: 'ghost-train-2022', year: '2022' },
+      { id: 'ghost-train-2023', year: '2023' },
+      { id: 'ghost-train-2024', year: '2024' },
+    ],
+  },
+  {
+    label: 'Mountain Endurance Challenge — 2022, 2023, 2024',
+    years: [
+      { id: 'mountain-endurance-results-2022', year: '2022' },
+      { id: 'mountain-endurance-results-2023', year: '2023' },
+      { id: 'mountain-endurance-results-2024', year: '2024' },
+    ],
+  },
+];
+
+async function fetchResultsSample(sampleId: string): Promise<ResultsUploadResponse> {
+  const res = await fetch(apiUrl('/api/results/sample'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sampleId }),
+  });
+  const data = await res.json() as Record<string, unknown>;
+  if (!res.ok) throw new Error((data.error as string) ?? 'Failed to load results sample');
+  return data as unknown as ResultsUploadResponse;
+}
+
 // ─── Tool card ────────────────────────────────────────────────────────────────
 
 interface ToolCardProps {
@@ -84,11 +124,17 @@ function ToolCard({ title, description, section, available, onNavigate }: ToolCa
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-export default function HomePage({ onDemoLaunch, onNavigate }: Props) {
+export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate }: Props) {
   const [singleDemoIdx, setSingleDemoIdx] = useState(0);
   const [multiDemoIdx, setMultiDemoIdx]   = useState(0);
   const [singleLoading, setSingleLoading] = useState(false);
   const [multiLoading,  setMultiLoading]  = useState(false);
+
+  const [rSingleDemoIdx, setRSingleDemoIdx] = useState(0);
+  const [rMultiDemoIdx,  setRMultiDemoIdx]  = useState(0);
+  const [rSingleLoading, setRSingleLoading] = useState(false);
+  const [rMultiLoading,  setRMultiLoading]  = useState(false);
+
   const [error, setError] = useState<string | null>(null);
 
   async function launchSingleDemo() {
@@ -129,6 +175,46 @@ export default function HomePage({ onDemoLaunch, onNavigate }: Props) {
     }
   }
 
+  async function launchResultsSingleDemo() {
+    const demo = RESULTS_SINGLE_DEMOS[rSingleDemoIdx];
+    setRSingleLoading(true);
+    setError(null);
+    try {
+      const response = await fetchResultsSample(demo.id);
+      onResultsDemoLaunch({ mode: 'single', upload: response, label: demo.year });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load demo');
+    } finally {
+      setRSingleLoading(false);
+    }
+  }
+
+  async function launchResultsMultiDemo() {
+    const demo = RESULTS_MULTI_DEMOS[rMultiDemoIdx];
+    setRMultiLoading(true);
+    setError(null);
+    try {
+      const results = await Promise.all(
+        demo.years.map(y => fetchResultsSample(y.id).then(r => ({ response: r, label: y.year }))),
+      );
+      const sorted = [...results].sort((a, b) => parseInt(a.label) - parseInt(b.label));
+      onResultsDemoLaunch({
+        mode: 'comparison',
+        sessions: sorted.map(r => ({
+          sessionId: r.response.sessionId,
+          label: r.label,
+          raceName: r.response.raceName,
+        })),
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load demo');
+    } finally {
+      setRMultiLoading(false);
+    }
+  }
+
+  const anyLoading = singleLoading || multiLoading || rSingleLoading || rMultiLoading;
+
   return (
     <div className="home-page">
 
@@ -143,22 +229,40 @@ export default function HomePage({ onDemoLaunch, onNavigate }: Props) {
         </p>
       </section>
 
+      {/* ── Analytics pitch ── */}
+      <section className="home-analytics-pitch card">
+        <p className="home-analytics-pitch-text">
+          <strong className="home-analytics-pitch-lead">
+            Numbers alone don't capture what makes a race meaningful — but analytics can
+            surface the story behind them.
+          </strong>{' '}
+          Whether it's understanding why your finish rate dropped, who your participants
+          really are, or how conditions shaped the day, the data your race already
+          generates is full of insight waiting to be read.
+        </p>
+        <button
+          type="button"
+          className="btn home-analytics-pitch-btn"
+          onClick={() => onNavigate('learn')}
+        >
+          Learn how analytics can help your race →
+        </button>
+      </section>
+
       {/* ── Demo launcher ── */}
       <section className="home-demo card">
-        <h2 className="home-demo-title">Try it with sample data</h2>
+        <h2 className="home-demo-title">Explore analytics with our sample data</h2>
         <p className="home-demo-desc">
           Explore the tools without uploading your own files. Choose a sample race below and
           launch the analysis instantly.
         </p>
 
+        {/* ── Participant Analytics demos ── */}
         <div className="home-demo-tool-label">
           <span className="home-demo-tool-name">Participant Analytics</span>
-          <span className="home-demo-tool-hint">Additional samples for Race Result Analytics and Financials will be added when those tools launch.</span>
         </div>
 
         <div className="home-demo-rows">
-
-          {/* Single-year */}
           <div className="demo-row">
             <span className="demo-row-label">Single-year analysis</span>
             <div className="demo-row-controls">
@@ -166,7 +270,7 @@ export default function HomePage({ onDemoLaunch, onNavigate }: Props) {
                 className="demo-select"
                 value={singleDemoIdx}
                 onChange={e => setSingleDemoIdx(Number(e.target.value))}
-                aria-label="Select sample race for single-year demo"
+                aria-label="Select sample race for single-year participant demo"
               >
                 {SINGLE_DEMOS.map((d, i) => (
                   <option key={d.id} value={i}>{d.label}</option>
@@ -176,8 +280,8 @@ export default function HomePage({ onDemoLaunch, onNavigate }: Props) {
                 type="button"
                 className="btn btn-primary demo-btn"
                 onClick={launchSingleDemo}
-                disabled={singleLoading || multiLoading}
-                aria-label="Launch single-year demo"
+                disabled={anyLoading}
+                aria-label="Launch single-year participant demo"
               >
                 {singleLoading ? 'Loading…' : 'See Demo →'}
               </button>
@@ -186,7 +290,6 @@ export default function HomePage({ onDemoLaunch, onNavigate }: Props) {
 
           <div className="demo-divider" aria-hidden="true" />
 
-          {/* Multi-year */}
           <div className="demo-row">
             <span className="demo-row-label">Multi-year comparison</span>
             <div className="demo-row-controls">
@@ -194,7 +297,7 @@ export default function HomePage({ onDemoLaunch, onNavigate }: Props) {
                 className="demo-select"
                 value={multiDemoIdx}
                 onChange={e => setMultiDemoIdx(Number(e.target.value))}
-                aria-label="Select sample race series for multi-year demo"
+                aria-label="Select sample race series for multi-year participant demo"
               >
                 {MULTI_DEMOS.map((d, i) => (
                   <option key={i} value={i}>{d.label}</option>
@@ -204,21 +307,79 @@ export default function HomePage({ onDemoLaunch, onNavigate }: Props) {
                 type="button"
                 className="btn btn-primary demo-btn"
                 onClick={launchMultiDemo}
-                disabled={singleLoading || multiLoading}
-                aria-label="Launch multi-year demo"
+                disabled={anyLoading}
+                aria-label="Launch multi-year participant demo"
               >
                 {multiLoading ? 'Loading…' : 'See Demo →'}
               </button>
             </div>
           </div>
+        </div>
 
+        {/* ── Race Analytics demos ── */}
+        <div className="home-demo-tool-label home-demo-tool-label--spaced">
+          <span className="home-demo-tool-name">Race Analytics</span>
+        </div>
+
+        <div className="home-demo-rows">
+          <div className="demo-row">
+            <span className="demo-row-label">Single-year analysis</span>
+            <div className="demo-row-controls">
+              <select
+                className="demo-select"
+                value={rSingleDemoIdx}
+                onChange={e => setRSingleDemoIdx(Number(e.target.value))}
+                aria-label="Select sample race for single-year results demo"
+              >
+                {RESULTS_SINGLE_DEMOS.map((d, i) => (
+                  <option key={d.id} value={i}>{d.label}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn btn-primary demo-btn"
+                onClick={launchResultsSingleDemo}
+                disabled={anyLoading}
+                aria-label="Launch single-year results demo"
+              >
+                {rSingleLoading ? 'Loading…' : 'See Demo →'}
+              </button>
+            </div>
+          </div>
+
+          <div className="demo-divider" aria-hidden="true" />
+
+          <div className="demo-row">
+            <span className="demo-row-label">Multi-year comparison</span>
+            <div className="demo-row-controls">
+              <select
+                className="demo-select"
+                value={rMultiDemoIdx}
+                onChange={e => setRMultiDemoIdx(Number(e.target.value))}
+                aria-label="Select sample race series for multi-year results demo"
+              >
+                {RESULTS_MULTI_DEMOS.map((d, i) => (
+                  <option key={i} value={i}>{d.label}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn btn-primary demo-btn"
+                onClick={launchResultsMultiDemo}
+                disabled={anyLoading}
+                aria-label="Launch multi-year results demo"
+              >
+                {rMultiLoading ? 'Loading…' : 'See Demo →'}
+              </button>
+            </div>
+          </div>
         </div>
 
         {error && <p className="demo-error" role="alert">{error}</p>}
 
         <p className="demo-note">
-          Sample data is synthetic — names, emails, and addresses are never real. Personal
-          information is stripped immediately on upload for your own files as well.
+          Sample data is synthetic — names and personal information are never real and are
+          stripped immediately on upload for your own files as well.
         </p>
       </section>
 
@@ -234,10 +395,10 @@ export default function HomePage({ onDemoLaunch, onNavigate }: Props) {
             onNavigate={onNavigate}
           />
           <ToolCard
-            title="Race Result Analytics"
-            description="Analyze finish times, DNF rates, pace distributions, and performance trends across one or multiple years of race results."
+            title="Race Analytics"
+            description="Analyze finish times, DNF rates, pace distributions, attrition patterns, and weather correlations across one or multiple years of race results."
             section="results"
-            available={false}
+            available={true}
             onNavigate={onNavigate}
           />
           <ToolCard

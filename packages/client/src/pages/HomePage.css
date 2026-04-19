@@ -25,6 +25,44 @@
   margin: 0;
 }
 
+/* ─── Analytics pitch ────────────────────────────────────────────────────── */
+
+.home-analytics-pitch {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.home-analytics-pitch-text {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #444;
+  line-height: 1.65;
+}
+
+.home-analytics-pitch-lead {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #222;
+}
+
+.home-analytics-pitch-btn {
+  align-self: flex-start;
+  font-size: 0.875rem;
+  padding: 0.45rem 1rem;
+  background: none;
+  border: 1px solid var(--color-primary, #2563eb);
+  color: var(--color-primary, #2563eb);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.home-analytics-pitch-btn:hover {
+  background: var(--color-primary, #2563eb);
+  color: #fff;
+}
+
 /* ─── Demo section ───────────────────────────────────────────────────────── */
 
 .home-demo-title {
@@ -51,6 +89,10 @@
   border-left: 3px solid var(--color-primary, #2563eb);
   border-radius: 0 5px 5px 0;
   margin-bottom: 0.5rem;
+}
+
+.home-demo-tool-label--spaced {
+  margin-top: 1rem;
 }
 
 .home-demo-tool-name {

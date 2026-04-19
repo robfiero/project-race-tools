@@ -48,6 +48,17 @@
   letter-spacing: -0.02em;
   color: var(--header-foreground, #fff);
   flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.app-logo:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 3px;
+  border-radius: 3px;
 }
 
 .app-logo-badge {
@@ -72,7 +83,7 @@
 .app-nav-btn {
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(255, 255, 255, 0.75);
   font-size: 0.875rem;
   font-weight: 500;
   padding: 0 0.85rem;

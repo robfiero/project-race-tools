@@ -21,7 +21,7 @@ export default function AboutPage() {
                 rel="noopener noreferrer"
                 className="about-link"
               >
-                View LinkedIn profile →
+                View LinkedIn profile<span className="sr-only"> (opens in new tab)</span> →
               </a>
               <a
                 href="https://github.com/robfiero/"
@@ -29,7 +29,7 @@ export default function AboutPage() {
                 rel="noopener noreferrer"
                 className="about-link"
               >
-                View GitHub repository →
+                View GitHub repository<span className="sr-only"> (opens in new tab)</span> →
               </a>
               <a
                 href="https://www.robfiero.net/"
@@ -37,7 +37,7 @@ export default function AboutPage() {
                 rel="noopener noreferrer"
                 className="about-link"
               >
-                View portfolio website →
+                View portfolio website<span className="sr-only"> (opens in new tab)</span> →
               </a>
             </div>
           </div>

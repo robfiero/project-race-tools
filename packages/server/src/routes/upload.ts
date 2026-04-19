@@ -9,7 +9,6 @@ import type { SessionData } from '../types.js';
 const ACCEPTED_MIMETYPES = new Set([
   'text/csv',
   'application/csv',
-  'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/octet-stream', // some browsers send this for .csv/.xlsx
 ]);
@@ -19,12 +18,12 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB hard limit at the transport layer
   fileFilter(_req, file, cb) {
     const ext = file.originalname.toLowerCase().split('.').pop() ?? '';
-    const extOk = ext === 'csv' || ext === 'xlsx' || ext === 'xls';
+    const extOk = ext === 'csv' || ext === 'xlsx';
     const mimeOk = ACCEPTED_MIMETYPES.has(file.mimetype);
     if (extOk || mimeOk) {
       cb(null, true);
     } else {
-      cb(new Error('Only CSV and Excel (.xlsx, .xls) files are accepted.'));
+      cb(new Error('Only CSV and Excel (.xlsx) files are accepted.'));
     }
   },
 });
@@ -46,7 +45,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
   let adapterName;
 
   try {
-    const result = parseFile(req.file.buffer, req.file.originalname, req.file.size);
+    const result = await parseFile(req.file.buffer, req.file.originalname, req.file.size);
     participants = result.participants;
     adapterName = result.adapterName;
   } catch (err) {
@@ -62,7 +61,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
   // Race name for display purposes (optional, defaults to filename without extension)
   const raceName: string =
     (req.body.raceName as string)?.trim() ||
-    req.file.originalname.replace(/\.(csv|xlsx|xls)$/i, '');
+    req.file.originalname.replace(/\.(csv|xlsx)$/i, '');
 
   // Timezone for interpreting registration timestamps (IANA name, e.g. "America/New_York")
   const timezone: string = (req.body.timezone as string)?.trim() || 'America/New_York';

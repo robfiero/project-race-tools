@@ -41,7 +41,7 @@ router.post('/', async (req: Request, res: Response) => {
   let participants;
   let adapterName;
   try {
-    const result = parseFile(buffer, `${sampleId}.csv`, buffer.length);
+    const result = await parseFile(buffer, `${sampleId}.csv`, buffer.length);
     participants = result.participants;
     adapterName = result.adapterName;
   } catch (err) {

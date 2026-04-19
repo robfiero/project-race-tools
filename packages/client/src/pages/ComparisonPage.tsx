@@ -175,9 +175,12 @@ function SummaryTable({ trends, labels, hasDistanceTrend }: SummaryTableProps) {
                   >
                     {fmt(pt.value, row.unit ?? '', row.precision ?? 1)}
                     {i > 0 && pt.value !== null && first !== null && Math.abs(pt.value - first) >= 0.05 && (
-                      <span className="cmp-delta" aria-hidden="true">
-                        {' '}{pt.value > first ? '▲' : '▼'}
-                      </span>
+                      <>
+                        <span className="cmp-delta" aria-hidden="true">
+                          {' '}{pt.value > first ? '▲' : '▼'}
+                        </span>
+                        <span className="sr-only">{pt.value > first ? ', increased' : ', decreased'}</span>
+                      </>
                     )}
                   </td>
                 ))}
@@ -317,7 +320,7 @@ export default function ComparisonPage({ sessions, onBack }: Props) {
       </div>
 
       {loading && (
-        <div className="comparison-loading" role="status" aria-live="polite">
+        <div className="comparison-loading" role="status" aria-live="polite" aria-busy="true">
           Loading comparison…
         </div>
       )}
