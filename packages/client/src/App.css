@@ -201,6 +201,39 @@
   .holiday-burst { animation: none; opacity: 0; }
 }
 
+/* ─── Report subnav ──────────────────────────────────────────────────────── */
+
+.report-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  padding: 0.5rem 0.75rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.report-nav-link {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #555;
+  text-decoration: none;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.report-nav-link:hover {
+  background: var(--color-primary-light, #e0e8ff);
+  color: var(--color-primary, #2563eb);
+}
+
+/* Scroll offset for anchor targets below sticky-ish content */
+[id^="dash-"], [id^="rr-"] {
+  scroll-margin-top: 1.5rem;
+}
+
 /* ─── Shared card style ──────────────────────────────────────────────────── */
 
 .card {

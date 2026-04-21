@@ -11,6 +11,7 @@ import resultsStatsRouter from './routes/resultsStats.js';
 import resultsCompareRouter from './routes/resultsCompare.js';
 import resultsSampleRouter from './routes/resultsSample.js';
 import { loadZipCentroids } from './geo/zipLoader.js';
+import { buildAllowedOrigins, makeOriginCallback } from './corsOrigins.js';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 
@@ -18,28 +19,11 @@ async function main() {
   await loadZipCentroids();
 
   const app = express();
-  const allowedOrigins = new Set<string>(['http://localhost:5173']);
-  if (process.env.CLIENT_ORIGIN) {
-    allowedOrigins.add(process.env.CLIENT_ORIGIN);
-  }
-
+  const allowedOrigins = buildAllowedOrigins(process.env.CLIENT_ORIGIN);
   const isDev = !process.env.CLIENT_ORIGIN;
-  const LOCALHOST_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
   const corsOptions: cors.CorsOptions = {
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.has(origin)) {
-        callback(null, true);
-        return;
-      }
-      // In development (no CLIENT_ORIGIN set) allow any localhost port so that
-      // JSON preflights work regardless of the Vite dev-server port in use.
-      if (isDev && LOCALHOST_RE.test(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error('Not allowed by CORS'));
-    },
+    origin: makeOriginCallback(allowedOrigins, isDev),
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type'],
     optionsSuccessStatus: 204,

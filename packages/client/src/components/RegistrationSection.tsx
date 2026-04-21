@@ -6,8 +6,10 @@ import {
 import type { RegistrationStats, RegistrantProfile } from '../types.ts';
 import SectionHeader from './SectionHeader.tsx';
 import StatCard from './StatCard.tsx';
+import InsightCallout from './InsightCallout.tsx';
 import { useTheme } from '../ThemeContext.tsx';
 import { chartPalette } from '../chartColors.ts';
+import { registrationInsights } from '../insights.ts';
 import './ChartSection.css';
 
 interface Props { stats: RegistrationStats; }
@@ -41,6 +43,7 @@ export default function RegistrationSection({ stats }: Props) {
   const monthColors = chartPalette(theme, stats.byMonth.length);
   const dowColors = chartPalette(theme, stats.byDayOfWeek.length);
   const monthData = stats.byMonth.map(m => ({ ...m, month: formatMonth(m.month) }));
+  const insights = registrationInsights(stats);
 
   // For the cumulative chart, show every Nth point to keep it readable
   const stride = Math.max(1, Math.floor(stats.cumulative.length / 60));
@@ -65,6 +68,8 @@ export default function RegistrationSection({ stats }: Props) {
         <StatCard label="Peak Day" value={peakDay.day} sub={`${peakDay.count} registrations`} />
         <StatCard label="Peak Hour" value={peakHour.label} sub={`${peakHour.count} registrations`} />
       </div>
+
+      <InsightCallout insights={insights} />
 
       {/* Monthly registrations */}
       <div className="chart-subsection">

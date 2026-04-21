@@ -9,6 +9,39 @@
   color: #333;
 }
 
+/* ── Compact summary ─────────────────────────────────────────────────────── */
+
+.wx-summary {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: 0.6rem 0.9rem;
+  background: #f5f7ff;
+  border-radius: 6px;
+  border: 1px solid var(--color-primary-light, #e0e8ff);
+}
+
+.wx-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.wx-summary-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #888;
+}
+
+.wx-summary-value {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #222;
+}
+
 /* ── Grid layout ─────────────────────────────────────────────────────────── */
 
 .wx-grid-scroll {

@@ -19,7 +19,7 @@ interface GuideSection {
 const GUIDE_SECTIONS: GuideSection[] = [
   {
     id: 'participant',
-    heading: 'Participant Analytics',
+    heading: 'Registration Analytics',
     intro:
       'Participant analytics are drawn from your race registration export — the data your ' +
       'registration platform collects when someone signs up. Because it captures behavior ' +
@@ -273,7 +273,7 @@ const GUIDE_SECTIONS: GuideSection[] = [
     heading: 'Race Analytics',
     intro:
       'Race analytics are drawn from your timing and results export — the data captured ' +
-      'on race day itself. Where participant analytics tell you who came and why, results ' +
+      'on race day itself. Where registration analytics tell you who came and why, results ' +
       'analytics tell you what happened once the race actually started: who finished, how long it ' +
       'took, who dropped and when, and how performance varied across gender, age, and ' +
       'distance. Combined with participant data and — where available — weather conditions, ' +
@@ -523,10 +523,10 @@ export default function LearnPage() {
       {/* ── Intro ── */}
       <section className="learn-hero">
         <h1 className="learn-hero-title">Learn Analytical Impacts</h1>
-        <p className="learn-hero-tagline">
-          The goal isn't to turn race directors into analysts; it's to surface the analytics
-          and let them tell you their story.
-        </p>
+        <blockquote className="learn-hero-tagline">
+          The goal isn't to turn race directors into analysts.<br />
+          It's to surface the analytics and let them tell you their story.
+        </blockquote>
         <div className="learn-hero-body">
           <p>
             Your registration and timing platforms already collect the data. Analytics

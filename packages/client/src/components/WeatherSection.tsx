@@ -54,6 +54,36 @@ const WX_ROWS: WxRow[] = [
   { label: 'Gusts',       render: s => `${s.windGustMph} mph` },
 ];
 
+// ─── Compact summary ──────────────────────────────────────────────────────────
+
+function WeatherSummary({ snaps }: { snaps: WeatherSnapshot[] }) {
+  const start = snaps[0];
+  const peakTemp = Math.max(...snaps.map(s => s.tempF));
+  const peakWind = Math.max(...snaps.map(s => s.windGustMph ?? s.windMph));
+  const peakWindSnap = snaps.find(s => (s.windGustMph ?? s.windMph) === peakWind)!;
+
+  return (
+    <div className="wx-summary" aria-label="Weather summary">
+      <div className="wx-summary-item">
+        <span className="wx-summary-label">Start</span>
+        <span className="wx-summary-value">
+          {weatherIcon(start.weatherCode)} {start.tempF}°F · {start.weatherDesc}
+        </span>
+      </div>
+      <div className="wx-summary-item">
+        <span className="wx-summary-label">Peak temp</span>
+        <span className="wx-summary-value">{peakTemp}°F</span>
+      </div>
+      <div className="wx-summary-item">
+        <span className="wx-summary-label">Peak wind</span>
+        <span className="wx-summary-value">
+          {peakWind} mph {peakWindSnap.windDir}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface WeatherSectionProps {
@@ -71,6 +101,7 @@ export default function WeatherSection({ weather }: WeatherSectionProps) {
       <p className="wx-venue">
         <span className="wx-venue-label">Venue:</span> {weather.venueAddress}
       </p>
+      <WeatherSummary snaps={snaps} />
       <div className="wx-grid-scroll">
         <table className="wx-grid" aria-label="Race weather conditions">
           <tbody>

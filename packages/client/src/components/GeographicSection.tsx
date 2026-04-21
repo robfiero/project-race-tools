@@ -2,8 +2,10 @@ import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveCo
 import type { GeographicStats } from '../types.ts';
 import SectionHeader from './SectionHeader.tsx';
 import StatCard from './StatCard.tsx';
+import InsightCallout from './InsightCallout.tsx';
 import { useTheme } from '../ThemeContext.tsx';
 import { chartPalette } from '../chartColors.ts';
+import { geographicInsights } from '../insights.ts';
 import './ChartSection.css';
 
 interface Props { stats: GeographicStats; }
@@ -13,6 +15,7 @@ export default function GeographicSection({ stats }: Props) {
   const topStates = stats.topStates.slice(0, 15);
   const topCountries = stats.topCountries.slice(0, 10);
   const stateColors = chartPalette(theme, topStates.length);
+  const insights = geographicInsights(stats);
 
   return (
     <section className="chart-section">
@@ -24,6 +27,8 @@ export default function GeographicSection({ stats }: Props) {
         <StatCard label="States / Provinces" value={Object.keys(stats.byState).length} />
         <StatCard label="Countries" value={Object.keys(stats.byCountry).length} />
       </div>
+
+      <InsightCallout insights={insights} />
 
       <div className="chart-subsection">
         <h3 className="chart-subsection-title">Top States / Provinces</h3>

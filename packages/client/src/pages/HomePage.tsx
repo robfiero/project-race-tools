@@ -223,7 +223,7 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
         <h1 className="home-hero-title">Race Director Analytics</h1>
         <p className="home-hero-subtitle">
           This project is a suite of data tools for race directors to perform deeper analytics
-          on various race related data. Upload various files from your registration and results
+          on various race-related data. Upload various files from your registration and results
           hosting systems to explore demographics, registration trends, and year-over-year
           growth — with no personally identifiable information ever stored.
         </p>
@@ -259,7 +259,7 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
 
         {/* ── Participant Analytics demos ── */}
         <div className="home-demo-tool-label">
-          <span className="home-demo-tool-name">Participant Analytics</span>
+          <span className="home-demo-tool-name">Registration Analytics</span>
         </div>
 
         <div className="home-demo-rows">
@@ -283,7 +283,7 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
                 disabled={anyLoading}
                 aria-label="Launch single-year participant demo"
               >
-                {singleLoading ? 'Loading…' : 'See Demo →'}
+                {singleLoading ? 'Loading…' : 'See demo →'}
               </button>
             </div>
           </div>
@@ -310,7 +310,7 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
                 disabled={anyLoading}
                 aria-label="Launch multi-year participant demo"
               >
-                {multiLoading ? 'Loading…' : 'See Demo →'}
+                {multiLoading ? 'Loading…' : 'See demo →'}
               </button>
             </div>
           </div>
@@ -342,7 +342,7 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
                 disabled={anyLoading}
                 aria-label="Launch single-year results demo"
               >
-                {rSingleLoading ? 'Loading…' : 'See Demo →'}
+                {rSingleLoading ? 'Loading…' : 'See demo →'}
               </button>
             </div>
           </div>
@@ -369,7 +369,7 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
                 disabled={anyLoading}
                 aria-label="Launch multi-year results demo"
               >
-                {rMultiLoading ? 'Loading…' : 'See Demo →'}
+                {rMultiLoading ? 'Loading…' : 'See demo →'}
               </button>
             </div>
           </div>
@@ -378,8 +378,9 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
         {error && <p className="demo-error" role="alert">{error}</p>}
 
         <p className="demo-note">
-          Sample data is synthetic — names and personal information are never real and are
-          stripped immediately on upload for your own files as well.
+          Sample data is synthetic. Names and personal information are never real, and
+          personal information in uploaded files is never read or analyzed — only
+          aggregate statistics are computed and displayed.
         </p>
       </section>
 
@@ -388,7 +389,7 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
         <h2 className="home-tools-title">Available tools</h2>
         <div className="home-tools-grid">
           <ToolCard
-            title="Participant Analytics"
+            title="Registration Analytics"
             description="Upload UltraSignup exports to explore registration demographics, age and gender breakdowns, geographic reach, registration timing, coupon usage, and year-over-year comparisons."
             section="participants"
             available={true}

@@ -99,7 +99,7 @@ function processRows(headers: string[], rows: RawRow[]): ResultsParseResult {
     throw new ParseError(
       'Unrecognized results file format. Expected a UltraSignup results export ' +
       'with columns: place, bib, time, distance, finish_status. ' +
-      'If uploading a participant registration file, use the Participant Analytics tab.',
+      'If uploading a registration file, use the Registration Analytics tab.',
     );
   }
 

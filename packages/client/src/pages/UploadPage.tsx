@@ -14,7 +14,7 @@ interface Props {
   onUploadComplete: (result: UploadResult) => void;
 }
 
-const NUM_ROWS = 5;
+const MAX_ROWS = 5;
 
 const TIMEZONES = [
   { value: 'America/New_York',    label: 'Eastern (ET)' },
@@ -157,9 +157,7 @@ function FileRow({
 
 export default function UploadPage({ onUploadComplete }: Props) {
   const pageHeadingRef = useRef<HTMLHeadingElement>(null);
-  const [rows, setRows] = useState<UploadRow[]>(() =>
-    Array.from({ length: NUM_ROWS }, makeRow)
-  );
+  const [rows, setRows] = useState<UploadRow[]>(() => [makeRow()]);
   const [raceName, setRaceName] = useState('');
   const [venueAddress, setVenueAddress] = useState('');
   const [timezone, setTimezone] = useState('UTC');
@@ -248,16 +246,16 @@ export default function UploadPage({ onUploadComplete }: Props) {
 
   const submitLabel = uploading
     ? (filledRows.length > 1 ? `Uploading ${filledRows.length} files…` : 'Analyzing…')
-    : (filledRows.length >= 2 ? `Compare ${filledRows.length} Years` : 'Analyze Race Data');
+    : (filledRows.length >= 2 ? `Compare ${filledRows.length} years` : 'Analyze race data');
 
   return (
     <div className="upload-page">
       <div className="upload-intro">
-        <h1 ref={pageHeadingRef} tabIndex={-1}>Race Participant Analytics</h1>
+        <h1 ref={pageHeadingRef} tabIndex={-1}>Race Registration Analytics</h1>
         <p>
-          Upload participant exports from your race registration platform. Names, email
-          and physical addresses, and phone numbers are stripped immediately on upload —
-          only aggregate statistics are retained and displayed.
+          Upload participant exports from your race registration platform. Personal
+          information in uploaded files is never read or analyzed — only aggregate
+          statistics are computed and displayed.
         </p>
         <p className="upload-supported">
           Supported platforms: <strong>UltraSignup</strong> &nbsp;·&nbsp; More coming soon
@@ -300,7 +298,7 @@ export default function UploadPage({ onUploadComplete }: Props) {
           </div>
 
           <div className="upload-field">
-            <label htmlFor="timezone">Registration timestamp timezone</label>
+            <label htmlFor="timezone">Registration timezone</label>
             <select
               id="timezone"
               value={timezone}
@@ -313,8 +311,7 @@ export default function UploadPage({ onUploadComplete }: Props) {
             </select>
             <p className="upload-hint">
               <InfoIcon />
-              Used for hour-of-day and day-of-week registration charts. Select the
-              timezone that matches your registration platform's timestamps.
+              Used to group registrations by hour and day of week.
             </p>
           </div>
         </div>
@@ -349,6 +346,20 @@ export default function UploadPage({ onUploadComplete }: Props) {
               )}
             />
           ))}
+
+          <div className="upload-files-add-row">
+            {rows.length < MAX_ROWS ? (
+              <button
+                type="button"
+                className="btn upload-add-year-btn"
+                onClick={() => setRows(prev => [...prev, makeRow()])}
+                disabled={!firstRowFilled}
+                title={!firstRowFilled ? 'Add at least one participant file to analyze race data.' : undefined}
+              >
+                + Add another year
+              </button>
+            ) : null}
+          </div>
 
           <p className="upload-files-footer-hint">
             Upload one file for a single race analysis, or multiple files (same race,

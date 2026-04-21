@@ -2,8 +2,10 @@ import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveCo
 import type { DistanceStats } from '../types.ts';
 import SectionHeader from './SectionHeader.tsx';
 import StatCard from './StatCard.tsx';
+import InsightCallout from './InsightCallout.tsx';
 import { useTheme } from '../ThemeContext.tsx';
 import { chartPalette } from '../chartColors.ts';
+import { distanceInsights } from '../insights.ts';
 import './ChartSection.css';
 
 interface Props { stats: DistanceStats; }
@@ -12,6 +14,7 @@ export default function DistanceSection({ stats }: Props) {
   const { theme } = useTheme();
   const total = stats.local + stats.regional + stats.destination || 1;
   const colors = chartPalette(theme, stats.buckets.length);
+  const insights = distanceInsights(stats);
 
   return (
     <section className="chart-section">
@@ -39,6 +42,7 @@ export default function DistanceSection({ stats }: Props) {
           sub={`${((stats.destination / total) * 100).toFixed(0)}%`}
         />
       </div>
+      <InsightCallout insights={insights} />
       <div className="chart-wrap chart-wrap--full" role="img" aria-label="Bar chart: participant counts by distance traveled">
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={stats.buckets} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>

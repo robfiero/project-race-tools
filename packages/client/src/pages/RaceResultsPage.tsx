@@ -21,7 +21,22 @@ import GenderSection from '../components/GenderSection.tsx';
 import AgeSection from '../components/AgeSection.tsx';
 import GeographicSection from '../components/GeographicSection.tsx';
 import StatCard from '../components/StatCard.tsx';
+import InsightCallout from '../components/InsightCallout.tsx';
 import WeatherSection from '../components/WeatherSection.tsx';
+import { finishTimeInsights, attritionInsights, demographicsInsights } from '../insights.ts';
+import IntervalComparisonPanel, {
+  TrendCategorySelector,
+  TrendLineChart,
+  KeyChangesList,
+  seriesDelta,
+  fmtCountDelta,
+  fmtPtsDelta,
+  fmtTimeDelta,
+  directionOf,
+  type CategoryDef,
+  type TrendSeries,
+  type KeyChangeRow,
+} from '../components/IntervalComparisonPanel.tsx';
 import './RaceResultsPage.css';
 
 // ─── Shared formatting helpers ────────────────────────────────────────────────
@@ -39,7 +54,7 @@ function fmtPct(n: number): string {
 
 // ─── Upload phase ─────────────────────────────────────────────────────────────
 
-const NUM_ROWS = 5;
+const MAX_ROWS = 5;
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 16 }, (_, i) => String(CURRENT_YEAR + 1 - i));
 
@@ -211,9 +226,7 @@ interface UploadPhaseProps {
 
 function UploadPhase({ onComplete }: UploadPhaseProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const [rows, setRows] = useState<UploadRow[]>(() =>
-    Array.from({ length: NUM_ROWS }, makeRow),
-  );
+  const [rows, setRows] = useState<UploadRow[]>(() => [makeRow()]);
   const [raceName, setRaceName] = useState('');
   const [venueAddress, setVenueAddress] = useState('');
   const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
@@ -224,7 +237,8 @@ function UploadPhase({ onComplete }: UploadPhaseProps) {
   useEffect(() => { headingRef.current?.focus(); }, []);
 
   const filledRows = rows.filter(r => r.file !== null);
-  const canSubmit = rows[0].file !== null && !uploading;
+  const firstRowFilled = rows[0].file !== null;
+  const canSubmit = firstRowFilled && !uploading;
 
   function handleFileSelect(rowId: string, file: File) {
     setError(null);
@@ -304,15 +318,16 @@ function UploadPhase({ onComplete }: UploadPhaseProps) {
 
   const submitLabel = uploading
     ? (filledRows.length > 1 ? `Uploading ${filledRows.length} files…` : 'Analyzing…')
-    : (filledRows.length >= 2 ? `Compare ${filledRows.length} Years` : 'Analyze Race Data');
+    : (filledRows.length >= 2 ? `Compare ${filledRows.length} years` : 'Analyze race data');
 
   return (
     <div className="rr-upload-page">
       <div className="rr-upload-intro">
         <h1 ref={headingRef} tabIndex={-1}>Race Analytics</h1>
         <p>
-          Upload race results exports from your timing platform. Names and personal
-          information are never stored — only aggregate statistics are retained and displayed.
+          Upload race results exports from your timing platform. Personal information
+          in uploaded files is never read or analyzed — only aggregate statistics are
+          computed and displayed.
         </p>
         <p className="rr-upload-supported">
           Supported platforms: <strong>UltraSignup</strong> &nbsp;·&nbsp; More coming soon
@@ -346,105 +361,114 @@ function UploadPhase({ onComplete }: UploadPhaseProps) {
       </div>
 
       <form onSubmit={handleSubmit} noValidate>
-        <div className="rr-upload-card card">
-          {/* ── Race details ── */}
-          <div className="rr-upload-details">
-            <div className="rr-upload-details-heading">Race details</div>
-            <div className="rr-upload-details-grid">
-              <div className="rr-upload-field">
-                <label htmlFor="rr-race-name">
-                  Race name <span className="optional">(optional)</span>
-                </label>
-                <input
-                  id="rr-race-name"
-                  type="text"
-                  placeholder="e.g. Ridgeline Trail Races"
-                  value={raceName}
-                  onChange={e => setRaceName(e.target.value)}
-                />
-              </div>
-              <div className="rr-upload-field">
-                <label htmlFor="rr-venue-address">
-                  Venue address <span className="optional">(optional)</span>
-                </label>
-                <input
-                  id="rr-venue-address"
-                  type="text"
-                  placeholder="e.g. 1 Mason Road, Brookline, NH 03033"
-                  value={venueAddress}
-                  onChange={e => setVenueAddress(e.target.value)}
-                />
-              </div>
-            </div>
-            <p className="rr-upload-details-hint">
+        {/* ── Shared fields ── */}
+        <div className="upload-shared card">
+          <div className="upload-field">
+            <label htmlFor="rr-race-name">
+              Race name <span className="optional">(optional)</span>
+            </label>
+            <input
+              id="rr-race-name"
+              type="text"
+              placeholder="e.g. Ridgeline Trail Races"
+              value={raceName}
+              onChange={e => setRaceName(e.target.value)}
+            />
+          </div>
+          <div className="upload-field">
+            <label htmlFor="rr-venue-address">
+              Venue address <span className="optional">(optional)</span>
+            </label>
+            <input
+              id="rr-venue-address"
+              type="text"
+              placeholder="e.g. 1 Mason Road, Brookline, NH 03033"
+              value={venueAddress}
+              onChange={e => setVenueAddress(e.target.value)}
+            />
+            <p className="upload-hint">
               <span className="info-icon" aria-hidden="true">i</span>
-              Venue address enables weather conditions in the analysis. Geocoded
-              once at upload and never stored with results data.
+              Enables weather conditions in the analysis. Geocoded once at upload
+              and never stored with results data.
             </p>
           </div>
+        </div>
 
-          {/* ── Files ── */}
-          <div className="rr-upload-files-section">
-            <div className="upload-files-col-header" aria-hidden="true">
-              <span />
-              <span>
-                File
-                <span className="upload-files-hint-inline"> · up to 10,000 results · 5 MB each</span>
-              </span>
-              <span>Year</span>
-              <span />
-            </div>
-            <p className="upload-files-dates-hint">
-              Race start and duration are optional — include them to add weather conditions to the analysis.
-            </p>
-
-            {rows.map((row, i) => (
-              <FileRow
-                key={row.id}
-                row={row}
-                index={i}
-                required={i === 0}
-                dragging={draggingRowId === row.id}
-                fileInputRef={el => {
-                  if (el) fileInputRefs.current.set(row.id, el);
-                  else fileInputRefs.current.delete(row.id);
-                }}
-                onFileChange={e => {
-                  if (e.target.files?.[0]) handleFileSelect(row.id, e.target.files[0]);
-                }}
-                onDragEnter={() => setDraggingRowId(row.id)}
-                onDragLeave={() => setDraggingRowId(null)}
-                onDrop={e => {
-                  setDraggingRowId(null);
-                  const f = e.dataTransfer.files[0];
-                  if (f) handleFileSelect(row.id, f);
-                }}
-                onClear={() => clearRow(row.id)}
-                onYearChange={year => setRows(prev =>
-                  prev.map(r => r.id === row.id ? { ...r, year } : r),
-                )}
-                onStartChange={v => setRows(prev =>
-                  prev.map(r => r.id === row.id ? { ...r, raceStart: v } : r),
-                )}
-                onDurationChange={v => setRows(prev =>
-                  prev.map(r => r.id === row.id ? { ...r, raceDurationHours: v } : r),
-                )}
-              />
-            ))}
-
-            <p className="upload-files-footer-hint">
-              Upload one file for a single-year analysis, or multiple files (same
-              race, different years) for year-over-year comparison. Year is
-              auto-detected from the filename when available.
-            </p>
+        {/* ── File rows ── */}
+        <div className="upload-files card">
+          <div className="upload-files-col-header" aria-hidden="true">
+            <span />
+            <span>
+              File
+              <span className="upload-files-hint-inline"> · up to 10,000 results · 5 MB each</span>
+            </span>
+            <span>Year</span>
+            <span />
           </div>
+          <p className="upload-files-dates-hint">
+            Race start and duration are optional — include them to add weather conditions to the analysis.
+          </p>
+
+          {rows.map((row, i) => (
+            <FileRow
+              key={row.id}
+              row={row}
+              index={i}
+              required={i === 0}
+              dragging={draggingRowId === row.id}
+              fileInputRef={el => {
+                if (el) fileInputRefs.current.set(row.id, el);
+                else fileInputRefs.current.delete(row.id);
+              }}
+              onFileChange={e => {
+                if (e.target.files?.[0]) handleFileSelect(row.id, e.target.files[0]);
+              }}
+              onDragEnter={() => setDraggingRowId(row.id)}
+              onDragLeave={() => setDraggingRowId(null)}
+              onDrop={e => {
+                setDraggingRowId(null);
+                const f = e.dataTransfer.files[0];
+                if (f) handleFileSelect(row.id, f);
+              }}
+              onClear={() => clearRow(row.id)}
+              onYearChange={year => setRows(prev =>
+                prev.map(r => r.id === row.id ? { ...r, year } : r),
+              )}
+              onStartChange={v => setRows(prev =>
+                prev.map(r => r.id === row.id ? { ...r, raceStart: v } : r),
+              )}
+              onDurationChange={v => setRows(prev =>
+                prev.map(r => r.id === row.id ? { ...r, raceDurationHours: v } : r),
+              )}
+            />
+          ))}
+
+          <div className="upload-files-add-row">
+            {rows.length < MAX_ROWS && (
+              <button
+                type="button"
+                className="btn upload-add-year-btn"
+                onClick={() => setRows(prev => [...prev, makeRow()])}
+                disabled={!firstRowFilled}
+                title={!firstRowFilled ? 'Add at least one results file to continue.' : undefined}
+              >
+                + Add another year
+              </button>
+            )}
+          </div>
+
+          <p className="upload-files-footer-hint">
+            Upload one file for a single-year analysis, or multiple files (same
+            race, different years) for year-over-year comparison. Year is
+            auto-detected from the filename when available.
+          </p>
         </div>
 
         {error && <p className="rr-upload-error" role="alert">{error}</p>}
 
         <button
           type="submit"
-          className="btn btn-primary rr-upload-submit"
+          className="btn btn-primary upload-submit"
           disabled={!canSubmit}
         >
           {submitLabel}
@@ -468,13 +492,13 @@ function formatRaceDatetime(iso: string): { date: string; time: string } {
   return { date, time };
 }
 
-function SummarySection({ summary, weather, performance }: { summary: ResultsSummaryStats; weather?: WeatherData; performance?: PerformanceStats }) {
+function SummarySection({ summary, weather, performance, raceName }: { summary: ResultsSummaryStats; weather?: WeatherData; performance?: PerformanceStats; raceName?: string }) {
   const start = weather?.raceStartIso ? formatRaceDatetime(weather.raceStartIso) : null;
   const end   = weather?.raceEndIso   ? formatRaceDatetime(weather.raceEndIso)   : null;
 
   return (
     <section className="chart-section" aria-labelledby="rr-summary-heading">
-      <SectionHeader title="Summary" />
+      <SectionHeader title={raceName ? `Summary — ${raceName}` : 'Summary'} />
 
       {(start || end) && (
         <div className="rr-race-dates">
@@ -724,6 +748,7 @@ function PerformanceSection({ events }: { events: EventPerformanceStats[] }) {
   if (events.length === 0) return null;
 
   const isFixedDist = events[activeIdx]?.eventType === 'fixed-distance';
+  const insights = finishTimeInsights(events);
 
   return (
     <section className="chart-section" aria-labelledby="rr-perf-heading">
@@ -733,6 +758,7 @@ function PerformanceSection({ events }: { events: EventPerformanceStats[] }) {
           ? 'Finish time statistics for finishers. Percentiles show the exact time at each threshold — e.g. the 90th percentile is the time by which 90% of finishers had crossed the line. The chart groups finishers into equal time ranges to show the overall distribution.'
           : 'Distance statistics for finishers in this fixed-time event. Percentiles show the distance at each threshold — e.g. the 90th percentile is the distance exceeded by only 10% of finishers. The chart groups finishers into equal distance ranges to show the spread of results.'}
       </p>
+      <InsightCallout insights={insights} />
       {events.length > 1 && (
         <div className="rr-perf-tabs" role="tablist">
           {events.map((ev, i) => (
@@ -759,10 +785,12 @@ function AttritionSection({ attrition }: { attrition: AttritionStats }) {
   const chartRows = rows.filter(r => r.total > 0);
   const chartData = chartRows.map(r => ({ name: r.name, finished: r.finished, dnf: r.dnf, dns: r.dns }));
   const colors = chartPalette(theme, 3);
+  const insights = attritionInsights(attrition);
 
   return (
     <section className="chart-section" aria-labelledby="rr-attrition-heading">
       <SectionHeader title="Completion Rates" />
+      <InsightCallout insights={insights} />
       <table className="stats-table">
         <caption className="sr-only">Finish, DNF, and DNS counts by group</caption>
         <thead>
@@ -843,16 +871,19 @@ function CrossEventSection({ crossEvent }: { crossEvent: ResultsCrossEventStats 
   );
 }
 
-function FullStatsSections({ stats, weather }: { stats: ResultsStats; weather?: WeatherData }) {
+function FullStatsSections({ stats, weather, raceName }: { stats: ResultsStats; weather?: WeatherData; raceName?: string }) {
+  const demoInsights = demographicsInsights(stats.demographics);
   return (
     <>
-      <SummarySection summary={stats.summary} weather={weather} performance={stats.performance} />
-      {weather && <WeatherSection weather={weather} />}
-      <PerformanceSection events={stats.performance.events} />
-      <GenderSection stats={stats.demographics.finisherGender} />
-      <AgeSection stats={stats.demographics.finisherAge} />
-      <GeographicSection stats={stats.geographic} />
-      <AttritionSection attrition={stats.attrition} />
+      <div id="rr-summary"><SummarySection summary={stats.summary} weather={weather} performance={stats.performance} raceName={raceName} /></div>
+      {weather && <div id="rr-weather"><WeatherSection weather={weather} /></div>}
+      <div id="rr-performance"><PerformanceSection events={stats.performance.events} /></div>
+      <div id="rr-demographics">
+        <GenderSection stats={stats.demographics.finisherGender} />
+        <AgeSection stats={stats.demographics.finisherAge} additionalInsights={demoInsights} />
+      </div>
+      <div id="rr-geography"><GeographicSection stats={stats.geographic} /></div>
+      <div id="rr-attrition"><AttritionSection attrition={stats.attrition} /></div>
       <CrossEventSection crossEvent={stats.crossEvent} />
     </>
   );
@@ -920,9 +951,19 @@ function SingleDashboard({ upload, label, onBack }: SingleDashboardProps) {
       {error && <div className="dashboard-error" role="alert">{error}</div>}
 
       {data?.stats && !loading && (
-        <div className="rr-dashboard-sections">
-          <FullStatsSections stats={data.stats} weather={data.weatherData as WeatherData | undefined} />
-        </div>
+        <>
+          <nav className="report-nav no-print" aria-label="Jump to section">
+            <a href="#rr-summary" className="report-nav-link">Summary</a>
+            {data.weatherData && <a href="#rr-weather" className="report-nav-link">Weather</a>}
+            <a href="#rr-performance" className="report-nav-link">Finish Times</a>
+            <a href="#rr-demographics" className="report-nav-link">Demographics</a>
+            <a href="#rr-geography" className="report-nav-link">Geography</a>
+            <a href="#rr-attrition" className="report-nav-link">Completion Rates</a>
+          </nav>
+          <div className="rr-dashboard-sections">
+            <FullStatsSections stats={data.stats} weather={data.weatherData as WeatherData | undefined} />
+          </div>
+        </>
       )}
     </div>
   );
@@ -996,10 +1037,10 @@ function ResultsTrendCard({
 
 // ─── Interval comparison table ───────────────────────────────────────────────
 
-function deltaClass(current: number | null, first: number | null, invert = false): string {
+function deltaClass(current: number | null, first: number | null, invert = false, neutral = false): string {
   if (current === null || first === null) return '';
   const d = current - first;
-  if (Math.abs(d) < 0.05) return 'cmp-cell--neutral';
+  if (neutral || Math.abs(d) < 0.05) return 'cmp-cell--neutral';
   const good = invert ? d < 0 : d > 0;
   return good ? 'cmp-cell--good' : 'cmp-cell--bad';
 }
@@ -1016,11 +1057,195 @@ interface ICRow {
   deltaInvert?: boolean;
   skip?: boolean;
   sub?: boolean;
+  neutral?: boolean;
 }
 
 interface ICGroup {
   parent: ICRow;
   subs: ICRow[];
+}
+
+// ─── Race trend lines ─────────────────────────────────────────────────────────
+
+type RCategory = 'participation' | 'attrition' | 'times' | 'demographics' | 'geography';
+
+const R_CATEGORIES_FIXED_DIST: CategoryDef[] = [
+  { id: 'participation',  label: 'Participation' },
+  { id: 'attrition',     label: 'Attrition' },
+  { id: 'times',         label: 'Finish Times' },
+  { id: 'demographics',  label: 'Demographics' },
+  { id: 'geography',     label: 'Geography' },
+];
+
+const R_CATEGORIES_FIXED_TIME: CategoryDef[] = [
+  { id: 'participation', label: 'Participation' },
+  { id: 'attrition',     label: 'Attrition' },
+  { id: 'demographics',  label: 'Demographics' },
+  { id: 'geography',     label: 'Geography' },
+];
+
+interface RaceTrendLinesProps {
+  trends: ResultsComparisonTrends;
+  intervals: ResultsIntervalStats[];
+  isFixedDist: boolean;
+}
+
+function RaceTrendLines({ trends, intervals, isFixedDist }: RaceTrendLinesProps) {
+  const [cat, setCat] = useState<RCategory>('participation');
+
+  const labels = intervals.map(iv => iv.label);
+
+  function derivedSeries(name: string, fn: (iv: ResultsIntervalStats) => number | null): TrendSeries {
+    return { name, data: intervals.map(iv => ({ label: iv.label, value: fn(iv) })) };
+  }
+
+  const seriesMap: Partial<Record<RCategory, TrendSeries[]>> = {
+    participation: [
+      { name: 'Total Entrants', data: trends.totalEntrants },
+      { name: 'Finishers',      data: trends.finishers },
+    ],
+    attrition: [
+      { name: 'Finish Rate %', data: trends.finishRate },
+      { name: 'DNF Rate %',    data: trends.dnfRate },
+      derivedSeries('DNS Rate %', iv => iv.stats.attrition.overall.dnsRate),
+    ],
+    times: isFixedDist ? [
+      { name: 'Median Finish Time', data: trends.medianFinishTimeSeconds },
+    ] : [],
+    demographics: [
+      { name: 'Female Finishers %',     data: trends.femaleFinisherPercent },
+      derivedSeries('Male Finishers %', iv => iv.stats.demographics.finisherGender.malePercent),
+      { name: 'Median Finisher Age',    data: trends.medianFinisherAge },
+    ],
+    geography: [
+      derivedSeries('States / Provinces', iv => Object.keys(iv.stats.geographic.byState).length),
+      derivedSeries('Countries',          iv => Object.keys(iv.stats.geographic.byCountry).length),
+    ],
+  };
+
+  const activeCats = isFixedDist ? R_CATEGORIES_FIXED_DIST : R_CATEGORIES_FIXED_TIME;
+  const effectiveCat: RCategory = (isFixedDist || cat !== 'times') ? cat : 'participation';
+
+  const formatY = (c: RCategory): ((v: number) => string) | undefined => {
+    if (c === 'participation') return (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v));
+    return undefined;
+  };
+
+  const formatTooltip = (c: RCategory): ((v: number, name: string) => string) | undefined => {
+    if (c === 'times') return (v) => fmtTime(Math.round(v));
+    if (c === 'demographics') return (v, name) => name.includes('Age') ? `${v.toFixed(1)} yrs` : `${v.toFixed(1)}%`;
+    return undefined;
+  };
+
+  const activeSeries = seriesMap[effectiveCat] ?? [];
+
+  return (
+    <>
+      <TrendCategorySelector
+        categories={activeCats}
+        active={effectiveCat}
+        onChange={id => setCat(id as RCategory)}
+      />
+      <TrendLineChart
+        series={activeSeries}
+        formatY={formatY(effectiveCat)}
+        formatTooltipValue={formatTooltip(effectiveCat)}
+        yUnit={effectiveCat === 'attrition' ? '%' : ''}
+        emptyMessage={effectiveCat === 'geography' ? 'Geographic data did not change across the compared intervals.' : undefined}
+      />
+      {/* show Y axis note for finish times — values are raw seconds */}
+      {effectiveCat === 'times' && labels.length > 0 && (
+        <p className="trend-line-empty" style={{ marginTop: '0.25rem' }}>
+          Y axis shows finish time in seconds. Tooltip displays formatted time.
+        </p>
+      )}
+    </>
+  );
+}
+
+// ─── Race key changes ─────────────────────────────────────────────────────────
+
+interface RaceKeyChangesProps {
+  trends: ResultsComparisonTrends;
+  intervals: ResultsIntervalStats[];
+  isFixedDist: boolean;
+}
+
+function RaceKeyChanges({ trends, intervals, isFixedDist }: RaceKeyChangesProps) {
+  if (intervals.length < 2) return <p className="trend-line-empty">Need at least two intervals to show key changes.</p>;
+
+  const firstLabel = intervals[0].label;
+  const lastLabel  = intervals[intervals.length - 1].label;
+
+  function derived(fn: (iv: ResultsIntervalStats) => number | null): Array<{ label: string; value: number | null }> {
+    return intervals.map(iv => ({ label: iv.label, value: fn(iv) }));
+  }
+
+  const dnsRateData   = derived(iv => iv.stats.attrition.overall.dnsRate);
+  const maleFinPctData = derived(iv => iv.stats.demographics.finisherGender.malePercent);
+
+  const rows: KeyChangeRow[] = [
+    {
+      label: 'Total Entrants',
+      formattedDelta: fmtCountDelta(seriesDelta(trends.totalEntrants)),
+      direction: directionOf(seriesDelta(trends.totalEntrants), 0.5),
+      neutral: false,
+    },
+    {
+      label: 'Finishers',
+      formattedDelta: fmtCountDelta(seriesDelta(trends.finishers)),
+      direction: directionOf(seriesDelta(trends.finishers), 0.5),
+      neutral: false,
+    },
+    {
+      label: 'Finish Rate',
+      formattedDelta: fmtPtsDelta(seriesDelta(trends.finishRate)),
+      direction: directionOf(seriesDelta(trends.finishRate), 0.05),
+      neutral: false,
+    },
+    {
+      label: 'DNF Rate',
+      formattedDelta: fmtPtsDelta(seriesDelta(trends.dnfRate)),
+      direction: directionOf(seriesDelta(trends.dnfRate), 0.05, true),
+      neutral: false,
+    },
+    {
+      label: 'DNS Rate',
+      formattedDelta: fmtPtsDelta(seriesDelta(dnsRateData)),
+      direction: directionOf(seriesDelta(dnsRateData), 0.05, true),
+      neutral: false,
+    },
+    ...(isFixedDist ? [{
+      label: 'Median Finish Time',
+      formattedDelta: fmtTimeDelta(seriesDelta(trends.medianFinishTimeSeconds)),
+      direction: directionOf(seriesDelta(trends.medianFinishTimeSeconds), 30, true) as KeyChangeRow['direction'],
+      neutral: false,
+    }] : []),
+    {
+      label: 'Female Finishers %',
+      formattedDelta: fmtPtsDelta(seriesDelta(trends.femaleFinisherPercent)),
+      direction: directionOf(seriesDelta(trends.femaleFinisherPercent), 0.05),
+      neutral: true,
+    },
+    {
+      label: 'Male Finishers %',
+      formattedDelta: fmtPtsDelta(seriesDelta(maleFinPctData)),
+      direction: directionOf(seriesDelta(maleFinPctData), 0.05),
+      neutral: true,
+    },
+    {
+      label: 'Median Finisher Age',
+      formattedDelta: (() => {
+        const d = seriesDelta(trends.medianFinisherAge);
+        if (d === null || Math.abs(d) < 0.05) return 'unchanged';
+        return `${d > 0 ? '+' : ''}${d.toFixed(1)} yrs`;
+      })(),
+      direction: directionOf(seriesDelta(trends.medianFinisherAge), 0.05),
+      neutral: true,
+    },
+  ];
+
+  return <KeyChangesList rows={rows} firstLabel={firstLabel} lastLabel={lastLabel} />;
 }
 
 function groupICRows(rows: ICRow[]): ICGroup[] {
@@ -1116,34 +1341,34 @@ function ResultsIntervalComparisonTable({
     { label: 'Female',              values: intervals.map(iv => ftGenderVal(iv, 'F', 'medianSeconds')), fmt: fmtSec, deltaInvert: true, skip: !hasFt, sub: true },
     { label: 'Non-Binary',          values: intervals.map(iv => ftGenderVal(iv, 'NB', 'medianSeconds')), fmt: fmtSec, deltaInvert: true, skip: !hasFt, sub: true },
     // ── Median Age ───────────────────────────────────────────────────────────────
-    { label: 'Median Age (finishers)', values: intervals.map(iv => iv.stats.demographics.finisherAge.median), fmt: fmtN1 },
-    { label: 'Male',                values: intervals.map(iv => ageByGender(iv, 'M', 'median')), fmt: fmtN1, sub: true },
-    { label: 'Female',              values: intervals.map(iv => ageByGender(iv, 'F', 'median')), fmt: fmtN1, sub: true },
-    { label: 'Non-Binary',          values: intervals.map(iv => ageByGender(iv, 'NB', 'median')), fmt: fmtN1, sub: true },
+    { label: 'Median Age (finishers)', values: intervals.map(iv => iv.stats.demographics.finisherAge.median), fmt: fmtN1, neutral: true },
+    { label: 'Male',                values: intervals.map(iv => ageByGender(iv, 'M', 'median')), fmt: fmtN1, sub: true, neutral: true },
+    { label: 'Female',              values: intervals.map(iv => ageByGender(iv, 'F', 'median')), fmt: fmtN1, sub: true, neutral: true },
+    { label: 'Non-Binary',          values: intervals.map(iv => ageByGender(iv, 'NB', 'median')), fmt: fmtN1, sub: true, neutral: true },
     // ── Oldest Finisher ──────────────────────────────────────────────────────────
-    { label: 'Oldest Finisher',     values: intervals.map(iv => iv.stats.demographics.finisherAge.max), fmt: fmtN0 },
-    { label: 'Male',                values: intervals.map(iv => ageByGender(iv, 'M', 'max')), fmt: fmtN0, sub: true },
-    { label: 'Female',              values: intervals.map(iv => ageByGender(iv, 'F', 'max')), fmt: fmtN0, sub: true },
-    { label: 'Non-Binary',          values: intervals.map(iv => ageByGender(iv, 'NB', 'max')), fmt: fmtN0, sub: true },
+    { label: 'Oldest Finisher',     values: intervals.map(iv => iv.stats.demographics.finisherAge.max), fmt: fmtN0, neutral: true },
+    { label: 'Male',                values: intervals.map(iv => ageByGender(iv, 'M', 'max')), fmt: fmtN0, sub: true, neutral: true },
+    { label: 'Female',              values: intervals.map(iv => ageByGender(iv, 'F', 'max')), fmt: fmtN0, sub: true, neutral: true },
+    { label: 'Non-Binary',          values: intervals.map(iv => ageByGender(iv, 'NB', 'max')), fmt: fmtN0, sub: true, neutral: true },
     // ── Youngest Finisher ────────────────────────────────────────────────────────
-    { label: 'Youngest Finisher',   values: intervals.map(iv => iv.stats.demographics.finisherAge.min), fmt: fmtN0 },
-    { label: 'Male',                values: intervals.map(iv => ageByGender(iv, 'M', 'min')), fmt: fmtN0, sub: true },
-    { label: 'Female',              values: intervals.map(iv => ageByGender(iv, 'F', 'min')), fmt: fmtN0, sub: true },
-    { label: 'Non-Binary',          values: intervals.map(iv => ageByGender(iv, 'NB', 'min')), fmt: fmtN0, sub: true },
+    { label: 'Youngest Finisher',   values: intervals.map(iv => iv.stats.demographics.finisherAge.min), fmt: fmtN0, neutral: true },
+    { label: 'Male',                values: intervals.map(iv => ageByGender(iv, 'M', 'min')), fmt: fmtN0, sub: true, neutral: true },
+    { label: 'Female',              values: intervals.map(iv => ageByGender(iv, 'F', 'min')), fmt: fmtN0, sub: true, neutral: true },
+    { label: 'Non-Binary',          values: intervals.map(iv => ageByGender(iv, 'NB', 'min')), fmt: fmtN0, sub: true, neutral: true },
     // ── Last Finisher ─────────────────────────────────────────────────────────────
     { label: 'Last Finisher',       values: intervals.map(iv => iv.stats.performance.events[0]?.finishTime?.slowestSeconds ?? null), fmt: fmtSec, deltaInvert: true, skip: !hasFt },
     { label: 'Male',                values: intervals.map(iv => ftGenderVal(iv, 'M', 'slowestSeconds')), fmt: fmtSec, deltaInvert: true, skip: !hasFt, sub: true },
     { label: 'Female',              values: intervals.map(iv => ftGenderVal(iv, 'F', 'slowestSeconds')), fmt: fmtSec, deltaInvert: true, skip: !hasFt, sub: true },
     { label: 'Non-Binary',          values: intervals.map(iv => ftGenderVal(iv, 'NB', 'slowestSeconds')), fmt: fmtSec, deltaInvert: true, skip: !hasFt, sub: true },
     // ── Finisher gender breakdown ────────────────────────────────────────────────
-    { label: 'Male Finishers %',    values: intervals.map(iv => iv.stats.demographics.finisherGender.malePercent), fmt: fmtPct0 },
-    { label: 'Female Finishers %',  values: intervals.map(iv => iv.stats.demographics.finisherGender.femalePercent), fmt: fmtPct0 },
-    { label: 'Non-Binary Finishers %', values: intervals.map(iv => iv.stats.demographics.finisherGender.nonBinaryPercent), fmt: fmtPct0 },
+    { label: 'Male Finishers %',    values: intervals.map(iv => iv.stats.demographics.finisherGender.malePercent), fmt: fmtPct0, neutral: true },
+    { label: 'Female Finishers %',  values: intervals.map(iv => iv.stats.demographics.finisherGender.femalePercent), fmt: fmtPct0, neutral: true },
+    { label: 'Non-Binary Finishers %', values: intervals.map(iv => iv.stats.demographics.finisherGender.nonBinaryPercent), fmt: fmtPct0, neutral: true },
     // ── Geography ────────────────────────────────────────────────────────────────
-    { label: 'US Participants',     values: intervals.map(iv => iv.stats.geographic.usParticipants), fmt: fmtN0 },
-    { label: 'International',       values: intervals.map(iv => iv.stats.geographic.internationalParticipants), fmt: fmtN0 },
-    { label: 'States / Provinces',  values: intervals.map(iv => Object.keys(iv.stats.geographic.byState).length), fmt: fmtN0 },
-    { label: 'Countries',           values: intervals.map(iv => Object.keys(iv.stats.geographic.byCountry).length), fmt: fmtN0 },
+    { label: 'US Participants',     values: intervals.map(iv => iv.stats.geographic.usParticipants), fmt: fmtN0, neutral: true },
+    { label: 'International',       values: intervals.map(iv => iv.stats.geographic.internationalParticipants), fmt: fmtN0, neutral: true },
+    { label: 'States / Provinces',  values: intervals.map(iv => Object.keys(iv.stats.geographic.byState).length), fmt: fmtN0, neutral: true },
+    { label: 'Countries',           values: intervals.map(iv => Object.keys(iv.stats.geographic.byCountry).length), fmt: fmtN0, neutral: true },
   ].filter(r => !r.skip);
 
   const groups = groupICRows(rows);
@@ -1151,7 +1376,7 @@ function ResultsIntervalComparisonTable({
   function renderCells(row: ICRow) {
     const firstVal = row.values[0];
     return row.values.map((v, i) => (
-      <td key={i} className={i === 0 ? '' : deltaClass(v, firstVal, row.deltaInvert)}>
+      <td key={i} className={i === 0 ? '' : deltaClass(v, firstVal, row.deltaInvert, row.neutral)}>
         {row.fmt(v)}
         {i > 0 && v !== null && firstVal !== null && Math.abs(v - firstVal) >= 0.05 && (
           <>
@@ -1314,15 +1539,30 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
           {/* ── Interval comparison ── */}
           <section className="chart-section" aria-labelledby="rr-interval-heading">
             <SectionHeader title="Interval Comparison" />
-            <ResultsIntervalComparisonTable intervals={data.intervals} isFixedDist={isFixedDist} />
+            <IntervalComparisonPanel
+              trendsContent={
+                <RaceTrendLines
+                  trends={data.trends}
+                  intervals={data.intervals}
+                  isFixedDist={isFixedDist}
+                />
+              }
+              tableContent={
+                <ResultsIntervalComparisonTable intervals={data.intervals} isFixedDist={isFixedDist} />
+              }
+              keyChangesContent={
+                <RaceKeyChanges
+                  trends={data.trends}
+                  intervals={data.intervals}
+                  isFixedDist={isFixedDist}
+                />
+              }
+            />
           </section>
 
           {/* ── Per-year detail ── */}
           <section className="chart-section" aria-labelledby="rr-detail-heading">
             <SectionHeader title="Per-Year Details" />
-            <p className="comparison-detail-hint">
-              Select a year tab to view its full breakdown.
-            </p>
 
             {/* Tab strip — hidden in print, all panels revealed */}
             <div className="interval-tab-strip no-print" role="tablist" aria-label="Race years">
@@ -1350,14 +1590,8 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
                 className={`interval-tab-panel${i !== activeTab ? ' interval-tab-panel--inactive' : ''}`}
                 aria-hidden={i !== activeTab}
               >
-                <div className="interval-tab-meta">
-                  <span className="interval-tab-meta-name">{iv.raceName}</span>
-                  <span className="interval-tab-meta-count">
-                    {iv.resultCount.toLocaleString()} results
-                  </span>
-                  <span className="interval-tab-label-print">{iv.label}</span>
-                </div>
-                <FullStatsSections stats={iv.stats} weather={iv.weatherData as WeatherData | undefined} />
+                <span className="interval-tab-label-print">{iv.label}</span>
+                <FullStatsSections stats={iv.stats} weather={iv.weatherData as WeatherData | undefined} raceName={iv.raceName} />
               </div>
             ))}
           </section>

@@ -132,3 +132,37 @@
   color: #666;
   font-size: 0.82rem;
 }
+
+/* ── Insight callouts ────────────────────────────────────────────────────────── */
+
+.insight-callout {
+  background: #f8f8f5;
+  border-left: 3px solid var(--color-primary);
+  border-radius: 0 6px 6px 0;
+  padding: 0.6rem 1rem 0.65rem;
+}
+
+.insight-callout-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.insight-callout-item {
+  font-size: 0.84rem;
+  color: #444;
+  line-height: 1.55;
+  padding-left: 1rem;
+  position: relative;
+}
+
+.insight-callout-item::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: var(--color-primary);
+  font-weight: 600;
+}

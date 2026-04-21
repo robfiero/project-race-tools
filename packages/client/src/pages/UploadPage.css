@@ -1,5 +1,5 @@
 .upload-page {
-  max-width: 700px;
+  max-width: 760px;
   margin: 0 auto;
 }
 
@@ -316,6 +316,32 @@
   width: 24px;
   height: 24px;
   flex-shrink: 0;
+}
+
+/* Add year button row */
+.upload-files-add-row {
+  margin-top: 0.5rem;
+}
+
+.upload-add-year-btn {
+  font-size: 0.82rem;
+  padding: 0.3rem 0.75rem;
+  background: none;
+  border: 1px dashed #d1d5db;
+  color: #6b7280;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.upload-add-year-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.upload-add-year-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* Footer hint inside the file card */

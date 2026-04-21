@@ -14,6 +14,19 @@ import DistanceSection from '../components/DistanceSection.tsx';
 import RegistrationSection from '../components/RegistrationSection.tsx';
 import CrossEventSection from '../components/CrossEventSection.tsx';
 import ParticipationSection from '../components/AttritionSection.tsx';
+import IntervalComparisonPanel, {
+  TrendCategorySelector,
+  TrendLineChart,
+  KeyChangesList,
+  seriesDelta,
+  fmtCountDelta,
+  fmtPtsDelta,
+  fmtYrsDelta,
+  directionOf,
+  type CategoryDef,
+  type TrendSeries,
+  type KeyChangeRow,
+} from '../components/IntervalComparisonPanel.tsx';
 import './ComparisonPage.css';
 
 interface Props {
@@ -63,7 +76,7 @@ function TrendCard({ title, unit = '', data, precision = 1, deltaInvert = false 
         <span className="trend-card-title">{title}</span>
         {delta !== null && (
           <span className={`trend-card-delta ${deltaClass}`}>
-            {deltaSign}{fmt(delta, unit, precision)} overall
+            {deltaSign}{fmt(delta, unit === '%' ? ' pts' : unit, precision)} since {data[0].label}
           </span>
         )}
       </div>
@@ -96,6 +109,182 @@ function TrendCard({ title, unit = '', data, precision = 1, deltaInvert = false 
   );
 }
 
+// ─── Participant trend lines ──────────────────────────────────────────────────
+
+type PCategory = 'participation' | 'registration' | 'demographics' | 'geography';
+
+const P_CATEGORIES: CategoryDef[] = [
+  { id: 'participation', label: 'Participation' },
+  { id: 'registration',  label: 'Registration' },
+  { id: 'demographics',  label: 'Demographics' },
+  { id: 'geography',     label: 'Geography' },
+];
+
+interface ParticipantTrendLinesProps {
+  trends: ComparisonStats['trends'];
+  hasDistanceTrend: boolean;
+}
+
+function ParticipantTrendLines({ trends, hasDistanceTrend }: ParticipantTrendLinesProps) {
+  const [cat, setCat] = useState<PCategory>('participation');
+
+  const seriesMap: Record<PCategory, TrendSeries[]> = {
+    participation: [
+      { name: 'Total Participants',  data: trends.participantCount },
+      { name: 'Active Participants', data: trends.activeParticipants },
+    ],
+    registration: [
+      { name: 'Comped %',       data: trends.compedPercent },
+      { name: 'Coupon Usage %', data: trends.couponUsagePercent },
+    ],
+    demographics: [
+      { name: 'Female %',    data: trends.femalePercent },
+      { name: 'Non-Binary %', data: trends.nonBinaryPercent },
+      { name: 'Median Age',  data: trends.medianAge },
+    ],
+    geography: hasDistanceTrend
+      ? [
+          { name: 'States / Provinces',         data: trends.stateCount },
+          { name: 'Countries',                  data: trends.countryCount },
+          { name: 'International %',            data: trends.internationalPercent },
+          { name: 'Median Distance (mi)',        data: trends.medianDistanceMiles },
+          { name: 'Local % (< 50 mi)',           data: trends.localPercent },
+          { name: 'Destination % (≥ 200 mi)',    data: trends.destinationPercent },
+        ]
+      : [
+          { name: 'States / Provinces', data: trends.stateCount },
+          { name: 'Countries',          data: trends.countryCount },
+          { name: 'International %',    data: trends.internationalPercent },
+        ],
+  };
+
+  const formatY = (cat: PCategory) => {
+    if (cat === 'participation') return (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v));
+    return undefined;
+  };
+
+  const formatTooltip = (cat: PCategory): ((v: number, name: string) => string) | undefined => {
+    if (cat === 'demographics') {
+      return (v, name) => name === 'Median Age' ? `${v.toFixed(1)} yrs` : `${v.toFixed(1)}%`;
+    }
+    if (cat === 'geography' && hasDistanceTrend) {
+      return (v, name) => name.includes('mi)') || name.includes('Distance') ? `${v.toFixed(1)} mi` : name.includes('%') ? `${v.toFixed(1)}%` : String(Math.round(v));
+    }
+    return undefined;
+  };
+
+  return (
+    <>
+      <TrendCategorySelector categories={P_CATEGORIES} active={cat} onChange={id => setCat(id as PCategory)} />
+      <TrendLineChart
+        series={seriesMap[cat]}
+        formatY={formatY(cat)}
+        formatTooltipValue={formatTooltip(cat)}
+        yUnit={cat === 'registration' ? '%' : ''}
+        emptyMessage={cat === 'geography' ? 'Geographic data did not change across the compared intervals.' : undefined}
+      />
+    </>
+  );
+}
+
+// ─── Participant key changes ───────────────────────────────────────────────────
+
+interface ParticipantKeyChangesProps {
+  trends: ComparisonStats['trends'];
+  hasDistanceTrend: boolean;
+}
+
+function ParticipantKeyChanges({ trends, hasDistanceTrend }: ParticipantKeyChangesProps) {
+  const labels = trends.participantCount;
+  if (labels.length < 2) return <p className="trend-line-empty">Need at least two intervals to show key changes.</p>;
+
+  const firstLabel = labels[0].label;
+  const lastLabel  = labels[labels.length - 1].label;
+
+  const rows: KeyChangeRow[] = [
+    {
+      label: 'Total Participants',
+      formattedDelta: fmtCountDelta(seriesDelta(trends.participantCount)),
+      direction: directionOf(seriesDelta(trends.participantCount), 0.5),
+      neutral: false,
+    },
+    {
+      label: 'Active Participants',
+      formattedDelta: fmtCountDelta(seriesDelta(trends.activeParticipants)),
+      direction: directionOf(seriesDelta(trends.activeParticipants), 0.5),
+      neutral: false,
+    },
+    {
+      label: 'Female %',
+      formattedDelta: fmtPtsDelta(seriesDelta(trends.femalePercent)),
+      direction: directionOf(seriesDelta(trends.femalePercent), 0.05),
+      neutral: true,
+    },
+    {
+      label: 'Non-Binary %',
+      formattedDelta: fmtPtsDelta(seriesDelta(trends.nonBinaryPercent)),
+      direction: directionOf(seriesDelta(trends.nonBinaryPercent), 0.05),
+      neutral: true,
+    },
+    {
+      label: 'Median Age',
+      formattedDelta: fmtYrsDelta(seriesDelta(trends.medianAge)),
+      direction: directionOf(seriesDelta(trends.medianAge), 0.05),
+      neutral: true,
+    },
+    {
+      label: 'States / Provinces',
+      formattedDelta: fmtCountDelta(seriesDelta(trends.stateCount)),
+      direction: directionOf(seriesDelta(trends.stateCount), 0.5),
+      neutral: true,
+    },
+    {
+      label: 'Countries',
+      formattedDelta: fmtCountDelta(seriesDelta(trends.countryCount)),
+      direction: directionOf(seriesDelta(trends.countryCount), 0.5),
+      neutral: true,
+    },
+    {
+      label: 'International %',
+      formattedDelta: fmtPtsDelta(seriesDelta(trends.internationalPercent)),
+      direction: directionOf(seriesDelta(trends.internationalPercent), 0.05),
+      neutral: true,
+    },
+    {
+      label: 'Comped %',
+      formattedDelta: fmtPtsDelta(seriesDelta(trends.compedPercent)),
+      direction: directionOf(seriesDelta(trends.compedPercent), 0.05, true),
+      neutral: false,
+    },
+    {
+      label: 'Coupon Usage %',
+      formattedDelta: fmtPtsDelta(seriesDelta(trends.couponUsagePercent)),
+      direction: directionOf(seriesDelta(trends.couponUsagePercent), 0.05),
+      neutral: true,
+    },
+    ...(hasDistanceTrend ? [
+      {
+        label: 'Median Distance',
+        formattedDelta: (() => {
+          const d = seriesDelta(trends.medianDistanceMiles);
+          if (d === null || Math.abs(d) < 0.1) return 'unchanged';
+          return `${d > 0 ? '+' : ''}${d.toFixed(1)} mi`;
+        })(),
+        direction: directionOf(seriesDelta(trends.medianDistanceMiles), 0.1) as KeyChangeRow['direction'],
+        neutral: true,
+      },
+      {
+        label: 'Local % (< 50 mi)',
+        formattedDelta: fmtPtsDelta(seriesDelta(trends.localPercent)),
+        direction: directionOf(seriesDelta(trends.localPercent), 0.05) as KeyChangeRow['direction'],
+        neutral: true,
+      },
+    ] : []),
+  ];
+
+  return <KeyChangesList rows={rows} firstLabel={firstLabel} lastLabel={lastLabel} />;
+}
+
 // ─── Side-by-side summary table ───────────────────────────────────────────────
 
 interface MetricRow {
@@ -104,19 +293,20 @@ interface MetricRow {
   unit?: string;
   precision?: number;
   deltaInvert?: boolean;
+  neutral?: boolean;
 }
 
 const METRIC_ROWS: MetricRow[] = [
   { label: 'Total Participants',   key: 'participantCount',    precision: 0 },
   { label: 'Active Participants',  key: 'activeParticipants',  precision: 0 },
-  { label: 'Female %',             key: 'femalePercent',       unit: '%' },
-  { label: 'Non-Binary %',         key: 'nonBinaryPercent',    unit: '%' },
-  { label: 'Male %',               key: 'malePercent',         unit: '%' },
-  { label: 'Median Age',           key: 'medianAge',           precision: 0 },
-  { label: 'Mean Age',             key: 'meanAge' },
-  { label: 'States / Provinces',   key: 'stateCount',          precision: 0 },
-  { label: 'Countries',            key: 'countryCount',        precision: 0 },
-  { label: 'International %',      key: 'internationalPercent', unit: '%' },
+  { label: 'Female %',             key: 'femalePercent',       unit: '%',  neutral: true },
+  { label: 'Non-Binary %',         key: 'nonBinaryPercent',    unit: '%',  neutral: true },
+  { label: 'Male %',               key: 'malePercent',         unit: '%',  neutral: true },
+  { label: 'Median Age',           key: 'medianAge',           precision: 0, neutral: true },
+  { label: 'Mean Age',             key: 'meanAge',                          neutral: true },
+  { label: 'States / Provinces',   key: 'stateCount',          precision: 0, neutral: true },
+  { label: 'Countries',            key: 'countryCount',        precision: 0, neutral: true },
+  { label: 'International %',      key: 'internationalPercent', unit: '%',  neutral: true },
   { label: 'Comped %',             key: 'compedPercent',       unit: '%' },
   { label: 'Coupon Usage %',       key: 'couponUsagePercent',  unit: '%' },
 ];
@@ -131,10 +321,11 @@ function deltaClass(
   current: number | null,
   first: number | null,
   deltaInvert = false,
+  neutral = false,
 ): string {
   if (current === null || first === null) return '';
   const d = current - first;
-  if (Math.abs(d) < 0.05) return 'cmp-cell--neutral';
+  if (neutral || Math.abs(d) < 0.05) return 'cmp-cell--neutral';
   const good = deltaInvert ? d < 0 : d > 0;
   return good ? 'cmp-cell--good' : 'cmp-cell--bad';
 }
@@ -171,7 +362,7 @@ function SummaryTable({ trends, labels, hasDistanceTrend }: SummaryTableProps) {
                 {series.map((pt, i) => (
                   <td
                     key={pt.label}
-                    className={i === 0 ? '' : deltaClass(pt.value, first, row.deltaInvert)}
+                    className={i === 0 ? '' : deltaClass(pt.value, first, row.deltaInvert, row.neutral)}
                   >
                     {fmt(pt.value, row.unit ?? '', row.precision ?? 1)}
                     {i > 0 && pt.value !== null && first !== null && Math.abs(pt.value - first) >= 0.05 && (
@@ -233,13 +424,7 @@ function IntervalTabs({ intervals }: IntervalTabsProps) {
             className={`interval-tab-panel${i !== activeIdx ? ' interval-tab-panel--inactive' : ''}`}
             aria-hidden={i !== activeIdx}
           >
-            <div className="interval-tab-meta">
-              <span className="interval-tab-meta-name">{iv.raceName}</span>
-              <span className="interval-tab-meta-count">
-                {iv.participantCount.toLocaleString()} participants
-              </span>
-              <span className="interval-tab-label-print">{iv.label}</span>
-            </div>
+            <span className="interval-tab-label-print">{iv.label}</span>
             <GenderSection stats={s.gender} />
             <AgeSection stats={s.age} />
             <GeographicSection stats={s.geographic} />
@@ -355,24 +540,35 @@ export default function ComparisonPage({ sessions, onBack }: Props) {
             </div>
           </section>
 
-          {/* ── Side-by-side table ── */}
+          {/* ── Interval Comparison tabbed panel ── */}
           <section className="chart-section" aria-labelledby="summary-table-heading">
             <SectionHeader title="Interval Comparison" />
-            <SummaryTable
-              trends={data.trends}
-              labels={data.intervals.map(iv => iv.label)}
-              hasDistanceTrend={data.hasDistanceTrend}
+            <IntervalComparisonPanel
+              trendsContent={
+                <ParticipantTrendLines
+                  trends={data.trends}
+                  hasDistanceTrend={data.hasDistanceTrend}
+                />
+              }
+              tableContent={
+                <SummaryTable
+                  trends={data.trends}
+                  labels={data.intervals.map(iv => iv.label)}
+                  hasDistanceTrend={data.hasDistanceTrend}
+                />
+              }
+              keyChangesContent={
+                <ParticipantKeyChanges
+                  trends={data.trends}
+                  hasDistanceTrend={data.hasDistanceTrend}
+                />
+              }
             />
           </section>
 
           {/* ── Per-interval detail ── */}
           <section className="chart-section" aria-labelledby="detail-heading">
             <SectionHeader title="Per-Interval Details" />
-            <p className="comparison-detail-hint">
-              Select an interval tab to view its full breakdown. Hour-of-day,
-              cumulative curve, and cross-event statistics are most useful in
-              this individual context.
-            </p>
             <IntervalTabs intervals={data.intervals} />
           </section>
         </>

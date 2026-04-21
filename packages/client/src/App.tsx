@@ -33,7 +33,7 @@ export type ParticipantSession =
 const NAV_ITEMS: Array<{ id: Section; label: string; shortLabel: string }> = [
   { id: 'home',         label: 'Home',                  shortLabel: 'Home' },
   { id: 'learn',        label: 'Analytics Guide',        shortLabel: 'Guide' },
-  { id: 'participants', label: 'Participant Analytics',  shortLabel: 'Participants' },
+  { id: 'participants', label: 'Registration Analytics', shortLabel: 'Registration' },
   { id: 'results',      label: 'Race Analytics',          shortLabel: 'Results' },
   { id: 'financials',   label: 'Financials',             shortLabel: 'Financials' },
   { id: 'about',        label: 'About',                  shortLabel: 'About' },
@@ -50,7 +50,7 @@ function AppShell() {
 
   useEffect(() => {
     const item = NAV_ITEMS.find(n => n.id === activeSection);
-    document.title = item && item.id !== 'home' ? `${item.label} | RaceStats` : 'RaceStats';
+    document.title = item && item.id !== 'home' ? `${item.label} | RaceOps` : 'RaceOps';
   }, [activeSection]);
 
   function navigateTo(section: Section) {
@@ -119,9 +119,9 @@ function AppShell() {
             type="button"
             className="app-logo"
             onClick={() => navigateTo('home')}
-            aria-label="RaceStats — go to home"
+            aria-label="RaceOps — go to home"
           >
-            RaceStats
+            RaceOps
             {holidayBadge && <span className="app-logo-badge" aria-hidden="true">{holidayBadge}</span>}
           </button>
 

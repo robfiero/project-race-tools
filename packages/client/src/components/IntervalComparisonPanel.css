@@ -1,0 +1,131 @@
+/* ─── Panel tab strip ─────────────────────────────────────────────────────── */
+
+.cmp-panel-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #e5e7eb;
+  margin-bottom: 1.25rem;
+}
+
+.cmp-panel-tab {
+  padding: 0.5rem 1.125rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.cmp-panel-tab:hover {
+  color: #111827;
+}
+
+.cmp-panel-tab--active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.cmp-panel-tab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ─── Trend category pills ────────────────────────────────────────────────── */
+
+.trend-cat-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.trend-cat-pill {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: none;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.trend-cat-pill:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.trend-cat-pill--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.trend-cat-pill:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ─── Trend line chart ────────────────────────────────────────────────────── */
+
+.trend-line-chart {
+  margin-top: 0.25rem;
+}
+
+.trend-line-empty {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-style: italic;
+  margin: 1rem 0;
+}
+
+/* ─── Key changes list ────────────────────────────────────────────────────── */
+
+.key-changes-intro {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 1rem;
+}
+
+.key-changes-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.5rem 0.75rem;
+}
+
+.key-changes-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.375rem 0.625rem;
+  border-radius: 5px;
+  background: #f9fafb;
+  gap: 0.5rem;
+}
+
+.key-changes-metric {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.key-changes-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.key-changes-value--up   { color: #166534; }
+.key-changes-value--down { color: #991b1b; }
+.key-changes-value--neutral { color: #374151; }
+
+.key-changes-arrow {
+  font-size: 0.65rem;
+  vertical-align: middle;
+}

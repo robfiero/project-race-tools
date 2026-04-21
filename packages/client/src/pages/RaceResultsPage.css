@@ -24,63 +24,6 @@
   color: #666;
 }
 
-/* ── Unified upload card ─────────────────────────────────────────────────── */
-
-.rr-upload-card {
-  padding: 0;
-  overflow: hidden;
-  margin-bottom: 0.75rem;
-}
-
-/* ── Race details section (top of card) ──────────────────────────────────── */
-
-.rr-upload-details {
-  padding: 1rem 1.25rem 0.9rem;
-  background: var(--color-primary-light, #f8f5ff);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
-}
-
-.rr-upload-details-heading {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-primary);
-  margin-bottom: 0.7rem;
-}
-
-.rr-upload-details-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem 1rem;
-}
-
-.rr-upload-details-hint {
-  font-size: 0.75rem;
-  color: #777;
-  margin: 0.55rem 0 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.3rem;
-}
-
-.rr-upload-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.rr-upload-field label {
-  font-weight: 600;
-  font-size: 0.82rem;
-}
-
-/* ── Files section (bottom of card) ─────────────────────────────────────── */
-
-.rr-upload-files-section {
-  padding: 0.75rem 1.25rem 1rem;
-}
-
 /* ── Per-row race date fields ─────────────────────────────────────────────── */
 
 .file-row-group {
@@ -168,9 +111,6 @@ input[type="datetime-local"].datetime-empty {
   margin-bottom: 0.75rem;
 }
 
-.rr-upload-submit {
-  width: 100%;
-}
 
 .rr-upload-format-note {
   font-size: 0.85rem;
@@ -514,6 +454,12 @@ input[type="datetime-local"].datetime-empty {
 
 .cmp-expander-btn:hover {
   color: var(--color-primary);
+}
+
+.cmp-expander-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 .cmp-expander-icon {

@@ -5,7 +5,7 @@ export default function AboutPage() {
     <div className="about-page">
 
       <div className="about-header card">
-        <h1 className="about-title">About RaceStats</h1>
+        <h1 className="about-title">About RaceOps</h1>
         <div className="about-creator">
           <img
             src="/rob-fiero.jpg"
@@ -44,20 +44,21 @@ export default function AboutPage() {
         </div>
 
         <p>
-          RaceStats is a data analytics platform built for trail and ultramarathon race directors.
-          It transforms participant registration exports from platforms like UltraSignup into
-          actionable insights — registrant demographics, geographic reach, registration timing,
-          and year-over-year trends — without ever storing personally identifiable information.
+          RaceOps is a data analytics platform for race directors. It analyzes exported race
+          registration data and turns it into actionable insights — participant demographics,
+          geographic reach, registration timing, participation trends, and year-over-year growth
+          — without storing personally identifiable information.
         </p>
         <p>
-          The goal is to give race directors real visibility into their events: who is signing up,
-          where they are coming from, when they register, and how the race is growing over time.
-          All personal information is stripped immediately on upload and never written to disk.
+          The project was built from a race director's perspective: practical, privacy-conscious,
+          and focused on the questions that come up when planning, improving, and communicating
+          about an event.
         </p>
         <p>
-          This project is intentionally built as a production-style system rather than a
-          prototype, emphasizing privacy-first design, clean data pipelines, and an interface
-          that race directors can use intuitively.
+          RaceOps is intentionally designed as a production-style system rather than a prototype.
+          It uses a privacy-first import pipeline, session-scoped analysis, clear visualizations,
+          and plain-language summaries so race directors can understand their data without needing
+          to become analysts.
         </p>
       </div>
 
@@ -66,9 +67,9 @@ export default function AboutPage() {
           <h2>Why I built it</h2>
           <p className="about-section-subtitle">A real problem in a niche I know well.</p>
           <ul>
-            <li>As a race director, I thought it would be interesting to have greater insight into the large volume of data about my races, so I've built a tool that can help do just that.</li>
-            <li>Registration platforms often provide basic analytics — not the deeper analytics that can be discovered in the raw data.</li>
-            <li>Privacy was a core requirement from the start: participants' personal information should never leave the race director's hands in identifiable form.</li>
+            <li>As a race director, I wanted a clearer way to understand the data my races already generate: who signs up, where participants come from, when registrations happen, how distances compare, and how those patterns change year over year.</li>
+            <li>Registration platforms do a lot of the heavy lifting for race operations. RaceOps explores a complementary layer: what can race directors learn from the exported data they already have?</li>
+            <li>Privacy was a core requirement from the start. The goal was to make the analysis useful without retaining names, emails, addresses, phone numbers, or other personally identifiable participant details.</li>
           </ul>
         </div>
 
@@ -76,10 +77,10 @@ export default function AboutPage() {
           <h2>Key goals</h2>
           <p className="about-section-subtitle">Principles that shaped the design.</p>
           <ul>
-            <li>Strip personal information at the boundary — names, emails, addresses, and phone numbers are discarded on upload.</li>
-            <li>Make complex statistics accessible through clear visualizations and plain-language labels.</li>
-            <li>Support multi-year comparison so directors can track growth and spot trends across race editions.</li>
-            <li>Build a system that can grow incrementally.</li>
+            <li>Personal information in uploaded files is never read or analyzed — PII columns are structurally excluded at parse time, not discarded after the fact.</li>
+            <li>Make complex race statistics accessible through clear visualizations and plain-language labels.</li>
+            <li>Support year-over-year comparison so race directors can track growth, spot trends, and compare race editions.</li>
+            <li>Build the system incrementally so additional registration platforms, result formats, and analysis modules can be added over time.</li>
           </ul>
         </div>
       </div>
@@ -122,7 +123,7 @@ export default function AboutPage() {
 
       <div className="about-section card">
         <h2>AI-assisted engineering workflow</h2>
-        <p className="about-section-subtitle">Three tools, applied at different stages of development.</p>
+        <p className="about-section-subtitle">This project used AI tools at different stages of development, while architecture, product direction, and engineering judgment remained hands-on.</p>
         <p>
           <strong>ChatGPT</strong> was used for early ideation — exploring implementation approaches
           and architecture tradeoffs before committing to a direction.
@@ -138,10 +139,9 @@ export default function AboutPage() {
           data models, and reviewing architectural tradeoffs.
         </p>
         <p>
-          Architecture decisions, product direction, and engineering judgment remained intentional and
-          hands-on throughout. All AI-assisted code was reviewed and held to the same standard as
-          human-written code. One goal of this project is to demonstrate how engineers can use AI tools
-          responsibly — as a force multiplier for iteration, not a substitute for judgment.
+          All AI-assisted code was reviewed, tested, and held to the same standard as hand-written
+          code. The goal was to use AI as a force multiplier for iteration, not as a substitute for
+          engineering judgment.
         </p>
       </div>
 
@@ -150,7 +150,7 @@ export default function AboutPage() {
           <h2>What I learned</h2>
           <p className="about-section-subtitle">The polish comes from small, repeatable decisions.</p>
           <ul>
-            <li>Designing privacy constraints upfront is much easier than retrofitting them — the adapter pattern made personal data exclusion structural rather than optional.</li>
+            <li>Designing privacy constraints up front is much easier than retrofitting them — the adapter pattern made personal data exclusion structural rather than optional.</li>
             <li>Multi-year comparison requires careful sorting and normalization; race names and event names vary across years in ways that need explicit handling.</li>
             <li>Synthetic sample data generation is harder to make realistic than it looks — distribution shapes matter as much as value ranges.</li>
             <li>Session-based in-memory storage is sufficient for a single-user tool but requires thoughtful lifetime management to avoid stale data.</li>
@@ -159,11 +159,12 @@ export default function AboutPage() {
 
         <div className="about-section card">
           <h2>Why this project matters</h2>
-          <p className="about-section-subtitle">A credible demo of end-to-end engineering judgment.</p>
+          <p className="about-section-subtitle">A practical demo of product thinking, privacy-aware architecture, and end-to-end engineering execution.</p>
           <ul>
-            <li>Demonstrates full-stack ownership across data ingestion, API design, session management, and UI delivery.</li>
+            <li>Demonstrates full-stack ownership across import workflows, API design, session management, analytics, visualization, and deployment.</li>
             <li>Privacy-first architecture that treats constraints as design requirements, not afterthoughts.</li>
-            <li>Built to be demo-friendly without sacrificing production-quality structure — real parsing, real stats, real deployment.</li>
+            <li>Built to be demo-friendly without sacrificing production-quality structure — real parsing, real analytics, real deployment.</li>
+            <li>Complements registration platforms by adding analysis and reporting around exported data.</li>
             <li>Active project evolving through incremental releases, with race results and financials analysis planned.</li>
           </ul>
         </div>

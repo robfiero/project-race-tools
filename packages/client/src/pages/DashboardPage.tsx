@@ -64,7 +64,7 @@ export default function DashboardPage({ session, label, onBack }: Props) {
             ← New analysis
           </button>
           <h1 ref={pageHeadingRef} tabIndex={-1} className="dashboard-title">
-            {session.raceName} — Participant Analysis{/^\d{4}$/.test(label) && ` ${label}`}
+            {session.raceName} — Registration Analysis{/^\d{4}$/.test(label) && ` ${label}`}
           </h1>
           <dl className="dashboard-meta">
             <div className="dashboard-meta-row">
@@ -107,31 +107,49 @@ export default function DashboardPage({ session, label, onBack }: Props) {
       {error && <div className="dashboard-error" role="alert">{error}</div>}
 
       {stats && !loading && (
-        <div className="dashboard-sections">
-          {/* Summary row */}
-          <div className="summary-cards">
-            <StatCard
-              label="Total Participants"
-              value={stats.summary.totalParticipants.toLocaleString()}
-            />
-            <StatCard
-              label="Active Participants"
-              value={stats.summary.activeParticipants.toLocaleString()}
-              sub="not dropped or removed"
-            />
-            {stats.summary.events.map(e => (
-              <StatCard key={e.name} label={e.name} value={e.count.toLocaleString()} />
-            ))}
-          </div>
+        <>
+          <nav className="report-nav no-print" aria-label="Jump to section">
+            <a href="#dash-summary" className="report-nav-link">Summary</a>
+            <a href="#dash-demographics" className="report-nav-link">Demographics</a>
+            <a href="#dash-geography" className="report-nav-link">Geography</a>
+            <a href="#dash-registration" className="report-nav-link">Registration Timing</a>
+            <a href="#dash-participation" className="report-nav-link">Participation</a>
+          </nav>
+          <div className="dashboard-sections">
+            <div id="dash-summary">
+              <div className="summary-cards">
+                <StatCard
+                  label="Total Participants"
+                  value={stats.summary.totalParticipants.toLocaleString()}
+                />
+                <StatCard
+                  label="Active Participants"
+                  value={stats.summary.activeParticipants.toLocaleString()}
+                  sub="not dropped or removed"
+                />
+                {stats.summary.events.map(e => (
+                  <StatCard key={e.name} label={e.name} value={e.count.toLocaleString()} />
+                ))}
+              </div>
+            </div>
 
-          <GenderSection stats={stats.gender} />
-          <AgeSection stats={stats.age} />
-          <GeographicSection stats={stats.geographic} />
-          {stats.distance && <DistanceSection stats={stats.distance} />}
-          <CrossEventSection stats={stats.crossEvent} />
-          <RegistrationSection stats={stats.registration} />
-          <ParticipationSection participation={stats.participation} teams={stats.teams} />
-        </div>
+            <div id="dash-demographics">
+              <GenderSection stats={stats.gender} />
+              <AgeSection stats={stats.age} />
+            </div>
+            <div id="dash-geography">
+              <GeographicSection stats={stats.geographic} />
+              {stats.distance && <DistanceSection stats={stats.distance} />}
+            </div>
+            <CrossEventSection stats={stats.crossEvent} />
+            <div id="dash-registration">
+              <RegistrationSection stats={stats.registration} />
+            </div>
+            <div id="dash-participation">
+              <ParticipationSection participation={stats.participation} teams={stats.teams} />
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
