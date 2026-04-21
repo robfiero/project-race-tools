@@ -69,7 +69,13 @@ router.post('/', async (req: Request, res: Response) => {
     participants,
   };
 
-  await saveSession(sessionData);
+  try {
+    await saveSession(sessionData);
+  } catch (err) {
+    console.error('[sample] failed to save session', err);
+    res.status(500).json({ error: 'Failed to store session data.' });
+    return;
+  }
 
   res.json({
     sessionId: sessionData.sessionId,

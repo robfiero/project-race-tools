@@ -98,7 +98,13 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     }
   }
 
-  await saveResultsSession(sessionData);
+  try {
+    await saveResultsSession(sessionData);
+  } catch (err) {
+    console.error('[results/upload] failed to save session', err);
+    res.status(500).json({ error: 'Failed to store session data.' });
+    return;
+  }
 
   res.json({
     sessionId: sessionData.sessionId,

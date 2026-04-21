@@ -22,6 +22,10 @@ async function main() {
   const allowedOrigins = buildAllowedOrigins(process.env.CLIENT_ORIGIN);
   const isDev = !process.env.CLIENT_ORIGIN;
 
+  // App Runner (and most reverse proxies) set X-Forwarded-For.
+  // Trust exactly one proxy hop so express-rate-limit can read the real client IP.
+  if (!isDev) app.set('trust proxy', 1);
+
   const corsOptions: cors.CorsOptions = {
     origin: makeOriginCallback(allowedOrigins, isDev),
     methods: ['GET', 'POST', 'OPTIONS'],

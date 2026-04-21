@@ -66,7 +66,13 @@ router.post('/', async (req: Request, res: Response) => {
     ...(weatherData ? { weatherData } : {}),
   };
 
-  await saveResultsSession(sessionData);
+  try {
+    await saveResultsSession(sessionData);
+  } catch (err) {
+    console.error('[results/sample] failed to save session', err);
+    res.status(500).json({ error: 'Failed to store session data.' });
+    return;
+  }
 
   res.json({
     sessionId: sessionData.sessionId,
