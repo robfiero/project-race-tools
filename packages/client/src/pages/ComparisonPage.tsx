@@ -425,13 +425,13 @@ function IntervalTabs({ intervals }: IntervalTabsProps) {
             aria-hidden={i !== activeIdx}
           >
             <span className="interval-tab-label-print">{iv.label}</span>
-            <GenderSection stats={s.gender} />
+            <ParticipationSection participation={s.participation} teams={s.teams} />
+            <RegistrationSection stats={s.registration} />
+            <GenderSection stats={s.gender} title="Gender Distribution (Overall)" />
+            <CrossEventSection stats={s.crossEvent} />
             <AgeSection stats={s.age} />
             <GeographicSection stats={s.geographic} />
             {s.distance && <DistanceSection stats={s.distance} />}
-            <RegistrationSection stats={s.registration} />
-            <CrossEventSection stats={s.crossEvent} />
-            <ParticipationSection participation={s.participation} teams={s.teams} />
           </div>
         );
       })}

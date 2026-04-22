@@ -110,10 +110,12 @@ export default function DashboardPage({ session, label, onBack }: Props) {
         <>
           <nav className="report-nav no-print" aria-label="Jump to section">
             <a href="#dash-summary" className="report-nav-link">Summary</a>
-            <a href="#dash-demographics" className="report-nav-link">Demographics</a>
-            <a href="#dash-geography" className="report-nav-link">Geography</a>
+            <a href="#dash-participation" className="report-nav-link">Registration & Drops</a>
             <a href="#dash-registration" className="report-nav-link">Registration Timing</a>
-            <a href="#dash-participation" className="report-nav-link">Participation</a>
+            <a href="#dash-demographics" className="report-nav-link">Gender Distribution</a>
+            <a href="#dash-cross-event" className="report-nav-link">Cross-Event</a>
+            <a href="#dash-age" className="report-nav-link">Age Distribution</a>
+            <a href="#dash-geography" className="report-nav-link">Geographic Distribution</a>
           </nav>
           <div className="dashboard-sections">
             <div id="dash-summary">
@@ -133,20 +135,24 @@ export default function DashboardPage({ session, label, onBack }: Props) {
               </div>
             </div>
 
+            <div id="dash-participation">
+              <ParticipationSection participation={stats.participation} teams={stats.teams} />
+            </div>
+            <div id="dash-registration">
+              <RegistrationSection stats={stats.registration} />
+            </div>
             <div id="dash-demographics">
-              <GenderSection stats={stats.gender} />
+              <GenderSection stats={stats.gender} title="Gender Distribution (Overall)" />
+            </div>
+            <div id="dash-cross-event">
+              <CrossEventSection stats={stats.crossEvent} />
+            </div>
+            <div id="dash-age">
               <AgeSection stats={stats.age} />
             </div>
             <div id="dash-geography">
               <GeographicSection stats={stats.geographic} />
               {stats.distance && <DistanceSection stats={stats.distance} />}
-            </div>
-            <CrossEventSection stats={stats.crossEvent} />
-            <div id="dash-registration">
-              <RegistrationSection stats={stats.registration} />
-            </div>
-            <div id="dash-participation">
-              <ParticipationSection participation={stats.participation} teams={stats.teams} />
             </div>
           </div>
         </>

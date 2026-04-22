@@ -779,9 +779,12 @@ function PerformanceSection({ events }: { events: EventPerformanceStats[] }) {
   );
 }
 
-function AttritionSection({ attrition }: { attrition: AttritionStats }) {
+function AttritionSection({ attrition, multiEvent }: { attrition: AttritionStats; multiEvent: boolean }) {
   const { theme } = useTheme();
-  const rows = [attrition.overall, ...attrition.byEvent, ...attrition.byGender];
+  // When multi-event, per-event rows are already shown in Event Comparison — show only overall + gender here
+  const rows = multiEvent
+    ? [attrition.overall, ...attrition.byGender]
+    : [attrition.overall, ...attrition.byEvent, ...attrition.byGender];
   const chartRows = rows.filter(r => r.total > 0);
   const chartData = chartRows.map(r => ({ name: r.name, finished: r.finished, dnf: r.dnf, dns: r.dns }));
   const colors = chartPalette(theme, 3);
@@ -834,8 +837,12 @@ function AttritionSection({ attrition }: { attrition: AttritionStats }) {
   );
 }
 
-function CrossEventSection({ crossEvent }: { crossEvent: ResultsCrossEventStats }) {
+function CrossEventSection({ crossEvent, attrition }: { crossEvent: ResultsCrossEventStats; attrition: AttritionStats }) {
   if (crossEvent.rows.length === 0) return null;
+
+  // Build a lookup of DNF/DNS counts from attrition.byEvent, keyed by event name
+  const attritionByEvent = new Map(attrition.byEvent.map(r => [r.name, r]));
+
   return (
     <section className="chart-section" aria-labelledby="rr-cross-heading">
       <SectionHeader title="Event Comparison" />
@@ -845,25 +852,29 @@ function CrossEventSection({ crossEvent }: { crossEvent: ResultsCrossEventStats 
           <thead>
             <tr>
               <th>Event</th><th>Entrants</th><th>Finishers</th><th>Finish %</th>
-              <th>Male %</th><th>Female %</th><th>Non-Binary %</th>
-              <th>Avg age</th><th>Fastest time</th><th>Last finisher</th>
+              <th>DNF</th><th>DNF %</th><th>DNS</th>
+              <th>Male %</th><th>Female %</th><th>Non-Binary %</th><th>Avg Age</th>
             </tr>
           </thead>
           <tbody>
-            {crossEvent.rows.map(row => (
-              <tr key={row.name}>
-                <td style={{ fontWeight: 600 }}>{row.name}</td>
-                <td>{row.totalEntrants}</td>
-                <td>{row.finishers}</td>
-                <td>{fmtPct(row.finishRate)}</td>
-                <td>{row.maleFinishers > 0 ? fmtPct(row.malePercent) : '—'}</td>
-                <td>{row.femaleFinishers > 0 ? fmtPct(row.femalePercent) : '—'}</td>
-                <td>{row.nonBinaryFinishers > 0 ? fmtPct(row.nonBinaryPercent) : '—'}</td>
-                <td>{row.avgAge != null ? row.avgAge.toFixed(1) : '—'}</td>
-                <td>{row.courseRecord ?? '—'}</td>
-                <td>{row.lastFinisher ?? '—'}</td>
-              </tr>
-            ))}
+            {crossEvent.rows.map(row => {
+              const atr = attritionByEvent.get(row.name);
+              return (
+                <tr key={row.name}>
+                  <td style={{ fontWeight: 600 }}>{row.name}</td>
+                  <td>{row.totalEntrants}</td>
+                  <td>{row.finishers}</td>
+                  <td>{fmtPct(row.finishRate)}</td>
+                  <td>{atr && atr.dnf > 0 ? atr.dnf : '—'}</td>
+                  <td>{atr && atr.dnfRate > 0 ? fmtPct(atr.dnfRate) : '—'}</td>
+                  <td>{atr && atr.dns > 0 ? atr.dns : '—'}</td>
+                  <td>{row.maleFinishers > 0 ? fmtPct(row.malePercent) : '—'}</td>
+                  <td>{row.femaleFinishers > 0 ? fmtPct(row.femalePercent) : '—'}</td>
+                  <td>{row.nonBinaryFinishers > 0 ? fmtPct(row.nonBinaryPercent) : '—'}</td>
+                  <td>{row.avgAge != null ? row.avgAge.toFixed(1) : '—'}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -878,13 +889,11 @@ function FullStatsSections({ stats, weather, raceName }: { stats: ResultsStats; 
       <div id="rr-summary"><SummarySection summary={stats.summary} weather={weather} performance={stats.performance} raceName={raceName} /></div>
       {weather && <div id="rr-weather"><WeatherSection weather={weather} /></div>}
       <div id="rr-performance"><PerformanceSection events={stats.performance.events} /></div>
-      <div id="rr-demographics">
-        <GenderSection stats={stats.demographics.finisherGender} />
-        <AgeSection stats={stats.demographics.finisherAge} additionalInsights={demoInsights} />
-      </div>
+      <div id="rr-cross-event"><CrossEventSection crossEvent={stats.crossEvent} attrition={stats.attrition} /></div>
+      <div id="rr-attrition"><AttritionSection attrition={stats.attrition} multiEvent={stats.crossEvent.rows.length > 0} /></div>
+      <div id="rr-gender"><GenderSection stats={stats.demographics.finisherGender} /></div>
+      <div id="rr-age"><AgeSection stats={stats.demographics.finisherAge} additionalInsights={demoInsights} /></div>
       <div id="rr-geography"><GeographicSection stats={stats.geographic} /></div>
-      <div id="rr-attrition"><AttritionSection attrition={stats.attrition} /></div>
-      <CrossEventSection crossEvent={stats.crossEvent} />
     </>
   );
 }
@@ -955,10 +964,12 @@ function SingleDashboard({ upload, label, onBack }: SingleDashboardProps) {
           <nav className="report-nav no-print" aria-label="Jump to section">
             <a href="#rr-summary" className="report-nav-link">Summary</a>
             {data.weatherData && <a href="#rr-weather" className="report-nav-link">Weather</a>}
-            <a href="#rr-performance" className="report-nav-link">Finish Times</a>
-            <a href="#rr-demographics" className="report-nav-link">Demographics</a>
-            <a href="#rr-geography" className="report-nav-link">Geography</a>
+            <a href="#rr-performance" className="report-nav-link">Finish Time Distribution</a>
+            <a href="#rr-cross-event" className="report-nav-link">Event Comparison</a>
             <a href="#rr-attrition" className="report-nav-link">Completion Rates</a>
+            <a href="#rr-gender" className="report-nav-link">Gender Distribution</a>
+            <a href="#rr-age" className="report-nav-link">Age Distribution</a>
+            <a href="#rr-geography" className="report-nav-link">Geographic Distribution</a>
           </nav>
           <div className="rr-dashboard-sections">
             <FullStatsSections stats={data.stats} weather={data.weatherData as WeatherData | undefined} />

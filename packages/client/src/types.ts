@@ -98,11 +98,25 @@ export interface RegistrationStats {
   lateProfile: RegistrantProfile;
   couponUsageCount: number;
   couponUsagePercent: number;
+  byEvent: EventRegistrationStats[];
+}
+
+export interface EventRegistrationStats {
+  eventName: string;
+  count: number;
+  byMonth: Array<{ month: string; count: number }>;
+  cumulative: Array<{ date: string; count: number; total: number }>;
+  earlyProfile: RegistrantProfile;
+  lateProfile: RegistrantProfile;
+  couponUsageCount: number;
+  couponUsagePercent: number;
 }
 
 export interface RegistrantProfile {
   count: number;
   femalePercent: number;
+  malePercent: number;
+  nonBinaryPercent: number;
   avgAge: number | null;
   medianDistanceMiles: number | null;
 }
@@ -116,12 +130,30 @@ export interface CrossEventRow {
   count: number;
   male: number;
   female: number;
+  nonBinary: number;
+  malePercent: number;
   femalePercent: number;
+  nonBinaryPercent: number;
   avgAge: number | null;
   medianAge: number | null;
   medianDistanceMiles: number | null;
   localPercent: number | null;
   destinationPercent: number | null;
+}
+
+export interface ParticipantStatusCounts {
+  paidActive: number;
+  paidDropped: number;
+  waitlistNeverInvited: number;
+  waitlistWithdrawnDeclined: number;
+  specialCaseA: number;
+  specialCaseB: number;
+  other: number;
+}
+
+export interface ParticipantStatusStats extends ParticipantStatusCounts {
+  hasStatementData: boolean;
+  byEvent: Array<{ eventName: string } & ParticipantStatusCounts>;
 }
 
 export interface ParticipationStats {
@@ -135,6 +167,7 @@ export interface ParticipationStats {
   droppedPercent: number;
   removed: number;
   removedPercent: number;
+  statusBreakdown: ParticipantStatusStats;
 }
 
 export interface TeamStats {

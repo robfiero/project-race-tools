@@ -5,7 +5,6 @@ import ComparisonPage from './pages/ComparisonPage.tsx';
 import HomePage from './pages/HomePage.tsx';
 import AboutPage from './pages/AboutPage.tsx';
 import RaceResultsPage, { type UploadResult as ResultsUploadResult } from './pages/RaceResultsPage.tsx';
-import FinancialsPage from './pages/FinancialsPage.tsx';
 import LearnPage from './pages/LearnPage.tsx';
 import { ThemeProvider, useTheme } from './ThemeContext.tsx';
 import ThemeSwitcher from './components/ThemeSwitcher.tsx';
@@ -13,7 +12,7 @@ import { isHolidayTheme } from './themes.ts';
 import type { UploadResponse } from './types.ts';
 import './App.css';
 
-export type Section = 'home' | 'learn' | 'participants' | 'results' | 'financials' | 'about';
+export type Section = 'home' | 'learn' | 'participants' | 'results' | 'about';
 
 const HOLIDAY_BADGES: Record<string, string> = {
   newyear: '🥂',
@@ -35,7 +34,6 @@ const NAV_ITEMS: Array<{ id: Section; label: string; shortLabel: string }> = [
   { id: 'learn',        label: 'Analytics Guide',        shortLabel: 'Guide' },
   { id: 'participants', label: 'Registration Analytics', shortLabel: 'Registration' },
   { id: 'results',      label: 'Race Analytics',          shortLabel: 'Results' },
-  { id: 'financials',   label: 'Financials',             shortLabel: 'Financials' },
   { id: 'about',        label: 'About',                  shortLabel: 'About' },
 ];
 
@@ -173,7 +171,6 @@ function AppShell() {
         {activeSection === 'results' && (
           <RaceResultsPage key={resultsDemoKey} initialResult={resultsSession ?? undefined} />
         )}
-        {activeSection === 'financials' && <FinancialsPage />}
         {activeSection === 'about' && <AboutPage />}
       </main>
     </div>

@@ -165,7 +165,7 @@ export default function AboutPage() {
             <li>Privacy-first architecture that treats constraints as design requirements, not afterthoughts.</li>
             <li>Built to be demo-friendly without sacrificing production-quality structure — real parsing, real analytics, real deployment.</li>
             <li>Complements registration platforms by adding analysis and reporting around exported data.</li>
-            <li>Active project evolving through incremental releases, with race results and financials analysis planned.</li>
+            <li>Active project evolving through incremental releases, with additional analysis modules planned.</li>
           </ul>
         </div>
       </div>

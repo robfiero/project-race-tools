@@ -4,9 +4,9 @@ import SectionHeader from './SectionHeader.tsx';
 import { useTheme } from '../ThemeContext.tsx';
 import './ChartSection.css';
 
-interface Props { stats: GenderStats; }
+interface Props { stats: GenderStats; title?: string; }
 
-export default function GenderSection({ stats }: Props) {
+export default function GenderSection({ stats, title = 'Gender Distribution' }: Props) {
   const { theme } = useTheme();
   const COLORS = { M: theme.chart[1], F: theme.chart[0], NB: theme.chart[2], Unknown: '#bbb' };
   const data = [
@@ -20,7 +20,7 @@ export default function GenderSection({ stats }: Props) {
 
   return (
     <section className="chart-section">
-      <SectionHeader title="Gender" />
+      <SectionHeader title={title} />
       <div className="chart-section-body two-col">
         <div className="chart-wrap" aria-hidden="true">
           <ResponsiveContainer width="100%" height={250}>

@@ -1,4 +1,4 @@
-import type { ParticipationStats, TeamStats } from '../types.ts';
+import type { ParticipationStats, ParticipantStatusStats, ParticipantStatusCounts, TeamStats } from '../types.ts';
 import SectionHeader from './SectionHeader.tsx';
 import StatCard from './StatCard.tsx';
 import './ChartSection.css';
@@ -8,12 +8,31 @@ interface Props {
   teams: TeamStats;
 }
 
+type StatusKey = keyof ParticipantStatusCounts;
+
+const STATUS_ROWS: Array<{ key: StatusKey; label: string; note?: string }> = [
+  { key: 'paidActive',                label: 'Paid & Active' },
+  { key: 'paidDropped',               label: 'Paid & Dropped' },
+  { key: 'waitlistNeverInvited',      label: 'Waitlist — Never Invited' },
+  { key: 'waitlistWithdrawnDeclined', label: 'Waitlist — Withdrawn / Declined' },
+  { key: 'specialCaseA',              label: 'Special Case A', note: 'No order type, removed' },
+  { key: 'specialCaseB',              label: 'Special Case B', note: 'No order type, active' },
+  { key: 'other',                     label: 'Other' },
+];
+
 export default function ParticipationSection({ participation, teams }: Props) {
   const active = participation.totalRegistered - participation.dropped - participation.removed;
+  const { statusBreakdown } = participation;
+  const multiEvent = statusBreakdown.byEvent.length > 1;
+
+  // Only show rows where the overall total is non-zero
+  const visibleRows = !statusBreakdown.hasStatementData
+    ? []
+    : STATUS_ROWS.filter(r => statusBreakdown[r.key] > 0);
 
   return (
     <section className="chart-section">
-      <SectionHeader title="Participation" />
+      <SectionHeader title="Registration & Drops" />
 
       <div className="stat-cards-row">
         <StatCard
@@ -58,6 +77,60 @@ export default function ParticipationSection({ participation, teams }: Props) {
           />
         )}
       </div>
+
+      {visibleRows.length > 0 && (
+        <div className="chart-subsection">
+          <h3 className="chart-subsection-title">Registration Status Breakdown</h3>
+          {multiEvent ? (
+            <div className="cross-event-scroll">
+              <table className="stats-table status-breakdown-table">
+                <caption className="sr-only">Registration status by event</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Status</th>
+                    {statusBreakdown.byEvent.map(ev => (
+                      <th key={ev.eventName} scope="col">{ev.eventName}</th>
+                    ))}
+                    <th scope="col">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleRows.map(row => (
+                    <tr key={row.key}>
+                      <td>
+                        {row.label}
+                        {row.note && <span className="status-note"> — {row.note}</span>}
+                      </td>
+                      {statusBreakdown.byEvent.map(ev => (
+                        <td key={ev.eventName}>{ev[row.key].toLocaleString()}</td>
+                      ))}
+                      <td className="status-total">{statusBreakdown[row.key].toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <table className="stats-table stats-table--narrow">
+              <caption className="sr-only">Participant registration status classification</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Status</th>
+                  <th scope="col">Count</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleRows.map(row => (
+                  <tr key={row.key}>
+                    <td>{row.label}{row.note && <span className="status-note"> — {row.note}</span>}</td>
+                    <td>{statusBreakdown[row.key].toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {teams.hasTeams && (
         <>

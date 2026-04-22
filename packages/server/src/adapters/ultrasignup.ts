@@ -163,6 +163,7 @@ export const ultraSignupAdapter: Adapter = {
       country,
       zipCode: zip,
       removed: parseBoolean(row['Removed'] ?? 'false'),
+      statementId: row['statement_id']?.trim() ?? '',
       bib: row['Bib']?.trim() ?? '',
       isTeamCaptain: (row['Captain']?.trim().toLowerCase() === 'yes'),
       teamName: row['team_name']?.trim() ?? '',

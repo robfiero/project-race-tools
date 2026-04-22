@@ -83,6 +83,7 @@ export function makeParticipant(overrides: Partial<ParticipantRecord> = {}): Par
     country: 'USA',
     zipCode: '02101',
     removed: false,
+    statementId: '44001',
     bib: '100',
     isTeamCaptain: false,
     teamName: '',

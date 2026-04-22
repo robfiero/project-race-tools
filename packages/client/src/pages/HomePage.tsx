@@ -402,13 +402,6 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
             available={true}
             onNavigate={onNavigate}
           />
-          <ToolCard
-            title="Financials Reconciliation"
-            description="Cross-reference registration revenue against financial statements to reconcile participant counts, fees, discounts, and comped entries for a single race year."
-            section="financials"
-            available={false}
-            onNavigate={onNavigate}
-          />
         </div>
       </section>
 

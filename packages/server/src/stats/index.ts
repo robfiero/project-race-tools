@@ -8,10 +8,13 @@ import type {
   GeographicStats,
   DistanceStats,
   RegistrationStats,
+  EventRegistrationStats,
   RegistrantProfile,
   CrossEventStats,
   CrossEventRow,
   ParticipationStats,
+  ParticipantStatusStats,
+  ParticipantStatusCounts,
   TeamStats,
 } from '../types.js';
 import { resolveParticipantLocation } from '../geo/participantLocation.js';
@@ -292,9 +295,11 @@ function buildRegistrantProfile(
   venueLng: number | null,
 ): RegistrantProfile {
   const count = subset.length;
-  if (count === 0) return { count: 0, femalePercent: 0, avgAge: null, medianDistanceMiles: null };
+  if (count === 0) return { count: 0, femalePercent: 0, malePercent: 0, nonBinaryPercent: 0, avgAge: null, medianDistanceMiles: null };
 
   const female = subset.filter(p => p.gender === 'F').length;
+  const male = subset.filter(p => p.gender === 'M').length;
+  const nonBinary = subset.filter(p => p.gender === 'NB').length;
   const ages = subset.map(p => p.age).filter((a): a is number => a !== null);
   const avgAge = ages.length > 0 ? round2(ages.reduce((s, a) => s + a, 0) / ages.length) : null;
 
@@ -310,6 +315,8 @@ function buildRegistrantProfile(
   return {
     count,
     femalePercent: round2(female / count * 100),
+    malePercent: round2(male / count * 100),
+    nonBinaryPercent: round2(nonBinary / count * 100),
     avgAge,
     medianDistanceMiles,
   };
@@ -377,6 +384,54 @@ function computeRegistration(
   const payingParticipants = participants.filter(p => !p.isRelayJoin);
   const couponUsers = payingParticipants.filter(p => p.hasCoupon).length;
 
+  // Per-event breakdown
+  const eventNames = [...new Set(participants.map(p => p.event))];
+  const byEvent: EventRegistrationStats[] = eventNames.map(eventName => {
+    const evParticipants = participants.filter(p => p.event === eventName);
+    const evSorted = [...evParticipants].sort(
+      (a, b) => a.registrationDate.getTime() - b.registrationDate.getTime()
+    );
+
+    const evByMonthMap: Record<string, number> = {};
+    for (const p of evSorted) {
+      const { year, month } = datePartsInTz(p.registrationDate, timezone);
+      const key = `${year}-${pad2(month)}`;
+      evByMonthMap[key] = (evByMonthMap[key] ?? 0) + 1;
+    }
+    const evByMonth = Object.entries(evByMonthMap)
+      .map(([month, count]) => ({ month, count }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+
+    const evByDayMap: Record<string, number> = {};
+    for (const p of evSorted) {
+      const { year, month, day } = datePartsInTz(p.registrationDate, timezone);
+      const key = `${year}-${pad2(month)}-${pad2(day)}`;
+      evByDayMap[key] = (evByDayMap[key] ?? 0) + 1;
+    }
+    let evRunning = 0;
+    const evCumulative = Object.entries(evByDayMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => {
+        evRunning += count;
+        return { date, count, total: evRunning };
+      });
+
+    const evQuartile = Math.max(1, Math.floor(evSorted.length / 4));
+    const evPayingParticipants = evParticipants.filter(p => !p.isRelayJoin);
+    const evCouponUsers = evPayingParticipants.filter(p => p.hasCoupon).length;
+
+    return {
+      eventName,
+      count: evParticipants.length,
+      byMonth: evByMonth,
+      cumulative: evCumulative,
+      earlyProfile: buildRegistrantProfile(evSorted.slice(0, evQuartile), venueLat, venueLng),
+      lateProfile: buildRegistrantProfile(evSorted.slice(-evQuartile), venueLat, venueLng),
+      couponUsageCount: evCouponUsers,
+      couponUsagePercent: round2(evCouponUsers / (evPayingParticipants.length || 1) * 100),
+    };
+  });
+
   return {
     byMonth,
     cumulative,
@@ -386,6 +441,7 @@ function computeRegistration(
     lateProfile,
     couponUsageCount: couponUsers,
     couponUsagePercent: round2(couponUsers / (payingParticipants.length || 1) * 100),
+    byEvent,
   };
 }
 
@@ -409,6 +465,7 @@ function computeCrossEvent(
   for (const [name, group] of eventGroups) {
     const male = group.filter(p => p.gender === 'M').length;
     const female = group.filter(p => p.gender === 'F').length;
+    const nonBinary = group.filter(p => p.gender === 'NB').length;
     const ages = group.map(p => p.age).filter((a): a is number => a !== null).sort((a, b) => a - b);
 
     let medianDistanceMiles: number | null = null;
@@ -430,7 +487,10 @@ function computeCrossEvent(
       count: group.length,
       male,
       female,
+      nonBinary,
+      malePercent: round2(male / (group.length || 1) * 100),
       femalePercent: round2(female / (group.length || 1) * 100),
+      nonBinaryPercent: round2(nonBinary / (group.length || 1) * 100),
       avgAge: ages.length > 0 ? round2(ages.reduce((s, a) => s + a, 0) / ages.length) : null,
       medianAge: ages.length > 0 ? round2(medianOf(ages)) : null,
       medianDistanceMiles,
@@ -446,6 +506,22 @@ function computeCrossEvent(
 
 // ─── Participation ───────────────────────────────────────────────────────────
 
+function classifyParticipantStatus(p: ParticipantRecord): keyof ParticipantStatusCounts {
+  const orderType = p.orderType.toLowerCase();
+  const hasStatement = p.statementId !== '';
+
+  if (orderType === 'pending cc' && !hasStatement) {
+    return p.removed ? 'waitlistWithdrawnDeclined' : 'waitlistNeverInvited';
+  }
+  if (orderType === 'credit card' && hasStatement) {
+    return p.removed ? 'paidDropped' : 'paidActive';
+  }
+  if (orderType === '' && hasStatement) {
+    return p.removed ? 'specialCaseA' : 'specialCaseB';
+  }
+  return 'other';
+}
+
 function computeParticipation(participants: ParticipantRecord[]): ParticipationStats {
   const total = participants.length;
   // Relay joins (captain-pays model) are separated from genuine comps so they
@@ -454,6 +530,25 @@ function computeParticipation(participants: ParticipantRecord[]): ParticipationS
   const comped = participants.filter(p => p.isComped && !p.isRelayJoin).length;
   const dropped = participants.filter(p => p.droppingFromRace).length;
   const removed = participants.filter(p => p.removed).length;
+
+  function zeroCounts(): ParticipantStatusCounts {
+    return { paidActive: 0, paidDropped: 0, waitlistNeverInvited: 0, waitlistWithdrawnDeclined: 0, specialCaseA: 0, specialCaseB: 0, other: 0 };
+  }
+
+  const overall = zeroCounts();
+  const eventCountsMap = new Map<string, ParticipantStatusCounts>();
+  for (const p of participants) {
+    const key = classifyParticipantStatus(p);
+    overall[key]++;
+    if (!eventCountsMap.has(p.event)) eventCountsMap.set(p.event, zeroCounts());
+    eventCountsMap.get(p.event)![key]++;
+  }
+
+  const statusBreakdown: ParticipantStatusStats = {
+    ...overall,
+    hasStatementData: participants.some(p => p.statementId !== ''),
+    byEvent: [...eventCountsMap.entries()].map(([eventName, counts]) => ({ eventName, ...counts })),
+  };
 
   return {
     totalRegistered: total,
@@ -466,6 +561,7 @@ function computeParticipation(participants: ParticipantRecord[]): ParticipationS
     droppedPercent: round2(dropped / (total || 1) * 100),
     removed,
     removedPercent: round2(removed / (total || 1) * 100),
+    statusBreakdown,
   };
 }
 

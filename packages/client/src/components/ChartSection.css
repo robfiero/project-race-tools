@@ -93,6 +93,25 @@
   border-bottom: none;
 }
 
+.status-note {
+  color: #888;
+  font-size: 0.82rem;
+}
+
+.status-breakdown-table td,
+.status-breakdown-table th {
+  text-align: right;
+}
+.status-breakdown-table td:first-child,
+.status-breakdown-table th:first-child {
+  text-align: left;
+}
+
+.status-total {
+  font-weight: 600;
+  border-left: 2px solid #eee;
+}
+
 /* Cross-event table */
 .cross-event-scroll {
   overflow-x: auto;
@@ -132,6 +151,20 @@
   color: #666;
   font-size: 0.82rem;
 }
+
+.profile-coupon {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.profile-event-count {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+
 
 /* ── Insight callouts ────────────────────────────────────────────────────────── */
 

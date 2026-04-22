@@ -13,6 +13,7 @@ export interface ParticipantRecord {
   country: string;         // e.g. "USA", "CAN"
   zipCode: string;         // retained for distance calculation only, not PII on its own
   removed: boolean;
+  statementId: string;  // non-empty when a payment transaction exists (UltraSignup-specific)
   bib: string;
   isTeamCaptain: boolean;
   teamName: string;
@@ -116,11 +117,25 @@ export interface RegistrationStats {
   lateProfile: RegistrantProfile;    // last quartile by registration date
   couponUsageCount: number;
   couponUsagePercent: number;
+  byEvent: EventRegistrationStats[];
+}
+
+export interface EventRegistrationStats {
+  eventName: string;
+  count: number;
+  byMonth: Array<{ month: string; count: number }>;
+  cumulative: Array<{ date: string; count: number; total: number }>;
+  earlyProfile: RegistrantProfile;
+  lateProfile: RegistrantProfile;
+  couponUsageCount: number;
+  couponUsagePercent: number;
 }
 
 export interface RegistrantProfile {
   count: number;
   femalePercent: number;
+  malePercent: number;
+  nonBinaryPercent: number;
   avgAge: number | null;
   medianDistanceMiles: number | null;  // null if no venue
 }
@@ -135,12 +150,30 @@ export interface CrossEventRow {
   count: number;
   male: number;
   female: number;
+  nonBinary: number;
+  malePercent: number;
   femalePercent: number;
+  nonBinaryPercent: number;
   avgAge: number | null;
   medianAge: number | null;
   medianDistanceMiles: number | null;  // null if no venue
   localPercent: number | null;
   destinationPercent: number | null;
+}
+
+export interface ParticipantStatusCounts {
+  paidActive: number;
+  paidDropped: number;
+  waitlistNeverInvited: number;
+  waitlistWithdrawnDeclined: number;
+  specialCaseA: number;   // blank orderType, removed=TRUE, statementId present
+  specialCaseB: number;   // blank orderType, removed=FALSE, statementId present
+  other: number;
+}
+
+export interface ParticipantStatusStats extends ParticipantStatusCounts {
+  hasStatementData: boolean;  // true when at least one participant has a statementId
+  byEvent: Array<{ eventName: string } & ParticipantStatusCounts>;
 }
 
 export interface ParticipationStats {
@@ -154,6 +187,7 @@ export interface ParticipationStats {
   droppedPercent: number;
   removed: number;
   removedPercent: number;
+  statusBreakdown: ParticipantStatusStats;
 }
 
 export interface TeamStats {

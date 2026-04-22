@@ -10,6 +10,7 @@ export default function CrossEventSection({ stats }: Props) {
   if (stats.rows.length === 0) return null;
 
   const hasDistance = stats.rows.some(r => r.medianDistanceMiles !== null);
+  const hasNonBinary = stats.rows.some(r => r.nonBinary > 0);
 
   return (
     <section className="chart-section">
@@ -26,6 +27,7 @@ export default function CrossEventSection({ stats }: Props) {
               <th scope="col">Participants</th>
               <th scope="col">Female %</th>
               <th scope="col">Male %</th>
+              {hasNonBinary && <th scope="col">Non-Binary %</th>}
               <th scope="col">Avg Age</th>
               <th scope="col">Median Age</th>
               {hasDistance && <th scope="col">Median Distance</th>}
@@ -39,7 +41,8 @@ export default function CrossEventSection({ stats }: Props) {
                 <td className="cross-event-name">{row.name}</td>
                 <td>{row.count.toLocaleString()}</td>
                 <td>{row.femalePercent}%</td>
-                <td>{(100 - row.femalePercent).toFixed(1)}%</td>
+                <td>{row.malePercent}%</td>
+                {hasNonBinary && <td>{row.nonBinaryPercent > 0 ? `${row.nonBinaryPercent}%` : '—'}</td>}
                 <td>{row.avgAge ?? '—'}</td>
                 <td>{row.medianAge ?? '—'}</td>
                 {hasDistance && (
