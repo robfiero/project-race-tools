@@ -253,11 +253,11 @@ describe('computeStats — geographic', () => {
 // ─── Participation stats ──────────────────────────────────────────────────────
 
 describe('computeStats — participation', () => {
-  it('counts paid participants (total − comped − relayJoins)', () => {
+  it('counts paid participants (credit card + statement only)', () => {
     const participants = [
-      makeParticipant({ orderId: '1' }),                               // paid
-      makeParticipant({ orderId: '2', isComped: true }),               // comped
-      makeParticipant({ orderId: '3', isRelayJoin: true, isComped: true }), // relay join
+      makeParticipant({ orderId: '1' }),                                                        // paid (Credit Card + statementId)
+      makeParticipant({ orderId: '2', isComped: true, orderType: '', statementId: '44002' }),   // comped (blank orderType → specialCaseB)
+      makeParticipant({ orderId: '3', isRelayJoin: true, isComped: true }),                     // relay join
     ];
     const p = stats(participants).participation;
     expect(p.totalRegistered).toBe(3);

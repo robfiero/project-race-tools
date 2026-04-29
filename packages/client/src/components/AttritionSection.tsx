@@ -11,10 +11,17 @@ interface Props {
 type StatusKey = keyof ParticipantStatusCounts;
 
 const STATUS_ROWS: Array<{ key: StatusKey; label: string; note?: string }> = [
-  { key: 'paidActive',                label: 'Paid & Active' },
+  { key: 'paidActive',                label: 'Credit Card Active' },
+  { key: 'couponActive',              label: '100% Coupon Active' },
+  { key: 'giftCardActive',            label: 'Gift Card Active' },
+  { key: 'paymentPendingActive',      label: 'Payment Pending (Next Statement)' },
+  { key: 'relayTeamMember',           label: 'Relay Team Member', note: 'Captain-pays model' },
   { key: 'paidDropped',               label: 'Paid & Dropped' },
-  { key: 'waitlistNeverInvited',      label: 'Waitlist — Never Invited' },
-  { key: 'waitlistWithdrawnDeclined', label: 'Waitlist — Withdrawn / Declined' },
+  { key: 'couponDropped',             label: '100% Coupon — Dropped' },
+  { key: 'giftCardDropped',           label: 'Gift Card — Dropped' },
+  { key: 'paymentPendingDropped',     label: 'Payment Pending — Dropped' },
+  { key: 'waitlistNeverInvited',      label: 'Waitlist Not Invited' },
+  { key: 'waitlistWithdrawnDeclined', label: 'Waitlist Withdrawn/Declined Invitation' },
   { key: 'specialCaseA',              label: 'Special Case A', note: 'No order type, removed' },
   { key: 'specialCaseB',              label: 'Special Case B', note: 'No order type, active' },
   { key: 'other',                     label: 'Other' },

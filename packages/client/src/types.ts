@@ -148,6 +148,13 @@ export interface ParticipantStatusCounts {
   waitlistWithdrawnDeclined: number;
   specialCaseA: number;
   specialCaseB: number;
+  relayTeamMember: number;
+  paymentPendingActive: number;
+  paymentPendingDropped: number;
+  couponActive: number;
+  couponDropped: number;
+  giftCardActive: number;
+  giftCardDropped: number;
   other: number;
 }
 

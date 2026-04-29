@@ -11,7 +11,6 @@ import type { ResultsSessionData } from '../types.js';
 const ACCEPTED_MIMETYPES = new Set([
   'text/csv',
   'application/csv',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/octet-stream',
 ]);
 
@@ -20,12 +19,12 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter(_req, file, cb) {
     const ext = file.originalname.toLowerCase().split('.').pop() ?? '';
-    const extOk = ext === 'csv' || ext === 'xlsx';
+    const extOk = ext === 'csv';
     const mimeOk = ACCEPTED_MIMETYPES.has(file.mimetype);
     if (extOk || mimeOk) {
       cb(null, true);
     } else {
-      cb(new Error('Only CSV and Excel (.xlsx) files are accepted.'));
+      cb(new Error('Only CSV files are accepted. To use an Excel export, open it in Excel or Google Sheets and save as CSV.'));
     }
   },
 });
@@ -45,7 +44,17 @@ const router = Router();
 //   venueAddress — street address of the venue (optional, needed for weather)
 //   raceStart    — local datetime-local string "YYYY-MM-DDTHH:MM" (optional)
 //   raceEnd      — local datetime-local string "YYYY-MM-DDTHH:MM" (optional)
-router.post('/', upload.single('file'), async (req: Request, res: Response) => {
+router.post('/', (req: Request, res: Response, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      res.status(422).json({ error: err.message });
+      return;
+    }
+    next();
+  });
+});
+
+router.post('/', async (req: Request, res: Response) => {
   if (!req.file) {
     res.status(400).json({ error: 'No file uploaded.' });
     return;
@@ -70,7 +79,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
 
   const raceName: string =
     (req.body.raceName as string)?.trim() ||
-    req.file.originalname.replace(/\.(csv|xlsx)$/i, '');
+    req.file.originalname.replace(/\.csv$/i, '');
 
   const venueAddress = (req.body.venueAddress as string | undefined)?.trim() ?? '';
 

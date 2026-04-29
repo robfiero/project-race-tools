@@ -1,5 +1,4 @@
 import Papa from 'papaparse';
-import ExcelJS from 'exceljs';
 import type { ParticipantRecord } from '../types.js';
 import { detectAdapter } from '../adapters/index.js';
 import type { RawRow } from '../adapters/types.js';
@@ -18,85 +17,6 @@ export interface ParseResult {
   participants: ParticipantRecord[];
   adapterName: string;
   skippedRows: number;
-}
-
-// ─── Excel helpers ───────────────────────────────────────────────────────────
-
-// Normalize any ExcelJS cell value to a plain string so the adapter layer
-// can use its existing helpers (parseDate, parseNumber, etc.) unchanged.
-function cellToString(val: ExcelJS.CellValue): string {
-  if (val === null || val === undefined) return '';
-  if (val instanceof Date) {
-    // UltraSignup stores timestamps as text strings, not date-formatted cells,
-    // so this path is a fallback for other platforms or future adapters.
-    const mo = val.getMonth() + 1;
-    const da = val.getDate();
-    const yr = val.getFullYear();
-    let h = val.getHours();
-    const mi = String(val.getMinutes()).padStart(2, '0');
-    const sc = String(val.getSeconds()).padStart(2, '0');
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    if (h > 12) h -= 12;
-    if (h === 0) h = 12;
-    return `${mo}/${da}/${yr} ${h}:${mi}:${sc} ${ampm}`;
-  }
-  if (typeof val === 'object') {
-    // Formula or shared formula — use the computed result
-    if ('formula' in val || 'sharedFormula' in val) {
-      const result = (val as { result?: ExcelJS.CellValue }).result;
-      return result != null ? cellToString(result) : '';
-    }
-    // Rich text — join all text runs
-    if ('richText' in val) {
-      return (val as ExcelJS.CellRichTextValue).richText.map(rt => rt.text).join('');
-    }
-    // Hyperlink — use the display text
-    if ('text' in val) {
-      return String((val as ExcelJS.CellHyperlinkValue).text);
-    }
-    // Error value (#DIV/0!, #REF!, etc.) — treat as empty
-    if ('error' in val) return '';
-  }
-  return String(val);
-}
-
-async function excelToRows(buffer: Buffer): Promise<{ headers: string[]; rows: RawRow[] }> {
-  const workbook = new ExcelJS.Workbook();
-  // ExcelJS's Buffer type predates Node's generic Buffer<T> — cast to satisfy TS
-  await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
-
-  const ws = workbook.worksheets[0];
-  if (!ws) return { headers: [], rows: [] };
-
-  const allRows: ExcelJS.Row[] = [];
-  ws.eachRow({ includeEmpty: false }, row => allRows.push(row));
-
-  if (allRows.length < 2) return { headers: [], rows: [] };
-
-  const headerRow = allRows[0];
-  const colCount = headerRow.cellCount;
-  const headers: string[] = [];
-  for (let col = 1; col <= colCount; col++) {
-    headers.push(String(headerRow.getCell(col).value ?? '').trim());
-  }
-
-  const rows: RawRow[] = [];
-  for (let i = 1; i < allRows.length; i++) {
-    const exRow = allRows[i];
-    const cells: string[] = [];
-    for (let col = 1; col <= colCount; col++) {
-      cells.push(cellToString(exRow.getCell(col).value));
-    }
-    if (cells.every(c => c === '')) continue;
-
-    const row: RawRow = {};
-    for (let j = 0; j < headers.length; j++) {
-      row[headers[j]] = cells[j] ?? '';
-    }
-    rows.push(row);
-  }
-
-  return { headers, rows };
 }
 
 // ─── Shared processing ───────────────────────────────────────────────────────
@@ -176,18 +96,13 @@ export async function parseFile(
 
   const ext = filename.toLowerCase().split('.').pop() ?? '';
 
-  if (ext === 'xls') {
+  if (ext !== 'csv') {
     throw new ParseError(
-      'The legacy .xls format is not supported. Please open the file in Excel and save it as .xlsx, then re-upload.'
+      'Only CSV files are supported. To use an Excel export, open it in Excel or Google Sheets and save as CSV, then re-upload.'
     );
   }
 
-  if (ext === 'xlsx') {
-    const { headers, rows } = await excelToRows(buffer);
-    return processRows(headers, rows);
-  }
-
-  // Default: treat as CSV
+  // Parse as CSV
   const text = buffer.toString('utf-8');
   const result = Papa.parse<RawRow>(text, {
     header: true,

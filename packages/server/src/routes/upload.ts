@@ -9,8 +9,7 @@ import type { SessionData } from '../types.js';
 const ACCEPTED_MIMETYPES = new Set([
   'text/csv',
   'application/csv',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/octet-stream', // some browsers send this for .csv/.xlsx
+  'application/octet-stream', // some browsers send this for CSV files
 ]);
 
 const upload = multer({
@@ -18,12 +17,12 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB hard limit at the transport layer
   fileFilter(_req, file, cb) {
     const ext = file.originalname.toLowerCase().split('.').pop() ?? '';
-    const extOk = ext === 'csv' || ext === 'xlsx';
+    const extOk = ext === 'csv';
     const mimeOk = ACCEPTED_MIMETYPES.has(file.mimetype);
     if (extOk || mimeOk) {
       cb(null, true);
     } else {
-      cb(new Error('Only CSV and Excel (.xlsx) files are accepted.'));
+      cb(new Error('Only CSV files are accepted. To use an Excel export, open it in Excel or Google Sheets and save as CSV.'));
     }
   },
 });
@@ -35,7 +34,17 @@ const router = Router();
 //   file         — CSV or Excel file (required)
 //   raceName     — display name for the race (optional)
 //   venueAddress — plain text address (optional)
-router.post('/', upload.single('file'), async (req: Request, res: Response) => {
+router.post('/', (req: Request, res: Response, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      res.status(422).json({ error: err.message });
+      return;
+    }
+    next();
+  });
+});
+
+router.post('/', async (req: Request, res: Response) => {
   if (!req.file) {
     res.status(400).json({ error: 'No file uploaded.' });
     return;

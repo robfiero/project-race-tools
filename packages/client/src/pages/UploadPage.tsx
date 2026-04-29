@@ -103,7 +103,7 @@ function FileRow({
           id={inputId}
           ref={fileInputRef}
           type="file"
-          accept=".csv,.xlsx"
+          accept=".csv"
           onChange={onFileChange}
           style={{ display: 'none' }}
           aria-label={`${required ? 'Required: ' : ''}File for row ${index + 1}`}
@@ -173,6 +173,11 @@ export default function UploadPage({ onUploadComplete }: Props) {
   const canSubmit = firstRowFilled && !uploading;
 
   function handleFileSelect(rowId: string, file: File) {
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    if (ext !== 'csv') {
+      setError('Only CSV files are accepted. To use an Excel export, open it in Excel or Google Sheets and save as CSV.');
+      return;
+    }
     setError(null);
     const detectedYear = detectYear(file.name);
     setRows(prev => prev.map(r =>
@@ -221,14 +226,14 @@ export default function UploadPage({ onUploadComplete }: Props) {
         const data = await res.json();
         if (!res.ok) {
           const rowLabel = toUpload.length > 1
-            ? ` (${row.year || row.file!.name.replace(/\.(csv|xlsx)$/i, '')})`
+            ? ` (${row.year || row.file!.name.replace(/\.csv$/i, '')})`
             : '';
           setError((data.error ?? 'Upload failed.') + rowLabel);
           setUploading(false);
           return;
         }
         // Use year as label; fall back to filename without extension
-        const label = row.year || row.file!.name.replace(/\.(csv|xlsx)$/i, '');
+        const label = row.year || row.file!.name.replace(/\.csv$/i, '');
         results.push({ response: data as UploadResponse, label });
       } catch {
         setError('Could not reach the server. Make sure it is running.');
@@ -259,7 +264,7 @@ export default function UploadPage({ onUploadComplete }: Props) {
         </p>
         <p className="upload-supported">
           Supported platforms: <strong>UltraSignup</strong> &nbsp;·&nbsp; More coming soon
-          &nbsp;·&nbsp; Formats: <strong>CSV</strong>, <strong>Excel (.xlsx)</strong>
+          &nbsp;·&nbsp; Format: <strong>CSV</strong>
         </p>
       </div>
 

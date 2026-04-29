@@ -1,5 +1,4 @@
 import Papa from 'papaparse';
-import ExcelJS from 'exceljs';
 import type { ResultRecord } from '../types.js';
 import { ultraSignupResultsAdapter } from '../adapters/resultsAdapter.js';
 import type { RawRow } from '../adapters/types.js';
@@ -12,61 +11,6 @@ export interface ResultsParseResult {
   results: ResultRecord[];
   adapterName: string;
   skippedRows: number;
-}
-
-function cellToString(val: ExcelJS.CellValue): string {
-  if (val === null || val === undefined) return '';
-  if (val instanceof Date) return val.toISOString();
-  if (typeof val === 'object') {
-    if ('formula' in val || 'sharedFormula' in val) {
-      const result = (val as { result?: ExcelJS.CellValue }).result;
-      return result != null ? cellToString(result) : '';
-    }
-    if ('richText' in val) {
-      return (val as ExcelJS.CellRichTextValue).richText.map(rt => rt.text).join('');
-    }
-    if ('text' in val) return String((val as ExcelJS.CellHyperlinkValue).text);
-    if ('error' in val) return '';
-  }
-  return String(val);
-}
-
-async function excelToRows(buffer: Buffer): Promise<{ headers: string[]; rows: RawRow[] }> {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
-
-  const ws = workbook.worksheets[0];
-  if (!ws) return { headers: [], rows: [] };
-
-  const allRows: ExcelJS.Row[] = [];
-  ws.eachRow({ includeEmpty: false }, row => allRows.push(row));
-
-  if (allRows.length < 2) return { headers: [], rows: [] };
-
-  const headerRow = allRows[0];
-  const colCount = headerRow.cellCount;
-  const headers: string[] = [];
-  for (let col = 1; col <= colCount; col++) {
-    headers.push(String(headerRow.getCell(col).value ?? '').trim());
-  }
-
-  const rows: RawRow[] = [];
-  for (let i = 1; i < allRows.length; i++) {
-    const exRow = allRows[i];
-    const cells: string[] = [];
-    for (let col = 1; col <= colCount; col++) {
-      cells.push(cellToString(exRow.getCell(col).value));
-    }
-    if (cells.every(c => c === '')) continue;
-
-    const row: RawRow = {};
-    for (let j = 0; j < headers.length; j++) {
-      row[headers[j]] = cells[j] ?? '';
-    }
-    rows.push(row);
-  }
-
-  return { headers, rows };
 }
 
 function assertNoBlankHeadersWithData(headers: string[], rows: RawRow[]): void {
@@ -135,15 +79,10 @@ export async function parseResultsFile(
 
   const ext = filename.toLowerCase().split('.').pop() ?? '';
 
-  if (ext === 'xls') {
+  if (ext !== 'csv') {
     throw new ParseError(
-      'The legacy .xls format is not supported. Please open the file in Excel and save it as .xlsx, then re-upload.'
+      'Only CSV files are supported. To use an Excel export, open it in Excel or Google Sheets and save as CSV, then re-upload.'
     );
-  }
-
-  if (ext === 'xlsx') {
-    const { headers, rows } = await excelToRows(buffer);
-    return processRows(headers, rows);
   }
 
   const text = buffer.toString('utf-8');

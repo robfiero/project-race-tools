@@ -507,6 +507,10 @@ function computeCrossEvent(
 // ─── Participation ───────────────────────────────────────────────────────────
 
 function classifyParticipantStatus(p: ParticipantRecord): keyof ParticipantStatusCounts {
+  // Relay team members (captain-pays model) are identified by the parser —
+  // classify them before checking orderType since their orderType is "100% Coupon".
+  if (p.isRelayJoin) return 'relayTeamMember';
+
   const orderType = p.orderType.toLowerCase();
   const hasStatement = p.statementId !== '';
 
@@ -516,9 +520,14 @@ function classifyParticipantStatus(p: ParticipantRecord): keyof ParticipantStatu
   if (orderType === 'credit card' && hasStatement) {
     return p.removed ? 'paidDropped' : 'paidActive';
   }
+  if (orderType === 'credit card' && !hasStatement) {
+    return p.removed ? 'paymentPendingDropped' : 'paymentPendingActive';
+  }
   if (orderType === '' && hasStatement) {
     return p.removed ? 'specialCaseA' : 'specialCaseB';
   }
+  if (orderType === '100% coupon') return p.removed ? 'couponDropped' : 'couponActive';
+  if (orderType === 'gift card')   return p.removed ? 'giftCardDropped' : 'giftCardActive';
   return 'other';
 }
 
@@ -527,12 +536,12 @@ function computeParticipation(participants: ParticipantRecord[]): ParticipationS
   // Relay joins (captain-pays model) are separated from genuine comps so they
   // don't inflate the "comped" figure with expected free relay registrations.
   const relayJoins = participants.filter(p => p.isRelayJoin).length;
-  const comped = participants.filter(p => p.isComped && !p.isRelayJoin).length;
+  const comped = participants.filter(p => p.isComped && !p.isRelayJoin && p.orderType.toLowerCase() !== 'pending cc').length;
   const dropped = participants.filter(p => p.droppingFromRace).length;
   const removed = participants.filter(p => p.removed).length;
 
   function zeroCounts(): ParticipantStatusCounts {
-    return { paidActive: 0, paidDropped: 0, waitlistNeverInvited: 0, waitlistWithdrawnDeclined: 0, specialCaseA: 0, specialCaseB: 0, other: 0 };
+    return { paidActive: 0, paidDropped: 0, paymentPendingActive: 0, paymentPendingDropped: 0, waitlistNeverInvited: 0, waitlistWithdrawnDeclined: 0, specialCaseA: 0, specialCaseB: 0, relayTeamMember: 0, couponActive: 0, couponDropped: 0, giftCardActive: 0, giftCardDropped: 0, other: 0 };
   }
 
   const overall = zeroCounts();
@@ -550,9 +559,14 @@ function computeParticipation(participants: ParticipantRecord[]): ParticipationS
     byEvent: [...eventCountsMap.entries()].map(([eventName, counts]) => ({ eventName, ...counts })),
   };
 
+  const paid = overall.paidActive + overall.paidDropped
+    + overall.paymentPendingActive + overall.paymentPendingDropped
+    + overall.couponActive + overall.couponDropped
+    + overall.giftCardActive + overall.giftCardDropped;
+
   return {
     totalRegistered: total,
-    paid: total - comped - relayJoins,
+    paid,
     comped,
     compedPercent: round2(comped / (total || 1) * 100),
     relayJoins,

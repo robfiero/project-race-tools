@@ -232,8 +232,8 @@ describe('ultraSignupAdapter.transform — isRelayJoin', () => {
     expect(transform({ ...relayCompedRow, Captain: 'yes' })!.isRelayJoin).toBe(false);
   });
 
-  it('is false when there is no team name', () => {
-    expect(transform({ ...relayCompedRow, team_name: '' })!.isRelayJoin).toBe(false);
+  it('is true even when there is no team name (UltraSignup data entry bug)', () => {
+    expect(transform({ ...relayCompedRow, team_name: '' })!.isRelayJoin).toBe(true);
   });
 
   it('is false when the event is not a relay', () => {

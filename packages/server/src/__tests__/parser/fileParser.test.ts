@@ -122,9 +122,9 @@ describe('parseFile — legacy .xls rejection', () => {
     await expect(parseFile(buffer, 'export.xls', buffer.length)).rejects.toThrow(ParseError);
   });
 
-  it('error message instructs user to save as .xlsx', async () => {
+  it('error message instructs user to save as CSV', async () => {
     const { buffer } = validBuf();
-    await expect(parseFile(buffer, 'export.xls', buffer.length)).rejects.toThrow(/\.xlsx/i);
+    await expect(parseFile(buffer, 'export.xls', buffer.length)).rejects.toThrow(/save as CSV/i);
   });
 });
 
@@ -208,9 +208,9 @@ describe('parseFile — successful CSV parse', () => {
 // ─── File extension routing ───────────────────────────────────────────────────
 
 describe('parseFile — file extension handling', () => {
-  it('treats an unknown extension as CSV', async () => {
+  it('rejects an unknown extension with a ParseError', async () => {
     const { buffer, size } = validBuf();
-    await expect(parseFile(buffer, 'export.txt', size)).resolves.toBeDefined();
+    await expect(parseFile(buffer, 'export.txt', size)).rejects.toThrow(ParseError);
   });
 
   it('filename casing does not affect CSV parsing', async () => {

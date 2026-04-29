@@ -111,13 +111,11 @@ function isRelayJoin(
   comped: boolean,
   eventName: string,
   captainStr: string,
-  teamNameStr: string,
 ): boolean {
   return (
     comped &&
     eventName.toLowerCase().includes('relay') &&
-    captainStr.trim().toLowerCase() !== 'yes' &&
-    teamNameStr.trim() !== ''
+    captainStr.trim().toLowerCase() !== 'yes'
   );
 }
 
@@ -172,7 +170,6 @@ export const ultraSignupAdapter: Adapter = {
         isComped(row['Price'] ?? '0', row['item_discount'] ?? '0'),
         row['distance'] ?? '',
         row['Captain'] ?? '',
-        row['team_name'] ?? '',
       ),
       droppingFromRace: isDroppingFromRace(row['Dropping from the Race'] ?? ''),
       refundStatus: row['Refunds']?.trim() ?? '',

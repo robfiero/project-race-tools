@@ -144,7 +144,7 @@ function FileRow({
             id={inputId}
             ref={fileInputRef}
             type="file"
-            accept=".csv,.xlsx"
+            accept=".csv"
             onChange={onFileChange}
             style={{ display: 'none' }}
             aria-label={`${required ? 'Required: ' : ''}Results file for row ${index + 1}`}
@@ -241,6 +241,11 @@ function UploadPhase({ onComplete }: UploadPhaseProps) {
   const canSubmit = firstRowFilled && !uploading;
 
   function handleFileSelect(rowId: string, file: File) {
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    if (ext !== 'csv') {
+      setError('Only CSV files are accepted. To use an Excel export, open it in Excel or Google Sheets and save as CSV.');
+      return;
+    }
     setError(null);
     const detectedYear = detectYear(file.name);
     setRows(prev => prev.map(r =>
@@ -331,7 +336,7 @@ function UploadPhase({ onComplete }: UploadPhaseProps) {
         </p>
         <p className="rr-upload-supported">
           Supported platforms: <strong>UltraSignup</strong> &nbsp;·&nbsp; More coming soon
-          &nbsp;·&nbsp; Formats: <strong>CSV</strong>, <strong>Excel (.xlsx)</strong>
+          &nbsp;·&nbsp; Format: <strong>CSV</strong>
         </p>
         <p className="rr-upload-format-note">
           <strong>Note:</strong> Your results file must include the required UltraSignup column headers.

@@ -290,8 +290,6 @@ export default function RegistrationSection({ stats }: Props) {
         </p>
       </div>
 
-      {/* ── Early vs. Late Registrants — By Event ── */}
-      {multiEvent && <EventProfileTabs events={stats.byEvent} />}
     </section>
   );
 }

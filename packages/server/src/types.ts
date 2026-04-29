@@ -166,8 +166,15 @@ export interface ParticipantStatusCounts {
   paidDropped: number;
   waitlistNeverInvited: number;
   waitlistWithdrawnDeclined: number;
-  specialCaseA: number;   // blank orderType, removed=TRUE, statementId present
-  specialCaseB: number;   // blank orderType, removed=FALSE, statementId present
+  specialCaseA: number;      // blank orderType, removed=TRUE, statementId present
+  specialCaseB: number;      // blank orderType, removed=FALSE, statementId present
+  relayTeamMember: number;      // captain-pays relay join (isRelayJoin=true)
+  paymentPendingActive: number; // Credit Card, no statement yet, active
+  paymentPendingDropped: number;// Credit Card, no statement yet, removed
+  couponActive: number;         // 100% Coupon order type, non-relay, active
+  couponDropped: number;     // 100% Coupon order type, non-relay, removed
+  giftCardActive: number;    // Gift Card order type, active
+  giftCardDropped: number;   // Gift Card order type, removed
   other: number;
 }
 
