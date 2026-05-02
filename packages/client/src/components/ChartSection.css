@@ -38,8 +38,16 @@
   align-items: start;
 }
 
+.three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
 @media (max-width: 640px) {
-  .two-col {
+  .two-col,
+  .three-col {
     grid-template-columns: 1fr;
   }
 }
@@ -150,6 +158,13 @@
   font-weight: 400;
   color: #666;
   font-size: 0.82rem;
+}
+
+.chart-note {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-style: italic;
 }
 
 .profile-coupon {

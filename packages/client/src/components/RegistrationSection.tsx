@@ -14,7 +14,7 @@ import { chartPalette } from '../chartColors.ts';
 import { registrationInsights } from '../insights.ts';
 import './ChartSection.css';
 
-interface Props { stats: RegistrationStats; }
+interface Props { stats: RegistrationStats; compact?: boolean; }
 
 function formatMonth(ym: string): string {
   const [year, month] = ym.split('-');
@@ -122,7 +122,7 @@ function EventProfileTabs({ events }: { events: EventRegistrationStats[] }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export default function RegistrationSection({ stats }: Props) {
+export default function RegistrationSection({ stats, compact = false }: Props) {
   const { theme } = useTheme();
   const [, c1, , c3] = theme.chart;
   const monthColors = chartPalette(theme, stats.byMonth.length);
@@ -156,11 +156,6 @@ export default function RegistrationSection({ stats }: Props) {
       <SectionHeader title="Registration Timing" />
 
       <div className="stat-cards-row">
-        <StatCard
-          label="Coupon Users"
-          value={stats.couponUsageCount.toLocaleString()}
-          sub={`${stats.couponUsagePercent}% of registrants`}
-        />
         <StatCard label="Peak Day" value={peakDay.day} sub={`${peakDay.count} registrations`} />
         <StatCard label="Peak Hour" value={peakHour.label} sub={`${peakHour.count} registrations`} />
       </div>

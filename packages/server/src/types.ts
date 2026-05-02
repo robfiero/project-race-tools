@@ -228,26 +228,71 @@ export interface IntervalStats {
 export interface ComparisonTrends {
   participantCount: TrendPoint[];
   activeParticipants: TrendPoint[];
+  paid: TrendPoint[];
   femalePercent: TrendPoint[];
   medianAge: TrendPoint[];
   meanAge: TrendPoint[];
+  minAge: TrendPoint[];
+  maxAge: TrendPoint[];
   stateCount: TrendPoint[];
   countryCount: TrendPoint[];
   internationalPercent: TrendPoint[];
+  internationalCount: TrendPoint[];
   nonBinaryPercent: TrendPoint[];
   malePercent: TrendPoint[];
+  comped: TrendPoint[];
+  dropped: TrendPoint[];
+  removed: TrendPoint[];
+  relayJoins: TrendPoint[];
+  couponUsageCount: TrendPoint[];
+  // Status-breakdown counts (match single-year Registration Status Breakdown table)
+  paidActive: TrendPoint[];
+  couponActive: TrendPoint[];
+  giftCardActive: TrendPoint[];
+  paymentPending: TrendPoint[];
+  paidDropped: TrendPoint[];
+  waitlistNeverInvited: TrendPoint[];
+  waitlistWithdrawnDeclined: TrendPoint[];
   compedPercent: TrendPoint[];
+  droppedPercent: TrendPoint[];
+  removedPercent: TrendPoint[];
+  relayJoinsPercent: TrendPoint[];
   couponUsagePercent: TrendPoint[];
+  earlyFemalePercent: TrendPoint[];
+  lateFemalePercent: TrendPoint[];
+  earlyMalePercent: TrendPoint[];
+  lateMalePercent: TrendPoint[];
+  earlyAvgAge: TrendPoint[];
+  lateAvgAge: TrendPoint[];
   // Empty arrays when not all intervals have venue data
   medianDistanceMiles: TrendPoint[];
   localPercent: TrendPoint[];
+  regionalPercent: TrendPoint[];
   destinationPercent: TrendPoint[];
+}
+
+export interface StateTrendRow {
+  state: string;
+  counts: TrendPoint[];
+}
+
+export interface CrossEventTrendRow {
+  eventName: string;
+  participantCount: TrendPoint[];
+  femalePercent: TrendPoint[];
+  malePercent: TrendPoint[];
+  nonBinaryPercent: TrendPoint[];
+  avgAge: TrendPoint[];
+  medianAge: TrendPoint[];
+  medianDistanceMiles: TrendPoint[];
 }
 
 export interface ComparisonStats {
   intervals: IntervalStats[];
   trends: ComparisonTrends;
   hasDistanceTrend: boolean;
+  crossEventTrends: CrossEventTrendRow[];
+  topStateTrends: StateTrendRow[];
 }
 
 // ─── Race Results types ───────────────────────────────────────────────────────

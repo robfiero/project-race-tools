@@ -88,6 +88,14 @@
   line-height: 1.4;
 }
 
+.upload-hint--tip {
+  margin-top: 0.75rem;
+}
+
+.upload-hint--tip .info-icon {
+  background: #3b82f6;
+}
+
 .info-icon {
   display: inline-flex;
   align-items: center;

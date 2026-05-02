@@ -266,6 +266,10 @@ export default function UploadPage({ onUploadComplete }: Props) {
           Supported platforms: <strong>UltraSignup</strong> &nbsp;·&nbsp; More coming soon
           &nbsp;·&nbsp; Format: <strong>CSV</strong>
         </p>
+        <p className="upload-hint upload-hint--tip">
+          <InfoIcon />
+          <span>When exporting from UltraSignup, set all filter criteria to <strong>All</strong> — including <strong>Status</strong> and <strong>Removed</strong>, which default to other values.</span>
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} noValidate>

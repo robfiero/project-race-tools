@@ -1,26 +1,24 @@
 .section-header {
   margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  position: relative;
-}
-
-.section-header::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 2px;
-  background-image: var(--section-divider-image, linear-gradient(90deg, var(--color-primary), var(--color-primary)));
-  border-radius: 999px;
 }
 
 .section-title {
+  display: inline-block;
   font-size: 1.1rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #1a1a1a;
+}
+
+.section-title::after {
+  content: '';
+  display: block;
+  width: 3rem;
+  height: 3px;
+  background: var(--color-primary);
+  border-radius: 999px;
+  margin-top: 0.3rem;
 }
 
 .section-sub {

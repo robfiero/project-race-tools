@@ -6,6 +6,9 @@ import './ChartSection.css';
 interface Props {
   participation: ParticipationStats;
   teams: TeamStats;
+  compact?: boolean;
+  couponUsageCount?: number;
+  couponUsagePercent?: number;
 }
 
 type StatusKey = keyof ParticipantStatusCounts;
@@ -27,7 +30,7 @@ const STATUS_ROWS: Array<{ key: StatusKey; label: string; note?: string }> = [
   { key: 'other',                     label: 'Other' },
 ];
 
-export default function ParticipationSection({ participation, teams }: Props) {
+export default function ParticipationSection({ participation, teams, compact = false, couponUsageCount, couponUsagePercent }: Props) {
   const active = participation.totalRegistered - participation.dropped - participation.removed;
   const { statusBreakdown } = participation;
   const multiEvent = statusBreakdown.byEvent.length > 1;
@@ -41,49 +44,32 @@ export default function ParticipationSection({ participation, teams }: Props) {
     <section className="chart-section">
       <SectionHeader title="Registration & Drops" />
 
-      <div className="stat-cards-row">
-        <StatCard
-          label="Total Registered"
-          value={participation.totalRegistered.toLocaleString()}
-        />
-        <StatCard
-          label="Paid"
-          value={participation.paid.toLocaleString()}
-        />
-        {participation.relayJoins > 0 && (
-          <StatCard
-            label="Relay Joins"
-            value={participation.relayJoins.toLocaleString()}
-            sub="captain-pays model"
-          />
-        )}
-        {participation.comped > 0 && (
-          <StatCard
-            label="Comped"
-            value={participation.comped.toLocaleString()}
-            sub={`${participation.compedPercent}% — RD / volunteer`}
-          />
-        )}
-        <StatCard
-          label="Active"
-          value={active.toLocaleString()}
-          sub="not dropped or removed"
-        />
-        {participation.dropped > 0 && (
-          <StatCard
-            label="Dropped"
-            value={participation.dropped.toLocaleString()}
-            sub={`${participation.droppedPercent}%`}
-          />
-        )}
-        {participation.removed > 0 && (
-          <StatCard
-            label="Removed"
-            value={participation.removed.toLocaleString()}
-            sub={`${participation.removedPercent}%`}
-          />
-        )}
-      </div>
+      {!compact && (
+        <div className="stat-cards-row">
+          <StatCard label="Total Registered" value={participation.totalRegistered.toLocaleString()} />
+          <StatCard label="Paid" value={participation.paid.toLocaleString()} />
+          {participation.relayJoins > 0 && (
+            <StatCard label="Relay Joins" value={participation.relayJoins.toLocaleString()} sub="captain-pays model" />
+          )}
+          {participation.comped > 0 && (
+            <StatCard label="Comped" value={participation.comped.toLocaleString()} sub={`${participation.compedPercent}% — RD / volunteer`} />
+          )}
+          <StatCard label="Active" value={active.toLocaleString()} sub="not dropped or removed" />
+          {participation.dropped > 0 && (
+            <StatCard label="Dropped" value={participation.dropped.toLocaleString()} sub={`${participation.droppedPercent}%`} />
+          )}
+          {participation.removed > 0 && (
+            <StatCard label="Removed" value={participation.removed.toLocaleString()} sub={`${participation.removedPercent}%`} />
+          )}
+          {couponUsageCount !== undefined && couponUsageCount > 0 && (
+            <StatCard
+              label="Coupon Users"
+              value={couponUsageCount.toLocaleString()}
+              sub={couponUsagePercent !== undefined ? `${couponUsagePercent}% of registrants` : undefined}
+            />
+          )}
+        </div>
+      )}
 
       {visibleRows.length > 0 && (
         <div className="chart-subsection">

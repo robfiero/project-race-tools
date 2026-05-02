@@ -9,11 +9,16 @@ interface SessionEntry {
   label?: unknown;
 }
 
+interface CompareBody {
+  sessions?: unknown;
+  selectedEvent?: unknown;
+}
+
 // POST /api/compare
 // Body: { sessions: Array<{ sessionId: string, label: string }> }
 // Returns ComparisonStats with per-interval full stats and derived trend series.
 router.post('/', async (req: Request, res: Response) => {
-  const body = req.body as { sessions?: unknown };
+  const body = req.body as CompareBody;
 
   if (!Array.isArray(body.sessions) || body.sessions.length < 2) {
     res.status(400).json({ error: 'Provide between 2 and 5 session entries to compare.' });
@@ -53,7 +58,18 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   const labels = entries.map(e => (e.label as string).trim());
-  const result = computeComparisonStats(sessions as NonNullable<typeof sessions[number]>[], labels);
+  const selectedEvent = typeof body.selectedEvent === 'string' && body.selectedEvent.trim()
+    ? body.selectedEvent.trim()
+    : null;
+
+  const norm = (s: string) => s.toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+  const filteredSessions = (sessions as NonNullable<typeof sessions[number]>[]).map(s =>
+    selectedEvent
+      ? { ...s, participants: s.participants.filter(p => norm(p.event) === norm(selectedEvent)) }
+      : s
+  );
+
+  const result = computeComparisonStats(filteredSessions, labels);
 
   res.json(result);
 });

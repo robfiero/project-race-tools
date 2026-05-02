@@ -1,3 +1,14 @@
+.comparison-event-notice {
+  font-size: 0.8rem;
+  color: #6b7280;
+  background: #f8f8f5;
+  border-left: 3px solid #d1d5db;
+  border-radius: 0 4px 4px 0;
+  padding: 0.5rem 0.85rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
 .comparison-page {
   display: flex;
   flex-direction: column;
@@ -59,45 +70,33 @@
 
 .trend-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+}
+
+@media (max-width: 700px) {
+  .trend-cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
 }
 
 .trend-card {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.9rem 1rem 0.6rem;
-}
-
-.trend-card-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.75rem 0.875rem 0.5rem;
 }
 
 .trend-card-title {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #666;
 }
 
-.trend-card-delta {
-  font-size: 0.72rem;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.trend-card-delta--good  { color: #166534; }
-.trend-card-delta--bad   { color: #991b1b; }
-.trend-card-delta--neutral { color: #555; }
-
 .trend-card-value {
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   font-weight: 700;
   line-height: 1;
   color: var(--color-primary);
@@ -105,7 +104,7 @@
 
 .trend-card-chart {
   margin-top: auto;
-  padding-top: 0.25rem;
+  padding-top: 0.2rem;
 }
 
 /* ── Summary comparison table ─────────────────────────────────────────────── */

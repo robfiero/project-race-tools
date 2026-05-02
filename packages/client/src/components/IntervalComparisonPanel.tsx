@@ -2,26 +2,27 @@ import { useState } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
+import { useTheme } from '../ThemeContext.tsx';
+import { chartPalette } from '../chartColors.ts';
 import './IntervalComparisonPanel.css';
 
 // ─── Tab panel ────────────────────────────────────────────────────────────────
 
 type TabId = 'trends' | 'table' | 'changes';
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'trends',  label: 'Trend Lines' },
-  { id: 'changes', label: 'Key Changes' },
-  { id: 'table',   label: 'Table' },
-];
-
 interface PanelProps {
-  trendsContent:     React.ReactNode;
+  trendsContent?:    React.ReactNode;
   tableContent:      React.ReactNode;
   keyChangesContent: React.ReactNode;
 }
 
 export default function IntervalComparisonPanel({ trendsContent, tableContent, keyChangesContent }: PanelProps) {
-  const [tab, setTab] = useState<TabId>('trends');
+  const TABS: { id: TabId; label: string }[] = [
+    ...(trendsContent !== undefined ? [{ id: 'trends' as TabId, label: 'Charts' }] : []),
+    { id: 'changes', label: 'Key Changes' },
+    { id: 'table',   label: 'Table' },
+  ];
+  const [tab, setTab] = useState<TabId>(trendsContent !== undefined ? 'trends' : 'changes');
 
   return (
     <div className="cmp-panel">
@@ -93,12 +94,10 @@ export interface TrendSeries {
   data: Array<{ label: string; value: number | null }>;
 }
 
-const LINE_COLORS = ['#2563eb', '#f97316', '#16a34a', '#9333ea', '#6b7280'];
-
 interface TrendLineChartProps {
   series: TrendSeries[];
   formatY?: (v: number) => string;
-  formatTooltipValue?: (v: number, name: string) => string;
+  formatTooltipValue?: (v: number, name: string, label?: string) => string;
   yUnit?: string;
   emptyMessage?: string;
 }
@@ -106,6 +105,8 @@ interface TrendLineChartProps {
 export function TrendLineChart({
   series, formatY, formatTooltipValue, yUnit = '', emptyMessage,
 }: TrendLineChartProps) {
+  const { theme } = useTheme();
+  const colors = chartPalette(theme, series.length);
   const labels = series[0]?.data.map(p => p.label) ?? [];
 
   const isFlat = series.every(s =>
@@ -138,9 +139,9 @@ export function TrendLineChart({
             width={52}
           />
           <Tooltip
-            formatter={(value: number, name: string) => [
+            formatter={(value: number, name: string, props: { payload?: Record<string, unknown> }) => [
               formatTooltipValue
-                ? formatTooltipValue(value, name)
+                ? formatTooltipValue(value, name, props.payload?.label as string | undefined)
                 : `${typeof value === 'number' ? value.toFixed(yUnit === '' ? 0 : 1) : value}${yUnit}`,
               name,
             ]}
@@ -151,7 +152,7 @@ export function TrendLineChart({
               key={s.name}
               type="monotone"
               dataKey={s.name}
-              stroke={LINE_COLORS[i % LINE_COLORS.length]}
+              stroke={colors[i]}
               strokeWidth={2.5}
               dot={{ r: 4, strokeWidth: 0 }}
               activeDot={{ r: 5 }}

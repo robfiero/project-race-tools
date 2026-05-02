@@ -136,7 +136,12 @@ export default function DashboardPage({ session, label, onBack }: Props) {
             </div>
 
             <div id="dash-participation">
-              <ParticipationSection participation={stats.participation} teams={stats.teams} />
+              <ParticipationSection
+                participation={stats.participation}
+                teams={stats.teams}
+                couponUsageCount={stats.registration.couponUsageCount}
+                couponUsagePercent={stats.registration.couponUsagePercent}
+              />
             </div>
             <div id="dash-registration">
               <RegistrationSection stats={stats.registration} />
