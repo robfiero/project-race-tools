@@ -30,6 +30,25 @@ const LABEL_STYLE   = { fontSize: 10, fill: '#555' };
 const Y_WIDTH       = 200;
 const CHART_MARGIN  = { top: 4, right: 56, bottom: 4, left: 8 };
 
+// Custom LabelList renderer for Age bars — shifts label dy pixels from bar center
+// so Avg Age and Median Age labels don't crowd each other when values are close.
+function ageLabel(dy: number) {
+  return (props: { x?: number | string; y?: number | string; width?: number | string; height?: number | string; value?: unknown }) => {
+    const x = Number(props.x ?? 0);
+    const y = Number(props.y ?? 0);
+    const width = Number(props.width ?? 0);
+    const height = Number(props.height ?? 0);
+    const v = typeof props.value === 'number' ? props.value : 0;
+    if (v === 0) return null;
+    return (
+      <text x={x + width + 4} y={y + height / 2 + dy}
+        textAnchor="start" dominantBaseline="middle" fontSize={10} fill="#555">
+        {Math.round(v)}
+      </text>
+    );
+  };
+}
+
 export default function CrossEventSection({ stats, selectedEvents }: Props) {
   const { theme } = useTheme();
   const [tab,  setTab]  = useState<CeTab>('charts');
@@ -62,9 +81,9 @@ export default function CrossEventSection({ stats, selectedEvents }: Props) {
   const n = rows.length;
 
   function chartHeight(): number {
-    if (activeView === 'gender')  return Math.max(160, n * (hasNonBinary ? 76 : 60));
-    if (activeView === 'age')     return Math.max(160, n * 60);
-    if (activeView === 'travel')  return Math.max(180, n * 76);
+    if (activeView === 'gender')  return Math.max(160, n * (hasNonBinary ? 84 : 68));
+    if (activeView === 'age')     return Math.max(160, n * 76);
+    if (activeView === 'travel')  return Math.max(200, n * 90);
     return Math.max(120, n * 44);
   }
 
@@ -77,21 +96,21 @@ export default function CrossEventSection({ stats, selectedEvents }: Props) {
         ...(hasNonBinary ? { 'Non-Binary': r.nonBinaryPercent } : {}),
       }));
       return (
-        <BarChart data={data} layout="vertical" barCategoryGap="28%" barGap={3} margin={CHART_MARGIN}>
+        <BarChart data={data} layout="vertical" barCategoryGap="22%" barGap={4} barSize={18} margin={CHART_MARGIN}>
           <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
           <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={Y_WIDTH} />
           <Tooltip formatter={(v: number) => `${v.toFixed(1)}%`} />
           <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={LEGEND_STYLE} />
-          <Bar dataKey="Female" fill={GENDER_COLORS.Female} maxBarSize={16} radius={[0, 3, 3, 0]}>
+          <Bar dataKey="Female" fill={GENDER_COLORS.Female} radius={[0, 3, 3, 0]}>
             <LabelList dataKey="Female" position="right" style={LABEL_STYLE}
               formatter={(v: number) => v > 0 ? `${v.toFixed(1)}%` : ''} />
           </Bar>
-          <Bar dataKey="Male" fill={GENDER_COLORS.Male} maxBarSize={16} radius={[0, 3, 3, 0]}>
+          <Bar dataKey="Male" fill={GENDER_COLORS.Male} radius={[0, 3, 3, 0]}>
             <LabelList dataKey="Male" position="right" style={LABEL_STYLE}
               formatter={(v: number) => v > 0 ? `${v.toFixed(1)}%` : ''} />
           </Bar>
           {hasNonBinary && (
-            <Bar dataKey="Non-Binary" fill={GENDER_COLORS['Non-Binary']} maxBarSize={16} radius={[0, 3, 3, 0]}>
+            <Bar dataKey="Non-Binary" fill={GENDER_COLORS['Non-Binary']} radius={[0, 3, 3, 0]}>
               <LabelList dataKey="Non-Binary" position="right" style={LABEL_STYLE}
                 formatter={(v: number) => v > 0 ? `${v.toFixed(1)}%` : ''} />
             </Bar>
@@ -107,18 +126,16 @@ export default function CrossEventSection({ stats, selectedEvents }: Props) {
         'Median Age': r.medianAge ?? 0,
       }));
       return (
-        <BarChart data={data} layout="vertical" barCategoryGap="32%" barGap={3} margin={CHART_MARGIN}>
+        <BarChart data={data} layout="vertical" barCategoryGap="22%" barGap={6} barSize={18} margin={CHART_MARGIN}>
           <XAxis type="number" tick={{ fontSize: 11 }} />
           <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={Y_WIDTH} />
           <Tooltip formatter={(v: number) => `${v.toFixed(1)} yrs`} />
           <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={LEGEND_STYLE} />
-          <Bar dataKey="Avg Age" fill={theme.chart[0]} maxBarSize={16} radius={[0, 3, 3, 0]}>
-            <LabelList dataKey="Avg Age" position="right" style={LABEL_STYLE}
-              formatter={(v: number) => v > 0 ? String(Math.round(v)) : ''} />
+          <Bar dataKey="Avg Age" fill={theme.chart[0]} radius={[0, 3, 3, 0]}>
+            <LabelList dataKey="Avg Age" content={ageLabel(-4)} />
           </Bar>
-          <Bar dataKey="Median Age" fill={theme.chart[1]} maxBarSize={16} radius={[0, 3, 3, 0]}>
-            <LabelList dataKey="Median Age" position="right" style={LABEL_STYLE}
-              formatter={(v: number) => v > 0 ? String(Math.round(v)) : ''} />
+          <Bar dataKey="Median Age" fill={theme.chart[1]} radius={[0, 3, 3, 0]}>
+            <LabelList dataKey="Median Age" content={ageLabel(4)} />
           </Bar>
         </BarChart>
       );
@@ -132,20 +149,20 @@ export default function CrossEventSection({ stats, selectedEvents }: Props) {
         Destination: r.destinationPercent ?? 0,
       }));
       return (
-        <BarChart data={data} layout="vertical" barCategoryGap="28%" barGap={3} margin={CHART_MARGIN}>
+        <BarChart data={data} layout="vertical" barCategoryGap="18%" barGap={4} barSize={18} margin={CHART_MARGIN}>
           <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
           <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={Y_WIDTH} />
           <Tooltip formatter={(v: number) => `${v.toFixed(1)}%`} />
           <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={LEGEND_STYLE} />
-          <Bar dataKey="Local" fill={theme.chart[0]} maxBarSize={16} radius={[0, 3, 3, 0]}>
+          <Bar dataKey="Local" fill={theme.chart[0]} radius={[0, 3, 3, 0]}>
             <LabelList dataKey="Local" position="right" style={LABEL_STYLE}
               formatter={(v: number) => v > 0 ? `${v.toFixed(1)}%` : ''} />
           </Bar>
-          <Bar dataKey="Regional" fill={theme.chart[1]} maxBarSize={16} radius={[0, 3, 3, 0]}>
+          <Bar dataKey="Regional" fill={theme.chart[1]} radius={[0, 3, 3, 0]}>
             <LabelList dataKey="Regional" position="right" style={LABEL_STYLE}
               formatter={(v: number) => v > 0 ? `${v.toFixed(1)}%` : ''} />
           </Bar>
-          <Bar dataKey="Destination" fill={theme.chart[2]} maxBarSize={16} radius={[0, 3, 3, 0]}>
+          <Bar dataKey="Destination" fill={theme.chart[2]} radius={[0, 3, 3, 0]}>
             <LabelList dataKey="Destination" position="right" style={LABEL_STYLE}
               formatter={(v: number) => v > 0 ? `${v.toFixed(1)}%` : ''} />
           </Bar>

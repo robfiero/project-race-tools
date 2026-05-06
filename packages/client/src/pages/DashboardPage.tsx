@@ -10,6 +10,7 @@ import DistanceSection from '../components/DistanceSection.tsx';
 import CrossEventSection from '../components/CrossEventSection.tsx';
 import RegistrationSection from '../components/RegistrationSection.tsx';
 import ParticipationSection, { computeTotalActive } from '../components/AttritionSection.tsx';
+import SectionHeader from '../components/SectionHeader.tsx';
 import './DashboardPage.css';
 
 interface Props {
@@ -114,7 +115,8 @@ export default function DashboardPage({ session, label, onBack }: Props) {
             <a href="#dash-geography" className="report-nav-link">Geography</a>
           </nav>
           <div className="dashboard-sections">
-            <div id="dash-summary">
+            <section id="dash-summary" className="chart-section">
+              <SectionHeader title="Quick Summary" />
               <div className="summary-cards">
                 <StatCard
                   label="Active Participants"
@@ -148,7 +150,7 @@ export default function DashboardPage({ session, label, onBack }: Props) {
                   sub={!stats.participation.statusBreakdown.hasStatementData ? 'not available' : undefined}
                 />
               </div>
-            </div>
+            </section>
 
             <div id="dash-participation">
               <ParticipationSection

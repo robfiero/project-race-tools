@@ -48,6 +48,40 @@ const roundFmt = (v: number) => String(Math.round(v));
 
 const CMP_LABEL_STYLE = { fontSize: 9, fill: '#555' } as const;
 
+// ─── Latest-value summary cards ───────────────────────────────────────────────
+
+function latestValue(data: TrendPoint[]): number | null {
+  return data.length > 0 ? data[data.length - 1].value : null;
+}
+
+function deltaSubtitle(
+  data: TrendPoint[],
+  type: 'yrs' | 'pts' | 'mi',
+): string | null {
+  if (data.length < 2) return null;
+  const delta = seriesDelta(data);
+  const firstLabel = data[0].label;
+  let formatted: string;
+  if (type === 'yrs') formatted = fmtYrsDelta(delta);
+  else if (type === 'pts') formatted = fmtPtsDelta(delta);
+  else {
+    formatted = delta === null || Math.abs(delta) < 0.1
+      ? 'unchanged'
+      : `${delta > 0 ? '+' : ''}${delta.toFixed(1)} mi`;
+  }
+  return `${formatted} vs ${firstLabel}`;
+}
+
+function CmpSummaryCard({ title, value, delta }: { title: string; value: string; delta?: string | null }) {
+  return (
+    <div className="trend-card card">
+      <span className="trend-card-title">{title}</span>
+      <div className="trend-card-value">{value}</div>
+      {delta && <div className="trend-card-sub">{delta}</div>}
+    </div>
+  );
+}
+
 function TrendCard({ title, unit = '', data, precision = 1 }: TrendCardProps) {
   if (data.length === 0) return null;
 
@@ -95,7 +129,7 @@ type DistanceMetric = 'median' | 'distribution';
 
 const DISTANCE_METRICS: CategoryDef[] = [
   { id: 'median',       label: 'Median Travel Distance' },
-  { id: 'distribution', label: 'Local vs. Destination' },
+  { id: 'distribution', label: 'Travel Mix' },
 ];
 
 type EventMetric = keyof Omit<CrossEventTrendRow, 'eventName'>;
@@ -551,7 +585,12 @@ function DistanceTrendSection({ trends }: { trends: ComparisonStats['trends'] })
 
 // ─── Events section ───────────────────────────────────────────────────────────
 
-function EventsChart({ crossEventTrends, metric, height = 260 }: { crossEventTrends: CrossEventTrendRow[]; metric: EventMetric; height?: number }) {
+function EventsChart({ crossEventTrends, metric, height = 260, horizontal = false }: {
+  crossEventTrends: CrossEventTrendRow[];
+  metric: EventMetric;
+  height?: number;
+  horizontal?: boolean;
+}) {
   const activeMetricDef = EVENT_METRICS.find(m => m.id === metric)!;
   const ivLabels = crossEventTrends[0]?.participantCount.map(p => p.label) ?? [];
   const colors = comparisonPalette(ivLabels.length);
@@ -578,6 +617,31 @@ function EventsChart({ crossEventTrends, metric, height = 260 }: { crossEventTre
     if (metric === 'avgAge' || metric === 'medianAge') return String(Math.round(v));
     return Math.round(v).toLocaleString();
   };
+
+  if (horizontal) {
+    const n = crossEventTrends.length;
+    const m = ivLabels.length;
+    const hHeight = Math.max(160, n * Math.max(50, m * 16 + 18));
+    return (
+      <div className="chart-wrap chart-wrap--full" role="img" aria-label={`Horizontal grouped bar chart: ${activeMetricDef.label} by event and interval`}>
+        <ResponsiveContainer width="100%" height={hHeight}>
+          <BarChart data={barData} layout="vertical" barCategoryGap="20%" barGap={3} barSize={12}
+            margin={{ top: 4, right: 56, bottom: 4, left: 8 }}>
+            <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={v => `${Math.round(v)}%`} />
+            <YAxis type="category" dataKey="event" tick={{ fontSize: 11 }} width={160} />
+            <Tooltip formatter={(v: number, name: string) => [fmtEventValue(v, activeMetricDef), name]} />
+            <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.8rem', paddingBottom: 6 }} />
+            {ivLabels.map((lbl, i) => (
+              <Bar key={lbl} dataKey={lbl} fill={colors[i]} radius={[0, 3, 3, 0]}>
+                <LabelList dataKey={lbl} position="right" style={CMP_LABEL_STYLE}
+                  formatter={(v: number) => v > 0 ? fmtLabel(v) : ''} />
+              </Bar>
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
 
   return (
     <div className="chart-wrap chart-wrap--full" role="img" aria-label={`Grouped bar chart: ${activeMetricDef.label} by event and interval`}>
@@ -671,7 +735,7 @@ const EVENT_GROUP_CATEGORIES: Array<{ id: EventsGroup; label: string }> = [
   { id: 'participants', label: 'Participants' },
   { id: 'gender',       label: 'Gender Mix' },
   { id: 'age',          label: 'Age' },
-  { id: 'miles',        label: 'Miles Completed' },
+  { id: 'miles',        label: 'Median Travel Distance' },
 ];
 
 function EventsGroupChart({
@@ -692,6 +756,7 @@ function EventsGroupChart({
   const subMetrics: EventMetric[] = group === 'gender'
     ? ['femalePercent', 'malePercent', 'nonBinaryPercent']
     : ['avgAge', 'medianAge'];
+  const isHorizontal = group === 'gender' || group === 'age';
   return (
     <>
       {subMetrics.map(m => {
@@ -699,7 +764,7 @@ function EventsGroupChart({
         return (
           <div key={m} className="chart-subsection">
             <h3 className="chart-subsection-title">{def.label}</h3>
-            <EventsChart metric={m} crossEventTrends={crossEventTrends} height={210} />
+            <EventsChart metric={m} crossEventTrends={crossEventTrends} height={210} horizontal={isHorizontal} />
           </div>
         );
       })}
@@ -734,6 +799,14 @@ function EventsGroupKeyChanges({
   );
 }
 
+function parseEventDistanceMiles(name: string): number {
+  const km = name.match(/(\d+(?:\.\d+)?)\s*k(?:m\b|\b)/i);
+  if (km) return parseFloat(km[1]) * 0.621371;
+  const mi = name.match(/(\d+(?:\.\d+)?)\s*(?:mi(?:le)?s?)\b/i);
+  if (mi) return parseFloat(mi[1]);
+  return Infinity;
+}
+
 function EventsSectionWrapper({
   crossEventTrends, hasDistanceTrend, labels,
 }: {
@@ -741,6 +814,14 @@ function EventsSectionWrapper({
   hasDistanceTrend: boolean;
   labels: string[];
 }) {
+  const sortedTrends = [...crossEventTrends].sort((a, b) => {
+    const da = parseEventDistanceMiles(a.eventName);
+    const db = parseEventDistanceMiles(b.eventName);
+    if (da === Infinity && db === Infinity) return 0;
+    if (da === Infinity) return 1;
+    if (db === Infinity) return -1;
+    return da - db;
+  });
   const [group, setGroup] = useState<EventsGroup>('participants');
   const [tab, setTab] = useState<EventsTab>('charts');
   const visibleGroups = EVENT_GROUP_CATEGORIES.filter(g => g.id !== 'miles' || hasDistanceTrend);
@@ -775,9 +856,9 @@ function EventsSectionWrapper({
         />
       )}
       <div role="tabpanel">
-        {tab === 'charts'  && <EventsGroupChart group={group} crossEventTrends={crossEventTrends} hasDistanceTrend={hasDistanceTrend} />}
-        {tab === 'changes' && <EventsGroupKeyChanges group={group} crossEventTrends={crossEventTrends} hasDistanceTrend={hasDistanceTrend} />}
-        {tab === 'table'   && <EventsTableExpanded crossEventTrends={crossEventTrends} labels={labels} hasDistanceTrend={hasDistanceTrend} />}
+        {tab === 'charts'  && <EventsGroupChart group={group} crossEventTrends={sortedTrends} hasDistanceTrend={hasDistanceTrend} />}
+        {tab === 'changes' && <EventsGroupKeyChanges group={group} crossEventTrends={sortedTrends} hasDistanceTrend={hasDistanceTrend} />}
+        {tab === 'table'   && <EventsTableExpanded crossEventTrends={sortedTrends} labels={labels} hasDistanceTrend={hasDistanceTrend} />}
       </div>
     </div>
   );
@@ -884,14 +965,19 @@ function DayOfWeekChart({ intervals }: { intervals: IntervalStats[] }) {
   return (
     <div className="chart-wrap chart-wrap--full" role="img" aria-label="Grouped bar chart: registration day of week by interval">
       <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={chartData} maxBarSize={28} barCategoryGap="15%" margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
+        <BarChart data={chartData} maxBarSize={28} barCategoryGap="15%" margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
           <XAxis dataKey="day" tick={{ fontSize: 12 }} />
           <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${v}%`} width={40} />
           <Tooltip formatter={(v: number) => [`${v.toFixed(1)}%`, '']} />
           <Legend wrapperStyle={{ fontSize: '0.8rem' }} />
           {intervals.map((iv, i) => (
-            <Bar key={iv.label} dataKey={iv.label} fill={colors[i]} radius={[3, 3, 0, 0]} />
+            <Bar key={iv.label} dataKey={iv.label} fill={colors[i]} radius={[3, 3, 0, 0]}>
+              {intervals.length <= 3 && (
+                <LabelList dataKey={iv.label} position="top" style={CMP_LABEL_STYLE}
+                  formatter={(v: number) => v > 0 ? `${v.toFixed(1)}%` : ''} />
+              )}
+            </Bar>
           ))}
         </BarChart>
       </ResponsiveContainer>
@@ -927,14 +1013,19 @@ function HourOfDayChart({ intervals }: { intervals: IntervalStats[] }) {
   return (
     <div className="chart-wrap chart-wrap--full" role="img" aria-label="Grouped bar chart: registration hour of day by interval">
       <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={chartData} maxBarSize={28} barCategoryGap="15%" margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
+        <BarChart data={chartData} maxBarSize={28} barCategoryGap="15%" margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
           <XAxis dataKey="label" tick={{ fontSize: 11 }} />
           <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${v}%`} width={40} />
           <Tooltip formatter={(v: number) => [`${v.toFixed(1)}%`, '']} />
           <Legend wrapperStyle={{ fontSize: '0.8rem' }} />
           {intervals.map((iv, i) => (
-            <Bar key={iv.label} dataKey={iv.label} fill={colors[i]} radius={[3, 3, 0, 0]} />
+            <Bar key={iv.label} dataKey={iv.label} fill={colors[i]} radius={[3, 3, 0, 0]}>
+              {intervals.length <= 3 && (
+                <LabelList dataKey={iv.label} position="top" style={CMP_LABEL_STYLE}
+                  formatter={(v: number) => v > 0 ? `${v.toFixed(1)}%` : ''} />
+              )}
+            </Bar>
           ))}
         </BarChart>
       </ResponsiveContainer>
@@ -983,31 +1074,48 @@ function CombinedAgeDistributionChart({ intervals }: { intervals: IntervalStats[
   );
 }
 
-// ─── Gender stacked bar ───────────────────────────────────────────────────────
+// ─── Gender grouped bar (horizontal, one row per gender, one bar per interval) ─
 
-// Stable semantic gender colors — not derived from theme, not comparison interval colors
-const GENDER_COLORS_STABLE = { F: '#0F766E', M: '#6366F1', NB: '#F59E0B' } as const;
+const GENDER_ROWS_LABELS = ['Female', 'Male', 'Non-Binary'] as const;
+type GenderRowLabel = typeof GENDER_ROWS_LABELS[number];
 
-function GenderStackedBarChart({ trends }: { trends: ComparisonStats['trends'] }) {
-  const gc = GENDER_COLORS_STABLE;
-  const data = trends.femalePercent.map((pt, i) => ({
-    label: pt.label,
-    'Female':     pt.value ?? 0,
-    'Male':       trends.malePercent[i]?.value ?? 0,
-    'Non-Binary': trends.nonBinaryPercent[i]?.value ?? 0,
-  }));
+function GenderGroupedBarChart({ trends }: { trends: ComparisonStats['trends'] }) {
+  const intervals = trends.femalePercent;
+  const colors = comparisonPalette(intervals.length);
+
+  const trendMap: Record<GenderRowLabel, TrendPoint[]> = {
+    'Female':     trends.femalePercent,
+    'Male':       trends.malePercent,
+    'Non-Binary': trends.nonBinaryPercent,
+  };
+
+  const data = GENDER_ROWS_LABELS.map(gender => {
+    const row: Record<string, string | number> = { gender };
+    for (const pt of trendMap[gender]) {
+      row[pt.label] = pt.value ?? 0;
+    }
+    return row;
+  });
+
+  const n = intervals.length;
+  // barSize=16 forces exact per-bar height; chart height accounts for 3 gender rows × (n bars × 20px + inter-group padding)
+  const chartHeight = Math.max(260, GENDER_ROWS_LABELS.length * Math.max(72, n * 22 + 24) + 40);
+
   return (
-    <div className="chart-wrap chart-wrap--full" role="img" aria-label="Stacked bar chart: gender distribution by interval">
-      <ResponsiveContainer width="100%" height={260}>
-        <BarChart data={data} maxBarSize={52} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-          <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-          <YAxis tickFormatter={v => `${v}%`} domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tick={{ fontSize: 11 }} width={40} />
+    <div className="chart-wrap chart-wrap--full" role="img" aria-label="Grouped bar chart: gender distribution by interval">
+      <ResponsiveContainer width="100%" height={chartHeight}>
+        <BarChart data={data} layout="vertical" barCategoryGap="16%" barGap={4} barSize={16}
+          margin={{ top: 4, right: 64, bottom: 4, left: 8 }}>
+          <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={v => `${v}%`} domain={[0, 100]} />
+          <YAxis type="category" dataKey="gender" tick={{ fontSize: 12 }} width={90} />
           <Tooltip formatter={(v: number, name: string) => [`${(v as number).toFixed(1)}%`, name]} />
-          <Legend wrapperStyle={{ fontSize: '0.8rem' }} />
-          <Bar dataKey="Female"     stackId="g" fill={gc.F} />
-          <Bar dataKey="Male"       stackId="g" fill={gc.M} />
-          <Bar dataKey="Non-Binary" stackId="g" fill={gc.NB} radius={[4, 4, 0, 0]} />
+          <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.8rem', paddingBottom: 6 }} />
+          {intervals.map((pt, i) => (
+            <Bar key={pt.label} dataKey={pt.label} fill={colors[i]} radius={[0, 3, 3, 0]}>
+              <LabelList dataKey={pt.label} position="right" style={CMP_LABEL_STYLE}
+                formatter={(v: number) => v > 0 ? `${v.toFixed(1)}%` : ''} />
+            </Bar>
+          ))}
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -1358,12 +1466,12 @@ export default function ComparisonPage({ sessions, onBack }: Props) {
             <nav className="report-nav no-print" aria-label="Jump to section">
               <a href="#cmp-key-trends"   className="report-nav-link">Key Trends</a>
               <a href="#cmp-reg-drops"    className="report-nav-link">Registration &amp; Drops</a>
-              <a href="#cmp-reg-patterns" className="report-nav-link">Registration Patterns</a>
+              <a href="#cmp-reg-timing" className="report-nav-link">Registration Timing</a>
               {data.crossEventTrends.length > 0 && (
-                <a href="#cmp-events" className="report-nav-link">Events</a>
+                <a href="#cmp-event-comparison" className="report-nav-link">Event Comparison</a>
               )}
               <a href="#cmp-gender"    className="report-nav-link">Gender</a>
-              <a href="#cmp-age"       className="report-nav-link">Age</a>
+              <a href="#cmp-age-trends" className="report-nav-link">Age Trends</a>
               <a href="#cmp-age-dist"  className="report-nav-link">Age Distribution</a>
               <a href="#cmp-geography" className="report-nav-link">Geography</a>
               <a href="#cmp-top-states" className="report-nav-link">Top States</a>
@@ -1396,9 +1504,9 @@ export default function ComparisonPage({ sessions, onBack }: Props) {
               />
             </section>
 
-            {/* ── Registration Patterns ── */}
-            <section id="cmp-reg-patterns" className="chart-section" aria-labelledby="reg-patterns-heading">
-              <SectionHeader title="Registration Patterns" />
+            {/* ── Registration Timing ── */}
+            <section id="cmp-reg-timing" className="chart-section" aria-labelledby="reg-timing-heading">
+              <SectionHeader title="Registration Timing" />
               <div className="chart-subsection">
                 <h3 className="chart-subsection-title">Cumulative Registration Progress</h3>
                 <p className="chart-note">Each year's cumulative registrations as a % of its final total, plotted by days before registration close — shows whether the field is filling faster or slower across years</p>
@@ -1418,8 +1526,8 @@ export default function ComparisonPage({ sessions, onBack }: Props) {
 
             {/* ── Events (conditional) ── */}
             {data.crossEventTrends.length > 0 && (
-              <section id="cmp-events" className="chart-section" aria-labelledby="events-heading">
-                <SectionHeader title="Events" />
+              <section id="cmp-event-comparison" className="chart-section" aria-labelledby="event-comparison-heading">
+                <SectionHeader title="Event Comparison" />
                 <EventsSectionWrapper
                   crossEventTrends={data.crossEventTrends}
                   hasDistanceTrend={data.hasDistanceTrend}
@@ -1432,7 +1540,7 @@ export default function ComparisonPage({ sessions, onBack }: Props) {
             <section id="cmp-gender" className="chart-section" aria-labelledby="gender-heading">
               <SectionHeader title="Gender" />
               <IntervalComparisonPanel
-                trendsContent={<GenderStackedBarChart trends={t} />}
+                trendsContent={<GenderGroupedBarChart trends={t} />}
                 keyChangesContent={
                   <CategoryKeyChanges trends={t} rows={[
                     kc('Female %',     t.femalePercent,    'pts', { neutral: true }),
@@ -1444,11 +1552,22 @@ export default function ComparisonPage({ sessions, onBack }: Props) {
               />
             </section>
 
-            {/* ── Age ── */}
-            <section id="cmp-age" className="chart-section" aria-labelledby="age-heading">
-              <SectionHeader title="Age" />
+            {/* ── Age Trends ── */}
+            <section id="cmp-age-trends" className="chart-section" aria-labelledby="age-trends-heading">
+              <SectionHeader title="Age Trends" />
+              <div className="trend-cards-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                <CmpSummaryCard title="Median Age" value={fmt(latestValue(t.medianAge), '', 0)} delta={deltaSubtitle(t.medianAge, 'yrs')} />
+                <CmpSummaryCard title="Mean Age"   value={fmt(latestValue(t.meanAge),   '', 1)} delta={deltaSubtitle(t.meanAge,   'yrs')} />
+                <CmpSummaryCard title="Youngest"   value={fmt(latestValue(t.minAge),    '', 0)} delta={deltaSubtitle(t.minAge,    'yrs')} />
+                <CmpSummaryCard title="Oldest"     value={fmt(latestValue(t.maxAge),    '', 0)} delta={deltaSubtitle(t.maxAge,    'yrs')} />
+              </div>
               <IntervalComparisonPanel
-                trendsContent={<AgeRangeBandChart trends={t} />}
+                trendsContent={
+                  <div className="chart-subsection">
+                    <h3 className="chart-subsection-title">Age Trend by Interval</h3>
+                    <AgeRangeBandChart trends={t} />
+                  </div>
+                }
                 keyChangesContent={
                   <CategoryKeyChanges trends={t} rows={[
                     kc('Median Age', t.medianAge, 'yrs', { neutral: true }),
@@ -1503,6 +1622,12 @@ export default function ComparisonPage({ sessions, onBack }: Props) {
             {data.hasDistanceTrend && (
               <section id="cmp-distance" className="chart-section" aria-labelledby="distance-heading">
                 <SectionHeader title="Travel Distance" sub="Estimated distance from each participant's home location to the race venue" />
+                <div className="trend-cards-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                  <CmpSummaryCard title="Median Travel"         value={fmt(latestValue(t.medianDistanceMiles), ' mi', 1)} delta={deltaSubtitle(t.medianDistanceMiles, 'mi')} />
+                  <CmpSummaryCard title="Local (< 50 mi)"       value={fmt(latestValue(t.localPercent),        '%',   1)} delta={deltaSubtitle(t.localPercent,        'pts')} />
+                  <CmpSummaryCard title="Regional (50–200 mi)"  value={fmt(latestValue(t.regionalPercent),     '%',   1)} delta={deltaSubtitle(t.regionalPercent,     'pts')} />
+                  <CmpSummaryCard title="Destination (≥ 200 mi)" value={fmt(latestValue(t.destinationPercent),  '%',   1)} delta={deltaSubtitle(t.destinationPercent,  'pts')} />
+                </div>
                 <IntervalComparisonPanel
                   trendsContent={<DistanceTrendSection trends={t} />}
                   keyChangesContent={

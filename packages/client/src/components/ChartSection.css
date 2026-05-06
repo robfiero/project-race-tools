@@ -17,9 +17,6 @@
 .stat-cards-row .stat-card {
   flex: 1 1 130px;
   min-width: 110px;
-  box-shadow: none;
-  background: #f9f9f9;
-  border: 1px solid #eee;
   padding: 0.85rem 1rem;
 }
 
