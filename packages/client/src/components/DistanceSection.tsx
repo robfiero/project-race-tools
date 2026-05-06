@@ -1,10 +1,9 @@
-import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { DistanceStats } from '../types.ts';
 import SectionHeader from './SectionHeader.tsx';
 import StatCard from './StatCard.tsx';
 import InsightCallout from './InsightCallout.tsx';
 import { useTheme } from '../ThemeContext.tsx';
-import { chartPalette } from '../chartColors.ts';
 import { distanceInsights } from '../insights.ts';
 import './ChartSection.css';
 
@@ -13,7 +12,6 @@ interface Props { stats: DistanceStats; }
 export default function DistanceSection({ stats }: Props) {
   const { theme } = useTheme();
   const total = stats.local + stats.regional + stats.destination || 1;
-  const colors = chartPalette(theme, stats.buckets.length);
   const insights = distanceInsights(stats);
 
   return (
@@ -24,8 +22,8 @@ export default function DistanceSection({ stats }: Props) {
       />
 
       <div className="stat-cards-row">
-        <StatCard label="Median Distance" value={`${stats.medianMiles} mi`} />
-        <StatCard label="Mean Distance" value={`${stats.meanMiles} mi`} />
+        <StatCard label="Median Travel Distance" value={`${stats.medianMiles} mi`} />
+        <StatCard label="Mean Travel Distance" value={`${stats.meanMiles} mi`} />
         <StatCard
           label="Local (< 50 mi)"
           value={stats.local.toLocaleString()}
@@ -50,9 +48,7 @@ export default function DistanceSection({ stats }: Props) {
             <XAxis dataKey="label" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip formatter={(v: number) => [v, 'Participants']} />
-            <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Participants">
-              {stats.buckets.map((_, i) => <Cell key={i} fill={colors[i]} />)}
-            </Bar>
+            <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Participants" fill={theme.chart[0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

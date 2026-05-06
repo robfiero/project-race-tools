@@ -264,6 +264,7 @@ describe('computeStats — participation', () => {
     expect(p.comped).toBe(1);
     expect(p.relayJoins).toBe(1);
     expect(p.paid).toBe(1);
+    expect(p.statusBreakdown.creditCardActive).toBe(1);
   });
 
   it('does not double-count relay joins as comped', () => {
@@ -310,6 +311,190 @@ describe('computeStats — participation', () => {
     expect(p.paid).toBe(5);
     expect(p.comped).toBe(0);
     expect(p.relayJoins).toBe(0);
+  });
+
+  // ── classifyParticipantStatus edge cases ──────────────────────────────────
+
+  it('pending cc + statementId present → waitlistNeverInvited (not other)', () => {
+    const participants = [
+      makeParticipant({ orderId: '1', orderType: 'pending cc', statementId: 'S-999', removed: false }),
+    ];
+    const sb = stats(participants).participation.statusBreakdown;
+    expect(sb.waitlistNeverInvited).toBe(1);
+    expect(sb.other).toBe(0);
+  });
+
+  it('pending cc + statementId present + removed → waitlistWithdrawnDeclined (not other)', () => {
+    const participants = [
+      makeParticipant({ orderId: '1', orderType: 'pending cc', statementId: 'S-999', removed: true }),
+    ];
+    const sb = stats(participants).participation.statusBreakdown;
+    expect(sb.waitlistWithdrawnDeclined).toBe(1);
+    expect(sb.other).toBe(0);
+  });
+
+  it('blank orderType + no statement + isComped → compedActive (not other)', () => {
+    const participants = [
+      makeParticipant({ orderId: '1', orderType: '', statementId: '', isComped: true, removed: false }),
+    ];
+    const sb = stats(participants).participation.statusBreakdown;
+    expect(sb.compedActive).toBe(1);
+    expect(sb.other).toBe(0);
+  });
+
+  it('blank orderType + no statement + isComped + removed → compedDropped (not other)', () => {
+    const participants = [
+      makeParticipant({ orderId: '1', orderType: '', statementId: '', isComped: true, removed: true }),
+    ];
+    const sb = stats(participants).participation.statusBreakdown;
+    expect(sb.compedDropped).toBe(1);
+    expect(sb.other).toBe(0);
+  });
+
+  it('blank orderType + no statement + not comped → other (truly unclassifiable)', () => {
+    const participants = [
+      makeParticipant({ orderId: '1', orderType: '', statementId: '', isComped: false }),
+    ];
+    const sb = stats(participants).participation.statusBreakdown;
+    expect(sb.other).toBe(1);
+    expect(sb.compedActive).toBe(0);
+  });
+
+  it('compedActive is not included in paid total', () => {
+    const participants = [
+      makeParticipant({ orderId: '1' }),                                                   // paidActive
+      makeParticipant({ orderId: '2', orderType: '', statementId: '', isComped: true }),   // compedActive
+    ];
+    const p = stats(participants).participation;
+    expect(p.paid).toBe(1);
+    expect(p.statusBreakdown.compedActive).toBe(1);
+  });
+
+  // ── PayPal classification ─────────────────────────────────────────────────
+
+  // ── Payment-processor split classification ───────────────────────────────
+
+  it('credit card + statementId → creditCardActive', () => {
+    const sb = stats([
+      makeParticipant({ orderId: '1', orderType: 'Credit Card', statementId: 'S-001', removed: false }),
+    ]).participation.statusBreakdown;
+    expect(sb.creditCardActive).toBe(1);
+    expect(sb.other).toBe(0);
+  });
+
+  it('credit card + statementId + removed → creditCardDropped', () => {
+    const sb = stats([
+      makeParticipant({ orderId: '1', orderType: 'Credit Card', statementId: 'S-001', removed: true }),
+    ]).participation.statusBreakdown;
+    expect(sb.creditCardDropped).toBe(1);
+    expect(sb.other).toBe(0);
+  });
+
+  it('paypal + statementId → paypalActive', () => {
+    const sb = stats([
+      makeParticipant({ orderId: '1', orderType: 'PayPal', statementId: 'S-001', removed: false }),
+    ]).participation.statusBreakdown;
+    expect(sb.paypalActive).toBe(1);
+    expect(sb.other).toBe(0);
+  });
+
+  it('paypal + statementId + removed → paypalDropped', () => {
+    const sb = stats([
+      makeParticipant({ orderId: '1', orderType: 'PayPal', statementId: 'S-001', removed: true }),
+    ]).participation.statusBreakdown;
+    expect(sb.paypalDropped).toBe(1);
+    expect(sb.other).toBe(0);
+  });
+
+  it('paypal classification is case-insensitive (Paypal, paypal, PAYPAL)', () => {
+    for (const variant of ['Paypal', 'paypal', 'PAYPAL']) {
+      const sb = stats([
+        makeParticipant({ orderId: '1', orderType: variant, statementId: 'S-001', removed: false }),
+      ]).participation.statusBreakdown;
+      expect(sb.paypalActive).toBe(1);
+      expect(sb.other).toBe(0);
+    }
+  });
+
+  it('paypal + no statementId → paymentPendingActive', () => {
+    const sb = stats([
+      makeParticipant({ orderId: '1', orderType: 'PayPal', statementId: '', removed: false }),
+    ]).participation.statusBreakdown;
+    expect(sb.paymentPendingActive).toBe(1);
+    expect(sb.other).toBe(0);
+  });
+
+  it('paypal active participants are counted in paid total', () => {
+    const p = stats([
+      makeParticipant({ orderId: '1', orderType: 'Credit Card', statementId: 'S-001' }),
+      makeParticipant({ orderId: '2', orderType: 'PayPal',      statementId: 'S-002' }),
+    ]).participation;
+    expect(p.paid).toBe(2);
+    expect(p.statusBreakdown.creditCardActive).toBe(1);
+    expect(p.statusBreakdown.paypalActive).toBe(1);
+  });
+
+  it('combined Paid & Dropped equals creditCardDropped + paypalDropped', () => {
+    const sb = stats([
+      makeParticipant({ orderId: '1', orderType: 'Credit Card', statementId: 'S-001', removed: true }),
+      makeParticipant({ orderId: '2', orderType: 'PayPal',      statementId: 'S-002', removed: true }),
+      makeParticipant({ orderId: '3', orderType: 'Credit Card', statementId: 'S-003', removed: false }),
+    ]).participation.statusBreakdown;
+    expect(sb.creditCardDropped).toBe(1);
+    expect(sb.paypalDropped).toBe(1);
+    expect(sb.creditCardDropped + sb.paypalDropped).toBe(2);
+  });
+
+  // ── "Comp" orderType classification ──────────────────────────────────────
+
+  it('"Comp" orderType + isComped → compedActive', () => {
+    const sb = stats([
+      makeParticipant({ orderId: '1', orderType: 'Comp', statementId: '', isComped: true, removed: false }),
+    ]).participation.statusBreakdown;
+    expect(sb.compedActive).toBe(1);
+    expect(sb.other).toBe(0);
+  });
+
+  it('"Comp" orderType + isComped + removed → compedDropped', () => {
+    const sb = stats([
+      makeParticipant({ orderId: '1', orderType: 'Comp', statementId: '', isComped: true, removed: true }),
+    ]).participation.statusBreakdown;
+    expect(sb.compedDropped).toBe(1);
+    expect(sb.other).toBe(0);
+  });
+
+  it('"Comp" orderType is case-insensitive (comp, COMP, Comp)', () => {
+    for (const variant of ['comp', 'COMP', 'Comp']) {
+      const sb = stats([
+        makeParticipant({ orderId: '1', orderType: variant, statementId: '', isComped: true, removed: false }),
+      ]).participation.statusBreakdown;
+      expect(sb.compedActive).toBe(1);
+      expect(sb.other).toBe(0);
+    }
+  });
+
+  it('"Comp" orderType + isComped + hasStatement still → compedActive (real exports may include statementId)', () => {
+    const sb = stats([
+      makeParticipant({ orderId: '1', orderType: 'Comp', statementId: 'S-999', isComped: true, removed: false }),
+    ]).participation.statusBreakdown;
+    expect(sb.compedActive).toBe(1);
+    expect(sb.other).toBe(0);
+  });
+
+  it('blank orderType + no statement + isComped still → compedActive (existing path preserved)', () => {
+    const sb = stats([
+      makeParticipant({ orderId: '1', orderType: '', statementId: '', isComped: true, removed: false }),
+    ]).participation.statusBreakdown;
+    expect(sb.compedActive).toBe(1);
+    expect(sb.other).toBe(0);
+  });
+
+  it('"Comp" orderType without isComped → other (unrecognized comp without waived fee)', () => {
+    const sb = stats([
+      makeParticipant({ orderId: '1', orderType: 'Comp', statementId: '', isComped: false, removed: false }),
+    ]).participation.statusBreakdown;
+    expect(sb.other).toBe(1);
+    expect(sb.compedActive).toBe(0);
   });
 });
 

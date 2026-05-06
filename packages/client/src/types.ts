@@ -137,13 +137,16 @@ export interface CrossEventRow {
   avgAge: number | null;
   medianAge: number | null;
   medianDistanceMiles: number | null;
-  localPercent: number | null;
-  destinationPercent: number | null;
+  localPercent: number | null;        // < 50 mi
+  regionalPercent: number | null;     // 50–199 mi
+  destinationPercent: number | null;  // ≥ 200 mi
 }
 
 export interface ParticipantStatusCounts {
-  paidActive: number;
-  paidDropped: number;
+  creditCardActive: number;
+  creditCardDropped: number;
+  paypalActive: number;
+  paypalDropped: number;
   waitlistNeverInvited: number;
   waitlistWithdrawnDeclined: number;
   specialCaseA: number;
@@ -155,6 +158,8 @@ export interface ParticipantStatusCounts {
   couponDropped: number;
   giftCardActive: number;
   giftCardDropped: number;
+  compedActive: number;
+  compedDropped: number;
   other: number;
 }
 
@@ -225,10 +230,13 @@ export interface ComparisonTrends {
   removed: TrendPoint[];
   relayJoins: TrendPoint[];
   couponUsageCount: TrendPoint[];
-  paidActive: TrendPoint[];
+  creditCardActive: TrendPoint[];
+  paypalActive: TrendPoint[];
   couponActive: TrendPoint[];
   giftCardActive: TrendPoint[];
   paymentPending: TrendPoint[];
+  creditCardDropped: TrendPoint[];
+  paypalDropped: TrendPoint[];
   paidDropped: TrendPoint[];
   waitlistNeverInvited: TrendPoint[];
   waitlistWithdrawnDeclined: TrendPoint[];

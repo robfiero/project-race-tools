@@ -1,8 +1,9 @@
 import { Router, type Request, type Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { parseFile, ParseError } from '../parser/fileParser.js';
+import { geocodeVenueAddress } from '../geo/geocode.js';
 import { saveSession } from '../session/store.js';
-import { generateCSV, getSampleRaceName, isValidSampleId } from '../sample/generator.js';
+import { generateCSV, getSampleRaceName, getSampleVenueAddress, isValidSampleId } from '../sample/generator.js';
 import type { SessionData } from '../types.js';
 
 const router = Router();
@@ -55,15 +56,26 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   const raceName = getSampleRaceName(sampleId);
+  const venueAddress = getSampleVenueAddress(sampleId);
   const events = [...new Set(participants.map(p => p.event))].sort();
+
+  let venueLat: number | null = null;
+  let venueLng: number | null = null;
+  if (venueAddress) {
+    const geo = await geocodeVenueAddress(venueAddress);
+    if (geo) {
+      venueLat = geo.lat;
+      venueLng = geo.lng;
+    }
+  }
 
   const sessionData: SessionData = {
     sessionId: uuidv4(),
     createdAt: new Date(),
     raceName,
-    venueAddress: null,
-    venueLat: null,
-    venueLng: null,
+    venueAddress,
+    venueLat,
+    venueLng,
     timezone,
     events,
     participants,
@@ -83,7 +95,7 @@ router.post('/', async (req: Request, res: Response) => {
     adapterName,
     participantCount: participants.length,
     events,
-    venueGeocoded: false,
+    venueGeocoded: venueLat !== null,
     timezone,
   });
 });

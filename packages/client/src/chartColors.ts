@@ -1,14 +1,33 @@
 /**
  * Chart color palette utility.
  *
- * Returns an array of `count` colors where:
- *   index 0 → theme.chart[0]  (theme primary chart color)
- *   index 1 → theme.chart[1]  (theme secondary chart color)
- *   index 2 → theme.chart[2]
- *   index 3 → theme.chart[3]
- *   index 4+ → extended neutral colors, cycling if necessary
+ * chartPalette()      — theme-driven colors for single-year charts (buckets, categories)
+ * comparisonPalette() — stable, theme-independent colors for comparison interval/year series
+ * genderColors()      — theme-driven semantic gender colors
  */
 import type { Theme } from './themes.ts';
+
+// Stable palette for comparison interval/year series in multi-year charts.
+// Order maps to selected intervals: earliest → latest.
+// These are intentionally theme-independent so year colors are consistent across all themes.
+const COMPARISON_PALETTE = [
+  '#2563EB', // Blue   — interval 1
+  '#D97706', // Amber  — interval 2
+  '#9333EA', // Purple — interval 3
+  '#0891B2', // Teal   — interval 4
+  '#BE185D', // Rose   — interval 5
+] as const;
+
+// Human-readable names used for accessible aria-labels on year chips.
+const COMPARISON_PALETTE_NAMES = ['blue', 'amber', 'purple', 'teal', 'rose'] as const;
+
+export function comparisonPalette(count: number): string[] {
+  return Array.from({ length: count }, (_, i) => COMPARISON_PALETTE[i % COMPARISON_PALETTE.length]);
+}
+
+export function comparisonPaletteName(index: number): string {
+  return COMPARISON_PALETTE_NAMES[index % COMPARISON_PALETTE_NAMES.length];
+}
 
 // Carefully chosen to be visually distinct and readable across all built-in
 // themes without clashing with the theme's own palette entries.

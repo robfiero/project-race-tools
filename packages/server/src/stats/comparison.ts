@@ -68,14 +68,22 @@ export function computeComparisonStats(
     removed:         trend(iv => iv.stats.participation.removed),
     relayJoins:      trend(iv => iv.stats.participation.relayJoins),
     couponUsageCount: trend(iv => iv.stats.registration.couponUsageCount),
-    paidActive:                trend(iv => iv.stats.participation.statusBreakdown.paidActive),
-    couponActive:              trend(iv => iv.stats.participation.statusBreakdown.couponActive),
-    giftCardActive:            trend(iv => iv.stats.participation.statusBreakdown.giftCardActive),
-    paymentPending:            trend(iv =>
+    creditCardActive: trend(iv => iv.stats.participation.statusBreakdown.creditCardActive),
+    paypalActive:     trend(iv => iv.stats.participation.statusBreakdown.paypalActive),
+    couponActive:     trend(iv => iv.stats.participation.statusBreakdown.couponActive),
+    giftCardActive:   trend(iv => iv.stats.participation.statusBreakdown.giftCardActive),
+    paymentPending:   trend(iv =>
       iv.stats.participation.statusBreakdown.paymentPendingActive +
       iv.stats.participation.statusBreakdown.paymentPendingDropped
     ),
-    paidDropped:               trend(iv => iv.stats.participation.statusBreakdown.paidDropped),
+    // Individual processor drop trends for detailed table/chart
+    creditCardDropped: trend(iv => iv.stats.participation.statusBreakdown.creditCardDropped),
+    paypalDropped:     trend(iv => iv.stats.participation.statusBreakdown.paypalDropped),
+    // Combined headline metric for Key Trends card
+    paidDropped: trend(iv =>
+      iv.stats.participation.statusBreakdown.creditCardDropped +
+      iv.stats.participation.statusBreakdown.paypalDropped
+    ),
     waitlistNeverInvited:      trend(iv => iv.stats.participation.statusBreakdown.waitlistNeverInvited),
     waitlistWithdrawnDeclined: trend(iv => iv.stats.participation.statusBreakdown.waitlistWithdrawnDeclined),
     compedPercent: trend(iv => iv.stats.participation.compedPercent),

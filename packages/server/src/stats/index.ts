@@ -470,6 +470,7 @@ function computeCrossEvent(
 
     let medianDistanceMiles: number | null = null;
     let localPercent: number | null = null;
+    let regionalPercent: number | null = null;
     let destinationPercent: number | null = null;
 
     if (venueLat !== null && venueLng !== null) {
@@ -477,7 +478,8 @@ function computeCrossEvent(
       if (dists.length > 0) {
         dists.sort((a, b) => a - b);
         medianDistanceMiles = round2(medianOf(dists));
-        localPercent = round2(dists.filter(d => d < 50).length / dists.length * 100);
+        localPercent       = round2(dists.filter(d => d < 50).length / dists.length * 100);
+        regionalPercent    = round2(dists.filter(d => d >= 50 && d < 200).length / dists.length * 100);
         destinationPercent = round2(dists.filter(d => d >= 200).length / dists.length * 100);
       }
     }
@@ -495,6 +497,7 @@ function computeCrossEvent(
       medianAge: ages.length > 0 ? round2(medianOf(ages)) : null,
       medianDistanceMiles,
       localPercent,
+      regionalPercent,
       destinationPercent,
     });
   }
@@ -506,25 +509,42 @@ function computeCrossEvent(
 
 // ─── Participation ───────────────────────────────────────────────────────────
 
+// Payment processors without a statement go to paymentPending regardless of type.
+const PAID_ORDER_TYPES = new Set(['credit card', 'paypal']);
+
 function classifyParticipantStatus(p: ParticipantRecord): keyof ParticipantStatusCounts {
   // Relay team members (captain-pays model) are identified by the parser —
   // classify them before checking orderType since their orderType is "100% Coupon".
   if (p.isRelayJoin) return 'relayTeamMember';
 
-  const orderType = p.orderType.toLowerCase();
+  const orderType = p.orderType.trim().toLowerCase();
   const hasStatement = p.statementId !== '';
 
-  if (orderType === 'pending cc' && !hasStatement) {
+  // "pending cc" represents a pre-authorized or next-statement billing slot.
+  // Classify as waitlist regardless of whether a statement ID is present —
+  // UltraSignup sometimes records a statement reference during billing processing
+  // before the order type is updated to "Credit Card".
+  if (orderType === 'pending cc') {
     return p.removed ? 'waitlistWithdrawnDeclined' : 'waitlistNeverInvited';
   }
+  // Credit Card with confirmed statement — split by processor for reporting.
   if (orderType === 'credit card' && hasStatement) {
-    return p.removed ? 'paidDropped' : 'paidActive';
+    return p.removed ? 'creditCardDropped' : 'creditCardActive';
   }
-  if (orderType === 'credit card' && !hasStatement) {
+  if (orderType === 'paypal' && hasStatement) {
+    return p.removed ? 'paypalDropped' : 'paypalActive';
+  }
+  // Any known paid processor without a statement = payment not yet settled.
+  if (PAID_ORDER_TYPES.has(orderType) && !hasStatement) {
     return p.removed ? 'paymentPendingDropped' : 'paymentPendingActive';
   }
   if (orderType === '' && hasStatement) {
     return p.removed ? 'specialCaseA' : 'specialCaseB';
+  }
+  // Blank orderType (no payment method recorded) or explicit "Comp" orderType
+  // with a fully-waived fee = RD / volunteer / organizer grant entry.
+  if ((orderType === '' || orderType === 'comp') && p.isComped) {
+    return p.removed ? 'compedDropped' : 'compedActive';
   }
   if (orderType === '100% coupon') return p.removed ? 'couponDropped' : 'couponActive';
   if (orderType === 'gift card')   return p.removed ? 'giftCardDropped' : 'giftCardActive';
@@ -541,7 +561,7 @@ function computeParticipation(participants: ParticipantRecord[]): ParticipationS
   const removed = participants.filter(p => p.removed).length;
 
   function zeroCounts(): ParticipantStatusCounts {
-    return { paidActive: 0, paidDropped: 0, paymentPendingActive: 0, paymentPendingDropped: 0, waitlistNeverInvited: 0, waitlistWithdrawnDeclined: 0, specialCaseA: 0, specialCaseB: 0, relayTeamMember: 0, couponActive: 0, couponDropped: 0, giftCardActive: 0, giftCardDropped: 0, other: 0 };
+    return { creditCardActive: 0, creditCardDropped: 0, paypalActive: 0, paypalDropped: 0, paymentPendingActive: 0, paymentPendingDropped: 0, waitlistNeverInvited: 0, waitlistWithdrawnDeclined: 0, specialCaseA: 0, specialCaseB: 0, relayTeamMember: 0, couponActive: 0, couponDropped: 0, giftCardActive: 0, giftCardDropped: 0, compedActive: 0, compedDropped: 0, other: 0 };
   }
 
   const overall = zeroCounts();
@@ -559,7 +579,8 @@ function computeParticipation(participants: ParticipantRecord[]): ParticipationS
     byEvent: [...eventCountsMap.entries()].map(([eventName, counts]) => ({ eventName, ...counts })),
   };
 
-  const paid = overall.paidActive + overall.paidDropped
+  const paid = overall.creditCardActive + overall.creditCardDropped
+    + overall.paypalActive + overall.paypalDropped
     + overall.paymentPendingActive + overall.paymentPendingDropped
     + overall.couponActive + overall.couponDropped
     + overall.giftCardActive + overall.giftCardDropped;

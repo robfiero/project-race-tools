@@ -9,7 +9,7 @@ import GeographicSection from '../components/GeographicSection.tsx';
 import DistanceSection from '../components/DistanceSection.tsx';
 import CrossEventSection from '../components/CrossEventSection.tsx';
 import RegistrationSection from '../components/RegistrationSection.tsx';
-import ParticipationSection from '../components/AttritionSection.tsx';
+import ParticipationSection, { computeTotalActive } from '../components/AttritionSection.tsx';
 import './DashboardPage.css';
 
 interface Props {
@@ -68,12 +68,8 @@ export default function DashboardPage({ session, label, onBack }: Props) {
           </h1>
           <dl className="dashboard-meta">
             <div className="dashboard-meta-row">
-              <dt>Participants</dt>
+              <dt>Imported Records</dt>
               <dd>{session.participantCount.toLocaleString()}</dd>
-            </div>
-            <div className="dashboard-meta-row">
-              <dt>Export format</dt>
-              <dd>{session.adapterName}</dd>
             </div>
             <div className="dashboard-meta-row">
               <dt>Time zone</dt>
@@ -81,7 +77,7 @@ export default function DashboardPage({ session, label, onBack }: Props) {
             </div>
             {!session.venueGeocoded && (
               <div className="dashboard-meta-row dashboard-no-venue">
-                <dt>Distance stats</dt>
+                <dt>Travel distance stats</dt>
                 <dd>Unavailable — no venue address provided</dd>
               </div>
             )}
@@ -112,26 +108,45 @@ export default function DashboardPage({ session, label, onBack }: Props) {
             <a href="#dash-summary" className="report-nav-link">Summary</a>
             <a href="#dash-participation" className="report-nav-link">Registration & Drops</a>
             <a href="#dash-registration" className="report-nav-link">Registration Timing</a>
-            <a href="#dash-demographics" className="report-nav-link">Gender Distribution</a>
-            <a href="#dash-cross-event" className="report-nav-link">Cross-Event</a>
+            <a href="#dash-cross-event" className="report-nav-link">Event Comparison</a>
+            <a href="#dash-demographics" className="report-nav-link">Gender</a>
             <a href="#dash-age" className="report-nav-link">Age Distribution</a>
-            <a href="#dash-geography" className="report-nav-link">Geographic Distribution</a>
+            <a href="#dash-geography" className="report-nav-link">Geography</a>
           </nav>
           <div className="dashboard-sections">
             <div id="dash-summary">
               <div className="summary-cards">
                 <StatCard
-                  label="Total Participants"
-                  value={stats.summary.totalParticipants.toLocaleString()}
+                  label="Active Participants"
+                  value={(stats.participation.statusBreakdown.hasStatementData
+                    ? computeTotalActive(stats.participation.statusBreakdown)
+                    : stats.summary.activeParticipants
+                  ).toLocaleString()}
+                />
+                <StatCard label="Female" value={`${stats.gender.femalePercent}%`} />
+                <StatCard label="Non-Binary" value={`${stats.gender.nonBinaryPercent}%`} />
+                <StatCard label="Male" value={`${stats.gender.malePercent}%`} />
+                <StatCard
+                  label="Coupon Usage"
+                  value={`${stats.registration.couponUsagePercent}%`}
+                  sub="of registrants"
                 />
                 <StatCard
-                  label="Active Participants"
-                  value={stats.summary.activeParticipants.toLocaleString()}
-                  sub="not dropped or removed"
+                  label="Paid & Dropped"
+                  value={stats.participation.statusBreakdown.hasStatementData
+                    ? (stats.participation.statusBreakdown.creditCardDropped
+                      + stats.participation.statusBreakdown.paypalDropped
+                      + stats.participation.statusBreakdown.giftCardDropped).toLocaleString()
+                    : '—'}
+                  sub={!stats.participation.statusBreakdown.hasStatementData ? 'not available' : undefined}
                 />
-                {stats.summary.events.map(e => (
-                  <StatCard key={e.name} label={e.name} value={e.count.toLocaleString()} />
-                ))}
+                <StatCard
+                  label="Waitlist Not Invited"
+                  value={stats.participation.statusBreakdown.hasStatementData
+                    ? stats.participation.statusBreakdown.waitlistNeverInvited.toLocaleString()
+                    : '—'}
+                  sub={!stats.participation.statusBreakdown.hasStatementData ? 'not available' : undefined}
+                />
               </div>
             </div>
 
@@ -146,11 +161,11 @@ export default function DashboardPage({ session, label, onBack }: Props) {
             <div id="dash-registration">
               <RegistrationSection stats={stats.registration} />
             </div>
-            <div id="dash-demographics">
-              <GenderSection stats={stats.gender} title="Gender Distribution (Overall)" />
-            </div>
             <div id="dash-cross-event">
-              <CrossEventSection stats={stats.crossEvent} />
+              <CrossEventSection stats={stats.crossEvent} selectedEvents={selectedEvents} />
+            </div>
+            <div id="dash-demographics">
+              <GenderSection stats={stats.gender} title="Gender" />
             </div>
             <div id="dash-age">
               <AgeSection stats={stats.age} />

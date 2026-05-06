@@ -1,11 +1,10 @@
-import { useState } from 'react';
 import {
   AreaChart, Area,
-  BarChart, Bar, Cell,
+  BarChart, Bar,
   LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList,
 } from 'recharts';
-import type { RegistrationStats, EventRegistrationStats, RegistrantProfile } from '../types.ts';
+import type { RegistrationStats, EventRegistrationStats } from '../types.ts';
 import SectionHeader from './SectionHeader.tsx';
 import StatCard from './StatCard.tsx';
 import InsightCallout from './InsightCallout.tsx';
@@ -21,37 +20,19 @@ function formatMonth(ym: string): string {
   return new Date(Number(year), Number(month) - 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 }
 
-function ProfileTable({ label, profile }: { label: string; profile: RegistrantProfile }) {
-  return (
-    <div className="profile-block">
-      <h4 className="profile-label">{label} <span className="profile-count">({profile.count} registrants)</span></h4>
-      <table className="stats-table stats-table--narrow">
-        <caption className="sr-only">{label} profile statistics</caption>
-        <tbody>
-          <tr><th scope="row">Female</th><td>{profile.femalePercent}%</td></tr>
-          <tr><th scope="row">Male</th><td>{profile.malePercent}%</td></tr>
-          {profile.nonBinaryPercent > 0 && (
-            <tr><th scope="row">Non-Binary</th><td>{profile.nonBinaryPercent}%</td></tr>
-          )}
-          <tr><th scope="row">Avg Age</th><td>{profile.avgAge ?? '—'}</td></tr>
-          {profile.medianDistanceMiles !== null && (
-            <tr><th scope="row">Median Distance</th><td>{profile.medianDistanceMiles} mi</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 // ─── Per-event data helpers ──────────────────────────────────────────────────
 
 function buildStackedMonthData(events: EventRegistrationStats[]) {
   const allMonths = [...new Set(events.flatMap(ev => ev.byMonth.map(m => m.month)))].sort();
   return allMonths.map(month => {
     const row: Record<string, string | number> = { month: formatMonth(month) };
+    let total = 0;
     for (const ev of events) {
-      row[ev.eventName] = ev.byMonth.find(m => m.month === month)?.count ?? 0;
+      const count = ev.byMonth.find(m => m.month === month)?.count ?? 0;
+      row[ev.eventName] = count;
+      total += count;
     }
+    row['__total'] = total;
     return row;
   });
 }
@@ -70,63 +51,43 @@ function buildMultiCumulativeData(events: EventRegistrationStats[]) {
   });
 }
 
-// ─── Per-event early/late tabs ───────────────────────────────────────────────
+// ─── Stacked month tooltip showing total + per-event breakdown ───────────────
 
-function EventProfileTabs({ events }: { events: EventRegistrationStats[] }) {
-  const [activeIdx, setActiveIdx] = useState(0);
-  const active = events[activeIdx];
+interface TooltipEntry { dataKey: string; value: number; fill: string; }
 
+function StackedMonthTooltip({ active, payload, label }: {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const entries = payload.filter(p => p.dataKey !== '__total');
+  const total = entries.reduce((s, p) => s + (p.value ?? 0), 0);
   return (
-    <div className="chart-subsection">
-      <h3 className="chart-subsection-title">Early vs. Late Registrants — By Event (first vs. last 25%)</h3>
-
-      <div className="interval-tab-strip no-print" role="tablist" aria-label="Event early/late profiles">
-        {events.map((ev, i) => (
-          <button
-            key={ev.eventName}
-            role="tab"
-            id={`profile-tab-${i}`}
-            aria-selected={i === activeIdx}
-            aria-controls={`profile-panel-${i}`}
-            className={`interval-tab${i === activeIdx ? ' interval-tab--active' : ''}`}
-            onClick={() => setActiveIdx(i)}
-          >
-            {ev.eventName}
-          </button>
-        ))}
-      </div>
-
-      {events.map((ev, i) => (
-        <div
-          key={ev.eventName}
-          role="tabpanel"
-          id={`profile-panel-${i}`}
-          aria-labelledby={`profile-tab-${i}`}
-          className={`interval-tab-panel${i !== activeIdx ? ' interval-tab-panel--inactive' : ''}`}
-          aria-hidden={i !== activeIdx}
-        >
-          <span className="interval-tab-label-print">{ev.eventName}</span>
-          <p className="profile-event-count">{ev.count.toLocaleString()} registrants</p>
-          <div className="profile-row">
-            <ProfileTable label="Early Registrants" profile={ev.earlyProfile} />
-            <ProfileTable label="Late Registrants" profile={ev.lateProfile} />
-          </div>
-          <p className="profile-coupon">
-            Coupon users: {ev.couponUsageCount.toLocaleString()} ({ev.couponUsagePercent}% of paying registrants)
-          </p>
-        </div>
+    <div style={{
+      background: '#fff', border: '1px solid #ddd', borderRadius: 6,
+      padding: '8px 12px', fontSize: '0.8rem', lineHeight: 1.5,
+    }}>
+      <p style={{ fontWeight: 600, margin: '0 0 3px' }}>{label}</p>
+      <p style={{ color: '#666', margin: '0 0 4px', borderBottom: '1px solid #eee', paddingBottom: 3 }}>
+        Total: {total.toLocaleString()}
+      </p>
+      {[...entries].reverse().map(p => (
+        <p key={p.dataKey} style={{ color: p.fill, margin: '1px 0' }}>
+          {p.dataKey}: {(p.value ?? 0).toLocaleString()}
+        </p>
       ))}
     </div>
   );
 }
 
+const BAR_LABEL_STYLE = { fontSize: 10, fill: '#555' };
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export default function RegistrationSection({ stats, compact = false }: Props) {
   const { theme } = useTheme();
-  const [, c1, , c3] = theme.chart;
-  const monthColors = chartPalette(theme, stats.byMonth.length);
-  const dowColors = chartPalette(theme, stats.byDayOfWeek.length);
+  const [c0, c1] = theme.chart;
   const eventColors = chartPalette(theme, stats.byEvent.length);
   const monthData = stats.byMonth.map(m => ({ ...m, month: formatMonth(m.month) }));
   const insights = registrationInsights(stats);
@@ -150,6 +111,7 @@ export default function RegistrationSection({ stats, compact = false }: Props) {
 
   const peakHour = [...stats.byHourOfDay].sort((a, b) => b.count - a.count)[0];
   const peakDay  = [...stats.byDayOfWeek].sort((a, b) => b.count - a.count)[0];
+  const lastEventIdx = stats.byEvent.length - 1;
 
   return (
     <section className="chart-section">
@@ -168,25 +130,31 @@ export default function RegistrationSection({ stats, compact = false }: Props) {
         <div className="chart-wrap chart-wrap--full" role="img" aria-label={multiEvent ? 'Stacked bar chart: registrations by month and event' : 'Bar chart: registrations by month'}>
           <ResponsiveContainer width="100%" height={multiEvent ? 220 : 200}>
             {multiEvent ? (
-              <BarChart data={stackedMonthData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+              <BarChart data={stackedMonthData} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
+                <Tooltip content={<StackedMonthTooltip />} />
                 <Legend wrapperStyle={{ fontSize: '0.8rem' }} />
                 {stats.byEvent.map((ev, i) => (
                   <Bar key={ev.eventName} dataKey={ev.eventName} stackId="a" fill={eventColors[i]}
-                    radius={i === stats.byEvent.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />
+                    radius={i === lastEventIdx ? [3, 3, 0, 0] : [0, 0, 0, 0]}>
+                    {i === lastEventIdx && (
+                      <LabelList dataKey="__total" position="top" style={BAR_LABEL_STYLE}
+                        formatter={(v: number) => v > 0 ? v.toLocaleString() : ''} />
+                    )}
+                  </Bar>
                 ))}
               </BarChart>
             ) : (
-              <BarChart data={monthData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+              <BarChart data={monthData} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip formatter={(v: number) => [v, 'Registrations']} />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Registrations">
-                  {monthData.map((_, i) => <Cell key={i} fill={monthColors[i]} />)}
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Registrations" fill={c0}>
+                  <LabelList dataKey="count" position="top" style={BAR_LABEL_STYLE}
+                    formatter={(v: number) => v > 0 ? v.toLocaleString() : ''} />
                 </Bar>
               </BarChart>
             )}
@@ -239,13 +207,14 @@ export default function RegistrationSection({ stats, compact = false }: Props) {
           <h3 className="chart-subsection-title">Registrations by Day of Week</h3>
           <div role="img" aria-label="Bar chart: registrations by day of week">
             <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={stats.byDayOfWeek} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+              <BarChart data={stats.byDayOfWeek} margin={{ top: 20, right: 8, bottom: 4, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
                 <XAxis dataKey="day" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(0, 3)} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(v: number) => [v, 'Registrations']} />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Registrations">
-                  {stats.byDayOfWeek.map((_, i) => <Cell key={i} fill={dowColors[i]} />)}
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Registrations" fill={c0}>
+                  <LabelList dataKey="count" position="top" style={BAR_LABEL_STYLE}
+                    formatter={(v: number) => v > 0 ? v.toLocaleString() : ''} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -264,25 +233,11 @@ export default function RegistrationSection({ stats, compact = false }: Props) {
                   labelFormatter={h => hourLabel(Number(h))}
                   formatter={(v: number) => [v, 'Registrations']}
                 />
-                <Bar dataKey="count" fill={c3} radius={[4, 4, 0, 0]} name="Registrations" />
+                <Bar dataKey="count" fill={c0} radius={[4, 4, 0, 0]} name="Registrations" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
-      </div>
-
-      {/* ── Early vs. Late Registrants — Overall ── */}
-      <div className="chart-subsection">
-        <h3 className="chart-subsection-title">
-          Early vs. Late Registrants{multiEvent ? ' — Overall' : ''} (first vs. last 25%)
-        </h3>
-        <div className="profile-row">
-          <ProfileTable label="Early Registrants" profile={stats.earlyProfile} />
-          <ProfileTable label="Late Registrants" profile={stats.lateProfile} />
-        </div>
-        <p className="profile-coupon">
-          Coupon users: {stats.couponUsageCount.toLocaleString()} ({stats.couponUsagePercent}% of paying registrants)
-        </p>
       </div>
 
     </section>

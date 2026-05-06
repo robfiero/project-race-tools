@@ -136,30 +136,6 @@
   white-space: normal;
 }
 
-/* Early vs late registrant profiles */
-.profile-row {
-  display: flex;
-  gap: 2rem;
-  flex-wrap: wrap;
-}
-
-.profile-block {
-  flex: 1 1 200px;
-}
-
-.profile-label {
-  font-size: 0.9rem;
-  font-weight: 600;
-  margin: 0 0 0.5rem;
-  color: #444;
-}
-
-.profile-count {
-  font-weight: 400;
-  color: #666;
-  font-size: 0.82rem;
-}
-
 .chart-note {
   margin: 0.25rem 0 0.75rem;
   font-size: 0.8rem;
@@ -167,19 +143,115 @@
   font-style: italic;
 }
 
-.profile-coupon {
-  margin: 0.6rem 0 0;
+/* ── Registration & Drops section tabs ────────────────────────────────────── */
+
+.rd-tab-strip {
+  display: flex;
+  border-bottom: 2px solid #e5e7eb;
+  margin-bottom: -0.5rem;
+}
+
+.rd-tab {
+  padding: 0.4rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.rd-tab:hover {
+  color: var(--color-primary);
+}
+
+.rd-tab--active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.rd-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── Registration & Drops empty group ────────────────────────────────────── */
+
+.rd-empty-group {
+  color: #9ca3af;
   font-size: 0.85rem;
+  font-style: italic;
+  margin: 0;
+}
+
+/* ── Coupon usage callout ─────────────────────────────────────────────────── */
+
+.rd-coupon-callout {
+  background: #f8fafc;
+  border-left: 3px solid #d1d5db;
+  border-radius: 0 6px 6px 0;
+  padding: 0.6rem 1rem 0.65rem;
+}
+
+.rd-coupon-callout-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  margin: 0 0 0.2rem;
+}
+
+.rd-coupon-callout-body {
+  font-size: 0.84rem;
+  color: #444;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── Metric selector pills ────────────────────────────────────────────────── */
+
+.metric-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.metric-pill {
+  padding: 0.2rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #fff;
   color: #555;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 
-.profile-event-count {
-  margin: 0.25rem 0 0.75rem;
-  font-size: 0.85rem;
-  color: #666;
+.metric-pill:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
+.metric-pill--active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
 
+/* ── Event Comparison empty state ─────────────────────────────────────────── */
+
+.cross-event-empty {
+  color: #6b7280;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  margin: 0;
+}
 
 /* ── Insight callouts ────────────────────────────────────────────────────────── */
 

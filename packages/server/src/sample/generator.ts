@@ -76,6 +76,7 @@ interface StateWeight {
 
 interface SampleConfig {
   raceName: string;
+  venueAddress: string;
   count: number;
   year: number;
   raceMonth: number;
@@ -97,6 +98,7 @@ interface SampleConfig {
 export const SAMPLE_CONFIGS: Record<string, SampleConfig> = {
   'pinecrest-5k-2024': {
     raceName: 'Pinecrest 5K',
+    venueAddress: '10 Grove St, Peterborough, NH 03458',
     count: 102, year: 2024, raceMonth: 7, raceDay: 6, regOpenMonthsBefore: 4,
     events: [{ name: '5K Run', fraction: 1.0, price: 30 }],
     stateWeights: [
@@ -111,6 +113,7 @@ export const SAMPLE_CONFIGS: Record<string, SampleConfig> = {
 
   'white-mountains-2022': {
     raceName: 'White Mountains Challenge',
+    venueAddress: '9 Main St, Lincoln, NH 03251',
     count: 278, year: 2022, raceMonth: 9, raceDay: 17, regOpenMonthsBefore: 7,
     events: [
       { name: '5K', fraction: 0.25, price: 45 },
@@ -128,6 +131,7 @@ export const SAMPLE_CONFIGS: Record<string, SampleConfig> = {
   },
   'white-mountains-2023': {
     raceName: 'White Mountains Challenge',
+    venueAddress: '9 Main St, Lincoln, NH 03251',
     count: 315, year: 2023, raceMonth: 9, raceDay: 16, regOpenMonthsBefore: 7,
     events: [
       { name: '5K', fraction: 0.25, price: 50 },
@@ -145,6 +149,7 @@ export const SAMPLE_CONFIGS: Record<string, SampleConfig> = {
   },
   'white-mountains-2024': {
     raceName: 'White Mountains Challenge',
+    venueAddress: '9 Main St, Lincoln, NH 03251',
     count: 348, year: 2024, raceMonth: 9, raceDay: 21, regOpenMonthsBefore: 8,
     events: [
       { name: '5K', fraction: 0.25, price: 55 },
@@ -163,6 +168,7 @@ export const SAMPLE_CONFIGS: Record<string, SampleConfig> = {
 
   'mountain-endurance-2022': {
     raceName: 'Mountain Endurance Challenge',
+    venueAddress: '128 Mountain Rd, Nottingham, NH 03290',
     count: 738, year: 2022, raceMonth: 10, raceDay: 8, regOpenMonthsBefore: 10,
     events: [
       { name: '25K', fraction: 0.30, price: 65 },
@@ -183,6 +189,7 @@ export const SAMPLE_CONFIGS: Record<string, SampleConfig> = {
   },
   'mountain-endurance-2023': {
     raceName: 'Mountain Endurance Challenge',
+    venueAddress: '128 Mountain Rd, Nottingham, NH 03290',
     count: 797, year: 2023, raceMonth: 10, raceDay: 14, regOpenMonthsBefore: 10,
     events: [
       { name: '25K', fraction: 0.30, price: 70 },
@@ -203,6 +210,7 @@ export const SAMPLE_CONFIGS: Record<string, SampleConfig> = {
   },
   'mountain-endurance-2024': {
     raceName: 'Mountain Endurance Challenge',
+    venueAddress: '128 Mountain Rd, Nottingham, NH 03290',
     count: 853, year: 2024, raceMonth: 10, raceDay: 12, regOpenMonthsBefore: 11,
     events: [
       { name: '25K', fraction: 0.30, price: 75 },
@@ -375,7 +383,7 @@ export function generateCSV(sampleId: string): string {
       '',
       'Emergency Contact',          // emergency_name (PII — stripped)
       '5550000001',                 // emergency_phone (PII — stripped)
-      String(config.statementId),
+      isComped ? '' : String(config.statementId),
       discount.toFixed(4),
       '0.00',
       usFee.toFixed(2),
@@ -396,4 +404,8 @@ export function getSampleRaceName(sampleId: string): string {
 
 export function isValidSampleId(sampleId: string): boolean {
   return Object.prototype.hasOwnProperty.call(SAMPLE_CONFIGS, sampleId);
+}
+
+export function getSampleVenueAddress(sampleId: string): string | null {
+  return SAMPLE_CONFIGS[sampleId]?.venueAddress ?? null;
 }

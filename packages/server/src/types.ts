@@ -157,24 +157,29 @@ export interface CrossEventRow {
   avgAge: number | null;
   medianAge: number | null;
   medianDistanceMiles: number | null;  // null if no venue
-  localPercent: number | null;
-  destinationPercent: number | null;
+  localPercent: number | null;        // < 50 mi
+  regionalPercent: number | null;     // 50–199 mi
+  destinationPercent: number | null;  // ≥ 200 mi
 }
 
 export interface ParticipantStatusCounts {
-  paidActive: number;
-  paidDropped: number;
+  creditCardActive: number;    // Credit Card order type, statementId present, active
+  creditCardDropped: number;   // Credit Card order type, statementId present, removed/dropped
+  paypalActive: number;        // PayPal order type, statementId present, active
+  paypalDropped: number;       // PayPal order type, statementId present, removed/dropped
   waitlistNeverInvited: number;
   waitlistWithdrawnDeclined: number;
   specialCaseA: number;      // blank orderType, removed=TRUE, statementId present
   specialCaseB: number;      // blank orderType, removed=FALSE, statementId present
   relayTeamMember: number;      // captain-pays relay join (isRelayJoin=true)
-  paymentPendingActive: number; // Credit Card, no statement yet, active
-  paymentPendingDropped: number;// Credit Card, no statement yet, removed
+  paymentPendingActive: number; // known paid processor, no statement yet, active
+  paymentPendingDropped: number;// known paid processor, no statement yet, removed
   couponActive: number;         // 100% Coupon order type, non-relay, active
   couponDropped: number;     // 100% Coupon order type, non-relay, removed
   giftCardActive: number;    // Gift Card order type, active
   giftCardDropped: number;   // Gift Card order type, removed
+  compedActive: number;      // blank or "Comp" orderType, no statement, fully-waived fee, active
+  compedDropped: number;     // blank or "Comp" orderType, fully-waived fee, removed
   other: number;
 }
 
@@ -246,10 +251,13 @@ export interface ComparisonTrends {
   relayJoins: TrendPoint[];
   couponUsageCount: TrendPoint[];
   // Status-breakdown counts (match single-year Registration Status Breakdown table)
-  paidActive: TrendPoint[];
+  creditCardActive: TrendPoint[];
+  paypalActive: TrendPoint[];
   couponActive: TrendPoint[];
   giftCardActive: TrendPoint[];
   paymentPending: TrendPoint[];
+  creditCardDropped: TrendPoint[];
+  paypalDropped: TrendPoint[];
   paidDropped: TrendPoint[];
   waitlistNeverInvited: TrendPoint[];
   waitlistWithdrawnDeclined: TrendPoint[];
