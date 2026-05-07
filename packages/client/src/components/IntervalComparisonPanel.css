@@ -95,32 +95,41 @@
 
 .key-changes-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 0.5rem 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.6rem;
 }
 
 .key-changes-item {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 0.4rem 0.625rem;
-  border-radius: 5px;
-  background: #f9fafb;
-  gap: 0.1rem;
+  padding: 0.55rem 0.875rem 0.55rem 0.75rem;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-left: 3px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  gap: 0.2rem;
 }
 
+.key-changes-item--up   { border-left-color: #166534; }
+.key-changes-item--down { border-left-color: #991b1b; }
+.key-changes-item--neutral { border-left-color: #d1d5db; }
+
 .key-changes-metric {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: #6b7280;
-  font-weight: 400;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   line-height: 1.3;
   overflow-wrap: break-word;
   word-break: break-word;
 }
 
 .key-changes-value {
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: 700;
   white-space: nowrap;
 }
 

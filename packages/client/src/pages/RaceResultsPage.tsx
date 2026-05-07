@@ -3,7 +3,7 @@ import {
   type ChangeEvent, type DragEvent, type FormEvent,
 } from 'react';
 import {
-  BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  BarChart, Bar, Cell, LabelList, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer,
 } from 'recharts';
 import { apiUrl } from '../api.ts';
@@ -15,7 +15,7 @@ import type {
   TrendPoint, WeatherData,
 } from '../types.ts';
 import { useTheme } from '../ThemeContext.tsx';
-import { chartPalette, genderColors } from '../chartColors.ts';
+import { chartPalette, genderColors, comparisonPalette, comparisonPaletteName } from '../chartColors.ts';
 import SectionHeader from '../components/SectionHeader.tsx';
 import GenderSection from '../components/GenderSection.tsx';
 import AgeSection from '../components/AgeSection.tsx';
@@ -24,8 +24,7 @@ import StatCard from '../components/StatCard.tsx';
 import InsightCallout from '../components/InsightCallout.tsx';
 import WeatherSection from '../components/WeatherSection.tsx';
 import { finishTimeInsights, attritionInsights, demographicsInsights } from '../insights.ts';
-import IntervalComparisonPanel, {
-  TrendCategorySelector,
+import {
   TrendLineChart,
   KeyChangesList,
   seriesDelta,
@@ -33,8 +32,6 @@ import IntervalComparisonPanel, {
   fmtPtsDelta,
   fmtTimeDelta,
   directionOf,
-  type CategoryDef,
-  type TrendSeries,
   type KeyChangeRow,
 } from '../components/IntervalComparisonPanel.tsx';
 import './RaceResultsPage.css';
@@ -50,6 +47,11 @@ function fmtTime(seconds: number): string {
 
 function fmtPct(n: number): string {
   return `${n.toFixed(1)}%`;
+}
+
+function fmtBarCount(v: number): string {
+  if (v <= 0) return '';
+  return v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v));
 }
 
 // ─── Upload phase ─────────────────────────────────────────────────────────────
@@ -999,7 +1001,6 @@ interface ResultsTrendCardProps {
 function ResultsTrendCard({
   title, data, unit = '', precision = 1, formatValue, deltaInvert = false,
 }: ResultsTrendCardProps) {
-  const { theme } = useTheme();
   if (data.length === 0) return null;
 
   const current = data[data.length - 1].value;
@@ -1022,7 +1023,8 @@ function ResultsTrendCard({
   }
 
   const chartData = data.map(d => ({ label: d.label, value: d.value ?? 0 }));
-  const colors = chartPalette(theme, chartData.length);
+  // Each bar = one year — use the shared year palette so bars match year pills.
+  const colors = comparisonPalette(chartData.length);
 
   return (
     <div className="trend-card card">
@@ -1079,104 +1081,6 @@ interface ICRow {
 interface ICGroup {
   parent: ICRow;
   subs: ICRow[];
-}
-
-// ─── Race trend lines ─────────────────────────────────────────────────────────
-
-type RCategory = 'participation' | 'attrition' | 'times' | 'demographics' | 'geography';
-
-const R_CATEGORIES_FIXED_DIST: CategoryDef[] = [
-  { id: 'participation',  label: 'Participation' },
-  { id: 'attrition',     label: 'Attrition' },
-  { id: 'times',         label: 'Finish Times' },
-  { id: 'demographics',  label: 'Demographics' },
-  { id: 'geography',     label: 'Geography' },
-];
-
-const R_CATEGORIES_FIXED_TIME: CategoryDef[] = [
-  { id: 'participation', label: 'Participation' },
-  { id: 'attrition',     label: 'Attrition' },
-  { id: 'demographics',  label: 'Demographics' },
-  { id: 'geography',     label: 'Geography' },
-];
-
-interface RaceTrendLinesProps {
-  trends: ResultsComparisonTrends;
-  intervals: ResultsIntervalStats[];
-  isFixedDist: boolean;
-}
-
-function RaceTrendLines({ trends, intervals, isFixedDist }: RaceTrendLinesProps) {
-  const [cat, setCat] = useState<RCategory>('participation');
-
-  const labels = intervals.map(iv => iv.label);
-
-  function derivedSeries(name: string, fn: (iv: ResultsIntervalStats) => number | null): TrendSeries {
-    return { name, data: intervals.map(iv => ({ label: iv.label, value: fn(iv) })) };
-  }
-
-  const seriesMap: Partial<Record<RCategory, TrendSeries[]>> = {
-    participation: [
-      { name: 'Total Entrants', data: trends.totalEntrants },
-      { name: 'Finishers',      data: trends.finishers },
-    ],
-    attrition: [
-      { name: 'Finish Rate %', data: trends.finishRate },
-      { name: 'DNF Rate %',    data: trends.dnfRate },
-      derivedSeries('DNS Rate %', iv => iv.stats.attrition.overall.dnsRate),
-    ],
-    times: isFixedDist ? [
-      { name: 'Median Finish Time', data: trends.medianFinishTimeSeconds },
-    ] : [],
-    demographics: [
-      { name: 'Female Finishers %',     data: trends.femaleFinisherPercent },
-      derivedSeries('Male Finishers %', iv => iv.stats.demographics.finisherGender.malePercent),
-      { name: 'Median Finisher Age',    data: trends.medianFinisherAge },
-    ],
-    geography: [
-      derivedSeries('States / Provinces', iv => Object.keys(iv.stats.geographic.byState).length),
-      derivedSeries('Countries',          iv => Object.keys(iv.stats.geographic.byCountry).length),
-    ],
-  };
-
-  const activeCats = isFixedDist ? R_CATEGORIES_FIXED_DIST : R_CATEGORIES_FIXED_TIME;
-  const effectiveCat: RCategory = (isFixedDist || cat !== 'times') ? cat : 'participation';
-
-  const formatY = (c: RCategory): ((v: number) => string) | undefined => {
-    if (c === 'participation') return (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v));
-    return undefined;
-  };
-
-  const formatTooltip = (c: RCategory): ((v: number, name: string) => string) | undefined => {
-    if (c === 'times') return (v) => fmtTime(Math.round(v));
-    if (c === 'demographics') return (v, name) => name.includes('Age') ? `${v.toFixed(1)} yrs` : `${v.toFixed(1)}%`;
-    return undefined;
-  };
-
-  const activeSeries = seriesMap[effectiveCat] ?? [];
-
-  return (
-    <>
-      <TrendCategorySelector
-        categories={activeCats}
-        active={effectiveCat}
-        onChange={id => setCat(id as RCategory)}
-      />
-      <TrendLineChart
-        series={activeSeries}
-        formatY={formatY(effectiveCat)}
-        formatTooltipValue={formatTooltip(effectiveCat)}
-        yUnit={effectiveCat === 'attrition' ? '%' : ''}
-        emptyMessage={effectiveCat === 'geography' ? 'Geographic data did not change across the compared intervals.' : undefined}
-      />
-      {/* show Y axis note for finish times — values are raw seconds */}
-      {effectiveCat === 'times' && labels.length > 0 && (
-        <p className="trend-line-empty" style={{ marginTop: '0.25rem' }}>
-          Y axis shows finish time in seconds. Tooltip displays formatted time.
-        </p>
-      )}
-    </>
-  );
 }
 
 // ─── Race key changes ─────────────────────────────────────────────────────────
@@ -1464,7 +1368,17 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
   const [data, setData] = useState<ResultsComparisonStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState(0);
+  const [trendsTab, setTrendsTab] = useState<'summary' | 'changes'>('summary');
+  const [poTab, setPoTab] = useState<'charts' | 'table'>('charts');
+  const [poMetric, setPoMetric] = useState<'counts' | 'rates'>('counts');
+  const [eventTab, setEventTab] = useState<'charts' | 'table'>('charts');
+  const [eventMetric, setEventMetric] = useState<'finishers' | 'finishRate'>('finishers');
+  const [genderTab, setGenderTab] = useState<'charts' | 'table'>('charts');
+  const [ageTrendsTab, setAgeTrendsTab] = useState<'charts' | 'table'>('charts');
+  const [ageDistTab, setAgeDistTab] = useState<'charts' | 'table'>('charts');
+  const [timesTab, setTimesTab] = useState<'charts' | 'table'>('charts');
+  const [geoTab, setGeoTab] = useState<'charts' | 'table'>('charts');
+  const [weatherTab, setWeatherTab] = useState<'charts' | 'table'>('charts');
 
   useEffect(() => { headingRef.current?.focus(); }, []);
 
@@ -1492,6 +1406,27 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
   const raceName = sessions[0]?.raceName ?? 'Race';
   const trends = data?.trends;
   const isFixedDist = data?.primaryEventType === 'fixed-distance';
+  const intervals = data?.intervals ?? [];
+  const lastInterval = intervals[intervals.length - 1];
+  const hasMultiEvent = intervals.some(iv => iv.stats.crossEvent.rows.length > 0);
+  const weatherIntervals = intervals.filter(iv => iv.weatherData);
+  const hasWeather = weatherIntervals.length > 0;
+  const dnsRateTrend    = intervals.map(iv => ({ label: iv.label, value: iv.stats.attrition.overall.dnsRate }));
+  const maleFinPctTrend = intervals.map(iv => ({ label: iv.label, value: iv.stats.demographics.finisherGender.malePercent }));
+  const nbFinPctTrend   = intervals.map(iv => ({ label: iv.label, value: iv.stats.demographics.finisherGender.nonBinaryPercent }));
+  const statesTrend     = intervals.map(iv => ({ label: iv.label, value: Object.keys(iv.stats.geographic.byState).length }));
+  const countriesTrend  = intervals.map(iv => ({ label: iv.label, value: Object.keys(iv.stats.geographic.byCountry).length }));
+  const usTrend         = intervals.map(iv => ({ label: iv.label, value: iv.stats.geographic.usParticipants }));
+  const intlTrend       = intervals.map(iv => ({ label: iv.label, value: iv.stats.geographic.internationalParticipants }));
+  const dnfTrend        = intervals.map(iv => ({ label: iv.label, value: iv.stats.summary.dnf }));
+  const allEventNames   = Array.from(new Set(intervals.flatMap(iv => iv.stats.crossEvent.rows.map(r => r.name))));
+  // Stable year-indexed colors shared by all bar charts and year pills in this report.
+  const yearColors      = comparisonPalette(intervals.length);
+  // Age trend flat-line check: spread < 1 year across all intervals.
+  const ageFlat = intervals.length > 1 && (() => {
+    const vals = (trends?.medianFinisherAge ?? []).map(d => d.value).filter((v): v is number => v != null);
+    return vals.length >= 2 && Math.max(...vals) - Math.min(...vals) < 1.0;
+  })();
 
   return (
     <div className="rr-dashboard">
@@ -1504,8 +1439,19 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
             {raceName} — {sessions.length}-Year Comparison
           </h1>
           <div className="comparison-intervals" aria-label="Years being compared">
-            {sessions.map(s => (
-              <span key={s.sessionId} className="comparison-interval-pill">{s.label}</span>
+            {sessions.map((s, i) => (
+              <span
+                key={s.sessionId}
+                className="comparison-interval-pill"
+                aria-label={`${s.label}, shown in ${comparisonPaletteName(i)} throughout report`}
+              >
+                <span
+                  className="comparison-interval-pill-swatch"
+                  style={{ background: yearColors[i] }}
+                  aria-hidden="true"
+                />
+                {s.label}
+              </span>
             ))}
           </div>
         </div>
@@ -1518,99 +1464,897 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
       {loading && <div className="dashboard-loading" role="status" aria-live="polite" aria-busy="true">Loading comparison…</div>}
       {error && <div className="dashboard-error" role="alert">{error}</div>}
 
-      {data && trends && !loading && (
+      {data && trends && !loading && lastInterval && (
         <>
-          {/* ── Key Trends ── */}
-          <section className="chart-section" aria-labelledby="rr-trends-heading">
-            <SectionHeader title="Key Trends" />
-            <div className="trend-cards-grid">
-              {/* Participation */}
-              <ResultsTrendCard title="Total Entrants" data={trends.totalEntrants} precision={0} />
-              <ResultsTrendCard title="Finishers" data={trends.finishers} precision={0} />
-              <ResultsTrendCard title="Finish Rate" data={trends.finishRate} unit="%" />
-              <ResultsTrendCard title="DNF Rate" data={trends.dnfRate} unit="%" deltaInvert />
-              {/* Medians */}
-              {isFixedDist && trends.medianFinishTimeSeconds.length > 0 && (
-                <ResultsTrendCard
-                  title="Median Finish Time"
-                  data={trends.medianFinishTimeSeconds}
-                  formatValue={v => fmtTime(Math.round(v))}
-                  deltaInvert
-                />
-              )}
-              {!isFixedDist && trends.medianDistanceMiles.length > 0 && (
-                <ResultsTrendCard
-                  title="Median Distance"
-                  data={trends.medianDistanceMiles}
-                  unit=" mi"
-                />
-              )}
-              <ResultsTrendCard title="Median Finisher Age" data={trends.medianFinisherAge} precision={1} />
-              {/* Gender */}
-              <ResultsTrendCard title="Female Finisher %" data={trends.femaleFinisherPercent} unit="%" />
-              <ResultsTrendCard title="Non-Binary Finisher %" data={trends.nbFinisherPercent} unit="%" />
-            </div>
-          </section>
+          <nav className="report-nav no-print" aria-label="Jump to section">
+            <a href="#rr-trends" className="report-nav-link">Key Trends</a>
+            <a href="#rr-participation" className="report-nav-link">Participation & Outcomes</a>
+            <a href="#rr-times" className="report-nav-link">Finish Times</a>
+            {hasMultiEvent && <a href="#rr-events" className="report-nav-link">Event Comparison</a>}
+            <a href="#rr-gender" className="report-nav-link">Gender</a>
+            <a href="#rr-age-trends" className="report-nav-link">Age Trends</a>
+            <a href="#rr-age-dist" className="report-nav-link">Age Distribution</a>
+            <a href="#rr-geography" className="report-nav-link">Geography</a>
+            <a href="#rr-weather" className="report-nav-link">Race Weather</a>
+          </nav>
 
-          {/* ── Interval comparison ── */}
-          <section className="chart-section" aria-labelledby="rr-interval-heading">
-            <SectionHeader title="Interval Comparison" />
-            <IntervalComparisonPanel
-              trendsContent={
-                <RaceTrendLines
-                  trends={data.trends}
-                  intervals={data.intervals}
-                  isFixedDist={isFixedDist}
-                />
-              }
-              tableContent={
-                <ResultsIntervalComparisonTable intervals={data.intervals} isFixedDist={isFixedDist} />
-              }
-              keyChangesContent={
-                <RaceKeyChanges
-                  trends={data.trends}
-                  intervals={data.intervals}
-                  isFixedDist={isFixedDist}
-                />
-              }
-            />
-          </section>
+          <div className="rr-dashboard-sections">
 
-          {/* ── Per-year detail ── */}
-          <section className="chart-section" aria-labelledby="rr-detail-heading">
-            <SectionHeader title="Per-Year Details" />
-
-            {/* Tab strip — hidden in print, all panels revealed */}
-            <div className="interval-tab-strip no-print" role="tablist" aria-label="Race years">
-              {data.intervals.map((iv, i) => (
-                <button
-                  key={iv.sessionId}
-                  role="tab"
-                  id={`rr-tab-${i}`}
-                  aria-selected={i === activeTab}
-                  aria-controls={`rr-panel-${i}`}
-                  className={`interval-tab${i === activeTab ? ' interval-tab--active' : ''}`}
-                  onClick={() => setActiveTab(i)}
-                >
-                  {iv.label}
-                </button>
-              ))}
-            </div>
-
-            {data.intervals.map((iv, i) => (
-              <div
-                key={iv.sessionId}
-                role="tabpanel"
-                id={`rr-panel-${i}`}
-                aria-labelledby={`rr-tab-${i}`}
-                className={`interval-tab-panel${i !== activeTab ? ' interval-tab-panel--inactive' : ''}`}
-                aria-hidden={i !== activeTab}
-              >
-                <span className="interval-tab-label-print">{iv.label}</span>
-                <FullStatsSections stats={iv.stats} weather={iv.weatherData as WeatherData | undefined} raceName={iv.raceName} />
+            {/* ── 1. Key Trends ── */}
+            <section id="rr-trends" className="chart-section">
+              <SectionHeader title="Key Trends" />
+              <div className="rd-tab-strip" role="tablist" aria-label="Key trends views">
+                {(['summary', 'changes'] as const).map(id => (
+                  <button key={id} type="button" role="tab"
+                    aria-selected={trendsTab === id}
+                    className={`rd-tab${trendsTab === id ? ' rd-tab--active' : ''}`}
+                    onClick={() => setTrendsTab(id)}
+                  >
+                    {id === 'summary' ? 'Summary' : 'Key Changes'}
+                  </button>
+                ))}
               </div>
-            ))}
-          </section>
+              {trendsTab === 'summary' && (
+                <div role="tabpanel" className="rd-tab-panel">
+                  <div className="trend-cards-grid">
+                    <ResultsTrendCard title="Finishers" data={trends.finishers} precision={0} />
+                    <ResultsTrendCard title="DNF" data={dnfTrend} precision={0} deltaInvert />
+                    {isFixedDist && trends.medianFinishTimeSeconds.length > 0 && (
+                      <ResultsTrendCard
+                        title="Median Finish Time"
+                        data={trends.medianFinishTimeSeconds}
+                        formatValue={v => fmtTime(Math.round(v))}
+                        deltaInvert
+                      />
+                    )}
+                    {!isFixedDist && trends.medianDistanceMiles.length > 0 && (
+                      <ResultsTrendCard title="Median Distance" data={trends.medianDistanceMiles} unit=" mi" />
+                    )}
+                    <ResultsTrendCard title="Median Finisher Age" data={trends.medianFinisherAge} precision={1} />
+                    <ResultsTrendCard title="Female Finishers %" data={trends.femaleFinisherPercent} unit="%" />
+                    <ResultsTrendCard title="Male Finishers %" data={maleFinPctTrend} unit="%" />
+                    <ResultsTrendCard title="Non-Binary Finishers %" data={trends.nbFinisherPercent} unit="%" />
+                  </div>
+                </div>
+              )}
+              {trendsTab === 'changes' && (
+                <div role="tabpanel" className="rd-tab-panel">
+                  <RaceKeyChanges trends={data.trends} intervals={intervals} isFixedDist={isFixedDist} />
+                </div>
+              )}
+            </section>
+
+            {/* ── 2. Participation & Outcomes ── */}
+            <section id="rr-participation" className="chart-section">
+              <SectionHeader title="Participation & Outcomes" />
+              <div className="rd-tab-strip" role="tablist" aria-label="Participation and outcomes views">
+                {(['charts', 'table'] as const).map(id => (
+                  <button key={id} type="button" role="tab"
+                    aria-selected={poTab === id}
+                    className={`rd-tab${poTab === id ? ' rd-tab--active' : ''}`}
+                    onClick={() => setPoTab(id)}
+                  >
+                    {id === 'charts' ? 'Charts' : 'Table'}
+                  </button>
+                ))}
+              </div>
+              {poTab === 'charts' && (
+                <div role="tabpanel" className="rd-tab-panel">
+                  <div className="metric-pills" role="group" aria-label="Select metric view">
+                    {([['counts', 'Counts'], ['rates', 'Rates']] as const).map(([id, label]) => (
+                      <button key={id} type="button"
+                        className={`metric-pill${poMetric === id ? ' metric-pill--active' : ''}`}
+                        aria-pressed={poMetric === id}
+                        onClick={() => setPoMetric(id)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {poMetric === 'counts' && (() => {
+                    const poCountData = [
+                      { metric: 'Finishers', ...Object.fromEntries(intervals.map(iv => [iv.label, iv.stats.summary.finishers])) },
+                      { metric: 'DNF', ...Object.fromEntries(intervals.map(iv => [iv.label, iv.stats.summary.dnf])) },
+                      { metric: 'DNS', ...Object.fromEntries(intervals.map(iv => [iv.label, iv.stats.summary.dns])) },
+                    ] as Array<Record<string, string | number>>;
+                    return (
+                      <div className="chart-wrap chart-wrap--full" aria-hidden="true">
+                        <ResponsiveContainer width="100%" height={280}>
+                          <BarChart data={poCountData} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="metric" tick={{ fontSize: 12 }} />
+                            <YAxis tick={{ fontSize: 11 }} width={48}
+                              tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))} />
+                            <Tooltip contentStyle={{ fontSize: '0.8rem' }}
+                              formatter={(v: number) => v.toLocaleString()} />
+                            <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
+                            {intervals.map((iv, i) => (
+                              <Bar key={iv.label} dataKey={iv.label} fill={yearColors[i]} maxBarSize={36} radius={[3, 3, 0, 0]}>
+                                <LabelList dataKey={iv.label} position="top"
+                                  formatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))}
+                                  style={{ fontSize: '0.65rem', fill: '#555' }} />
+                              </Bar>
+                            ))}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    );
+                  })()}
+                  {poMetric === 'rates' && (
+                    <TrendLineChart
+                      series={[
+                        { name: 'Finish Rate %', data: trends.finishRate },
+                        { name: 'DNF Rate %', data: trends.dnfRate },
+                        { name: 'DNS Rate %', data: dnsRateTrend },
+                      ]}
+                      yUnit="%"
+                      formatTooltipValue={(v: number) => `${v.toFixed(1)}%`}
+                    />
+                  )}
+                </div>
+              )}
+              {poTab === 'table' && (
+                <div role="tabpanel" className="rd-tab-panel">
+                  <div className="cmp-table-scroll">
+                    <table className="stats-table cmp-table">
+                      <caption className="sr-only">Participation and outcomes by year</caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Metric</th>
+                          {intervals.map(iv => <th scope="col" key={iv.label}>{iv.label}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr><td>Total Entrants</td>{intervals.map(iv => <td key={iv.label}>{iv.stats.summary.totalEntrants.toLocaleString()}</td>)}</tr>
+                        <tr><td>Finishers</td>{intervals.map(iv => <td key={iv.label}>{iv.stats.summary.finishers.toLocaleString()}</td>)}</tr>
+                        <tr><td>Finish Rate</td>{intervals.map(iv => <td key={iv.label}>{fmtPct(iv.stats.summary.finishRate)}</td>)}</tr>
+                        <tr><td>DNF</td>{intervals.map(iv => <td key={iv.label}>{iv.stats.summary.dnf.toLocaleString()}</td>)}</tr>
+                        <tr><td>DNF Rate</td>{intervals.map(iv => <td key={iv.label}>{fmtPct(iv.stats.summary.dnfRate)}</td>)}</tr>
+                        <tr><td>DNS</td>{intervals.map(iv => <td key={iv.label}>{iv.stats.summary.dns.toLocaleString()}</td>)}</tr>
+                        <tr><td>DNS Rate</td>{intervals.map(iv => <td key={iv.label}>{fmtPct(iv.stats.attrition.overall.dnsRate)}</td>)}</tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* ── 4. Finish Times ── */}
+            {(() => {
+              if (!isFixedDist) {
+                return (
+                  <section id="rr-times" className="chart-section">
+                    <SectionHeader title="Finish Times" />
+                    <p className="rd-empty-group">Finish time trends are shown when comparable fixed-distance results are available across years.</p>
+                  </section>
+                );
+              }
+              const ftByYear = intervals.map(iv => {
+                const ft = iv.stats.performance.events[0]?.finishTime;
+                const fastest = ft?.fastestSeconds ?? null;
+                const last    = ft?.slowestSeconds ?? null;
+                return {
+                  label:   iv.label,
+                  fastest,
+                  median:  ft?.medianSeconds ?? null,
+                  last,
+                  spread:  fastest != null && last != null ? last - fastest : null,
+                };
+              });
+              const latestFt = ftByYear[ftByYear.length - 1];
+              const allTimeSecs = ftByYear.flatMap(d => [d.fastest, d.median, d.last]).filter((v): v is number => v != null);
+              const yDomainMin = allTimeSecs.length > 0 ? Math.floor(Math.min(...allTimeSecs) * 0.9) : 0;
+
+              // x = metric label, one bar series per year (year colors match year pills)
+              const ftChartData: Array<Record<string, string | number | null>> = [
+                { metric: 'Fastest' },
+                { metric: 'Median' },
+                { metric: 'Last Finisher' },
+              ];
+              ftByYear.forEach(d => {
+                ftChartData[0][d.label] = d.fastest;
+                ftChartData[1][d.label] = d.median;
+                ftChartData[2][d.label] = d.last;
+              });
+
+              return (
+                <section id="rr-times" className="chart-section">
+                  <SectionHeader title="Finish Times" />
+                  <div className="rd-tab-strip" role="tablist" aria-label="Finish times views">
+                    {(['charts', 'table'] as const).map(id => (
+                      <button key={id} type="button" role="tab"
+                        aria-selected={timesTab === id}
+                        className={`rd-tab${timesTab === id ? ' rd-tab--active' : ''}`}
+                        onClick={() => setTimesTab(id)}
+                      >
+                        {id === 'charts' ? 'Charts' : 'Table'}
+                      </button>
+                    ))}
+                  </div>
+                  {timesTab === 'charts' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      <div className="stat-cards-row">
+                        <StatCard
+                          label="Fastest Time"
+                          value={latestFt.fastest != null ? fmtTime(Math.round(latestFt.fastest)) : '—'}
+                          sub={latestFt.label}
+                        />
+                        <StatCard
+                          label="Last Finisher"
+                          value={latestFt.last != null ? fmtTime(Math.round(latestFt.last)) : '—'}
+                          sub={latestFt.label}
+                        />
+                        {latestFt.spread != null && (
+                          <StatCard
+                            label="Finish Spread"
+                            value={fmtTime(Math.round(latestFt.spread))}
+                            sub={latestFt.label}
+                          />
+                        )}
+                        <StatCard
+                          label="Median Finish Time"
+                          value={latestFt.median != null ? fmtTime(Math.round(latestFt.median)) : '—'}
+                          sub={latestFt.label}
+                        />
+                      </div>
+                      <div className="chart-wrap chart-wrap--full" aria-hidden="true">
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={ftChartData} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="metric" tick={{ fontSize: 12 }} />
+                            <YAxis
+                              tick={{ fontSize: 11 }}
+                              tickFormatter={(v: number) => fmtTime(Math.round(v))}
+                              width={64}
+                              domain={[yDomainMin, 'auto']}
+                            />
+                            <Tooltip
+                              formatter={(v: unknown) => {
+                                const n = typeof v === 'number' ? Math.round(v) : null;
+                                return n != null ? fmtTime(n) : '—';
+                              }}
+                              contentStyle={{ fontSize: '0.8rem' }}
+                            />
+                            <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
+                            {intervals.map((iv, i) => (
+                              <Bar key={iv.label} dataKey={iv.label} fill={yearColors[i]} maxBarSize={36}>
+                                <LabelList dataKey={iv.label} position="top"
+                                  formatter={(v: number) => fmtTime(Math.round(v))}
+                                  style={{ fontSize: '0.62rem', fill: '#555' }} />
+                              </Bar>
+                            ))}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <p className="chart-note">Times are plotted in seconds; hover for formatted race times.</p>
+                    </div>
+                  )}
+                  {timesTab === 'table' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      <div className="cmp-table-scroll">
+                        <table className="stats-table cmp-table">
+                          <caption className="sr-only">Finish time statistics by year</caption>
+                          <thead>
+                            <tr>
+                              <th scope="col">Metric</th>
+                              {intervals.map(iv => <th scope="col" key={iv.label}>{iv.label}</th>)}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>Fastest Time</td>
+                              {ftByYear.map(d => <td key={d.label}>{d.fastest != null ? fmtTime(Math.round(d.fastest)) : '—'}</td>)}
+                            </tr>
+                            <tr>
+                              <td>Median Finish Time</td>
+                              {ftByYear.map(d => <td key={d.label}>{d.median != null ? fmtTime(Math.round(d.median)) : '—'}</td>)}
+                            </tr>
+                            <tr>
+                              <td>Last Finisher</td>
+                              {ftByYear.map(d => <td key={d.label}>{d.last != null ? fmtTime(Math.round(d.last)) : '—'}</td>)}
+                            </tr>
+                            <tr>
+                              <td>Finish Spread</td>
+                              {ftByYear.map(d => <td key={d.label}>{d.spread != null ? fmtTime(Math.round(d.spread)) : '—'}</td>)}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
+
+            {/* ── 5. Event Comparison ── */}
+            {hasMultiEvent && (() => {
+              const evColors = yearColors;
+              const evChartData = allEventNames.map(evName => {
+                const entry: Record<string, number | string> = { name: evName };
+                intervals.forEach(iv => {
+                  const evRow = iv.stats.crossEvent.rows.find(r => r.name === evName);
+                  entry[iv.label] = eventMetric === 'finishers'
+                    ? (evRow?.finishers ?? 0)
+                    : (evRow != null ? parseFloat(evRow.finishRate.toFixed(1)) : 0);
+                });
+                return entry;
+              });
+              const evBarSize = 44;
+              const evChartH = Math.max(300, allEventNames.length * (intervals.length * (evBarSize + 8) + 44));
+
+              return (
+                <section id="rr-events" className="chart-section">
+                  <SectionHeader title="Event Comparison" />
+                  <div className="rd-tab-strip" role="tablist" aria-label="Event comparison views">
+                    {(['charts', 'table'] as const).map(id => (
+                      <button key={id} type="button" role="tab"
+                        aria-selected={eventTab === id}
+                        className={`rd-tab${eventTab === id ? ' rd-tab--active' : ''}`}
+                        onClick={() => setEventTab(id)}
+                      >
+                        {id === 'charts' ? 'Charts' : 'Table'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {eventTab === 'charts' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      <div className="metric-pills" role="group" aria-label="Select metric">
+                        {([['finishers', 'Finishers'], ['finishRate', 'Finish Rate %']] as const).map(([id, label]) => (
+                          <button key={id} type="button"
+                            className={`metric-pill${eventMetric === id ? ' metric-pill--active' : ''}`}
+                            onClick={() => setEventMetric(id)}
+                            aria-pressed={eventMetric === id}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="chart-wrap chart-wrap--full" aria-hidden="true">
+                        <ResponsiveContainer width="100%" height={evChartH}>
+                          <BarChart data={evChartData} layout="vertical" barGap={6} barCategoryGap="28%"
+                            margin={{ top: 4, right: 100, bottom: 4, left: 8 }}>
+                            <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false}
+                              tickFormatter={eventMetric === 'finishRate' ? (v: number) => `${v}%` : (v: number) => v.toLocaleString()} />
+                            <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={180} />
+                            <Tooltip formatter={(v: number) => eventMetric === 'finishRate' ? `${v.toFixed(1)}%` : v.toLocaleString()} />
+                            <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
+                            {intervals.map((iv, i) => (
+                              <Bar key={iv.label} dataKey={iv.label} fill={evColors[i]} radius={[0, 3, 3, 0]} maxBarSize={evBarSize}>
+                                <LabelList dataKey={iv.label} position="right"
+                                  formatter={(v: number) => eventMetric === 'finishRate' ? fmtPct(v) : fmtBarCount(v)}
+                                  style={{ fontSize: '0.72rem', fill: '#555' }} />
+                              </Bar>
+                            ))}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+
+                  {eventTab === 'table' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      <div className="cmp-table-scroll">
+                        <table className="stats-table cmp-table">
+                          <caption className="sr-only">Event comparison by year</caption>
+                          <thead>
+                            <tr>
+                              <th scope="col">Event / Metric</th>
+                              {intervals.map(iv => <th scope="col" key={iv.label}>{iv.label}</th>)}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {allEventNames.map((evName, ei) => (
+                              <Fragment key={evName}>
+                                <tr className={`cmp-event-group-header${ei === 0 ? ' cmp-event-group-header--first' : ''}`}>
+                                  <td colSpan={intervals.length + 1}>{evName}</td>
+                                </tr>
+                                <tr>
+                                  <td className="cmp-metric-label--sub">Finishers</td>
+                                  {intervals.map(iv => {
+                                    const evRow = iv.stats.crossEvent.rows.find(r => r.name === evName);
+                                    return <td key={iv.label}>{evRow != null ? evRow.finishers.toLocaleString() : '—'}</td>;
+                                  })}
+                                </tr>
+                                <tr>
+                                  <td className="cmp-metric-label--sub">Finish Rate</td>
+                                  {intervals.map(iv => {
+                                    const evRow = iv.stats.crossEvent.rows.find(r => r.name === evName);
+                                    return <td key={iv.label}>{evRow != null ? fmtPct(evRow.finishRate) : '—'}</td>;
+                                  })}
+                                </tr>
+                              </Fragment>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
+
+            {/* ── 6. Gender ── */}
+            <section id="rr-gender" className="chart-section">
+              <SectionHeader title="Gender" />
+              <div className="rd-tab-strip" role="tablist" aria-label="Gender views">
+                {(['charts', 'table'] as const).map(id => (
+                  <button key={id} type="button" role="tab"
+                    aria-selected={genderTab === id}
+                    className={`rd-tab${genderTab === id ? ' rd-tab--active' : ''}`}
+                    onClick={() => setGenderTab(id)}
+                  >
+                    {id === 'charts' ? 'Charts' : 'Table'}
+                  </button>
+                ))}
+              </div>
+              {genderTab === 'charts' && (() => {
+                const hasNonBinary = intervals.some(iv => iv.stats.demographics.finisherGender.nonBinaryPercent > 0);
+                const genderRows = [
+                  { metric: 'Female Finishers %', ...Object.fromEntries(intervals.map(iv => [iv.label, parseFloat(iv.stats.demographics.finisherGender.femalePercent.toFixed(1))])) },
+                  { metric: 'Male Finishers %', ...Object.fromEntries(intervals.map(iv => [iv.label, parseFloat(iv.stats.demographics.finisherGender.malePercent.toFixed(1))])) },
+                  ...(hasNonBinary ? [{ metric: 'Non-Binary Finishers %', ...Object.fromEntries(intervals.map(iv => [iv.label, parseFloat(iv.stats.demographics.finisherGender.nonBinaryPercent.toFixed(1))])) }] : []),
+                ] as Array<Record<string, string | number>>;
+                const gBarSize = 44;
+                const genderChartH = Math.max(220, genderRows.length * (intervals.length * (gBarSize + 8) + 44));
+                return (
+                  <div role="tabpanel" className="rd-tab-panel">
+                    <div className="chart-wrap chart-wrap--full" aria-hidden="true">
+                      <ResponsiveContainer width="100%" height={genderChartH}>
+                        <BarChart layout="vertical" data={genderRows} barGap={6} barCategoryGap="28%"
+                          margin={{ top: 4, right: 90, bottom: 4, left: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                          <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} domain={[0, 100]} />
+                          <YAxis type="category" dataKey="metric" tick={{ fontSize: 11 }} width={160} />
+                          <Tooltip contentStyle={{ fontSize: '0.8rem' }} formatter={(v: number) => fmtPct(v)} />
+                          <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
+                          {intervals.map((iv, i) => (
+                            <Bar key={iv.label} dataKey={iv.label} fill={yearColors[i]} radius={[0, 3, 3, 0]} maxBarSize={gBarSize}>
+                              <LabelList dataKey={iv.label} position="right"
+                                formatter={(v: number) => fmtPct(v)}
+                                style={{ fontSize: '0.72rem', fill: '#555' }} />
+                            </Bar>
+                          ))}
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                );
+              })()}
+              {genderTab === 'table' && (
+                <div role="tabpanel" className="rd-tab-panel">
+                  <div className="cmp-table-scroll">
+                    <table className="stats-table cmp-table">
+                      <caption className="sr-only">Gender breakdown by year</caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Metric</th>
+                          {intervals.map(iv => <th scope="col" key={iv.label}>{iv.label}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Female Finishers %</td>
+                          {intervals.map(iv => <td key={iv.label}>{fmtPct(iv.stats.demographics.finisherGender.femalePercent)}</td>)}
+                        </tr>
+                        <tr>
+                          <td>Male Finishers %</td>
+                          {intervals.map(iv => <td key={iv.label}>{fmtPct(iv.stats.demographics.finisherGender.malePercent)}</td>)}
+                        </tr>
+                        <tr>
+                          <td>Non-Binary Finishers %</td>
+                          {intervals.map(iv => <td key={iv.label}>{fmtPct(iv.stats.demographics.finisherGender.nonBinaryPercent)}</td>)}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* ── 7. Age Trends ── */}
+            <section id="rr-age-trends" className="chart-section">
+              <SectionHeader title="Age Trends" />
+              <div className="rd-tab-strip" role="tablist" aria-label="Age trends views">
+                {(['charts', 'table'] as const).map(id => (
+                  <button key={id} type="button" role="tab"
+                    aria-selected={ageTrendsTab === id}
+                    className={`rd-tab${ageTrendsTab === id ? ' rd-tab--active' : ''}`}
+                    onClick={() => setAgeTrendsTab(id)}
+                  >
+                    {id === 'charts' ? 'Charts' : 'Table'}
+                  </button>
+                ))}
+              </div>
+              {ageTrendsTab === 'charts' && (
+                <div role="tabpanel" className="rd-tab-panel">
+                  {ageFlat ? (
+                    <p className="rd-empty-group">Finisher age trends were stable across the compared years.</p>
+                  ) : (() => {
+                    const ageBarData = trends.medianFinisherAge.map(d => ({ year: d.label, age: d.value ?? 0 }));
+                    const ageVals = ageBarData.map(d => d.age).filter(v => v > 0);
+                    const ageMin = ageVals.length > 0 ? Math.floor(Math.min(...ageVals) * 0.95) : 0;
+                    return (
+                      <div className="chart-wrap chart-wrap--full" aria-hidden="true">
+                        <ResponsiveContainer width="100%" height={220}>
+                          <BarChart data={ageBarData} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="year" tick={{ fontSize: 12 }} />
+                            <YAxis tick={{ fontSize: 11 }} width={40} domain={[ageMin, 'auto']}
+                              tickFormatter={(v: number) => `${v}`} />
+                            <Tooltip contentStyle={{ fontSize: '0.8rem' }}
+                              formatter={(v: number) => [`${v.toFixed(1)} yrs`, 'Median Age']} />
+                            <Bar dataKey="age" maxBarSize={40} radius={[3, 3, 0, 0]}>
+                              {ageBarData.map((_, i) => <Cell key={i} fill={yearColors[i]} />)}
+                              <LabelList dataKey="age" position="top"
+                                formatter={(v: number) => `${v.toFixed(1)}`}
+                                style={{ fontSize: '0.7rem', fill: '#555' }} />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+              {ageTrendsTab === 'table' && (
+                <div role="tabpanel" className="rd-tab-panel">
+                  <div className="cmp-table-scroll">
+                    <table className="stats-table cmp-table">
+                      <caption className="sr-only">Age statistics by year</caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Metric</th>
+                          {intervals.map(iv => <th scope="col" key={iv.label}>{iv.label}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Median Age</td>
+                          {intervals.map(iv => (
+                            <td key={iv.label}>{iv.stats.demographics.finisherAge.median != null ? iv.stats.demographics.finisherAge.median.toFixed(1) : '—'}</td>
+                          ))}
+                        </tr>
+                        <tr>
+                          <td>Mean Age</td>
+                          {intervals.map(iv => (
+                            <td key={iv.label}>{iv.stats.demographics.finisherAge.mean != null ? iv.stats.demographics.finisherAge.mean.toFixed(1) : '—'}</td>
+                          ))}
+                        </tr>
+                        <tr>
+                          <td>Youngest Finisher</td>
+                          {intervals.map(iv => <td key={iv.label}>{iv.stats.demographics.finisherAge.min ?? '—'}</td>)}
+                        </tr>
+                        <tr>
+                          <td>Oldest Finisher</td>
+                          {intervals.map(iv => <td key={iv.label}>{iv.stats.demographics.finisherAge.max ?? '—'}</td>)}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* ── 8. Age Distribution ── */}
+            {(() => {
+              const distColors = yearColors;
+              const buckets = lastInterval.stats.demographics.finisherAge.buckets;
+              const distChartData = buckets.map(b => {
+                const row: Record<string, number | string> = { label: b.label };
+                intervals.forEach(iv => {
+                  const match = iv.stats.demographics.finisherAge.buckets.find(x => x.label === b.label);
+                  row[iv.label] = match?.count ?? 0;
+                });
+                return row;
+              });
+              return (
+                <section id="rr-age-dist" className="chart-section">
+                  <SectionHeader title="Age Distribution" />
+                  <div className="rd-tab-strip" role="tablist" aria-label="Age distribution views">
+                    {(['charts', 'table'] as const).map(id => (
+                      <button key={id} type="button" role="tab"
+                        aria-selected={ageDistTab === id}
+                        className={`rd-tab${ageDistTab === id ? ' rd-tab--active' : ''}`}
+                        onClick={() => setAgeDistTab(id)}
+                      >
+                        {id === 'charts' ? 'Charts' : 'Table'}
+                      </button>
+                    ))}
+                  </div>
+                  {ageDistTab === 'charts' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      <div className="chart-wrap chart-wrap--full" aria-hidden="true">
+                        <ResponsiveContainer width="100%" height={280}>
+                          <BarChart data={distChartData} margin={{ top: 22, right: 8, bottom: 36, left: 8 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-40} textAnchor="end" interval={0} />
+                            <YAxis tick={{ fontSize: 11 }} allowDecimals={false}
+                              label={{ value: 'Finishers', angle: -90, position: 'insideLeft', offset: 10, style: { fontSize: '0.72rem', fill: '#888' } }} />
+                            <Tooltip contentStyle={{ fontSize: '0.8rem' }} />
+                            <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
+                            {intervals.map((iv, i) => (
+                              <Bar key={iv.label} dataKey={iv.label} fill={distColors[i]} maxBarSize={24}>
+                                <LabelList dataKey={iv.label} position="top"
+                                  formatter={fmtBarCount}
+                                  style={{ fontSize: '0.58rem', fill: '#888' }} />
+                              </Bar>
+                            ))}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+                  {ageDistTab === 'table' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      <div className="cmp-table-scroll">
+                        <table className="stats-table cmp-table">
+                          <caption className="sr-only">Age distribution by year</caption>
+                          <thead>
+                            <tr>
+                              <th scope="col">Age Group</th>
+                              {intervals.map(iv => <th scope="col" key={iv.label}>{iv.label}</th>)}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {buckets.map(bucket => (
+                              <tr key={bucket.label}>
+                                <td>{bucket.label}</td>
+                                {intervals.map(iv => {
+                                  const b = iv.stats.demographics.finisherAge.buckets.find(x => x.label === bucket.label);
+                                  return <td key={iv.label}>{b != null ? b.count.toLocaleString() : '—'}</td>;
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
+
+            {/* ── 9. Geography ── */}
+            {(() => {
+              const latestGeo = intervals[intervals.length - 1].stats.geographic;
+              const latestLabel = intervals[intervals.length - 1].label;
+              const firstGeo = intervals[0].stats.geographic;
+              const firstLabel = intervals[0].label;
+              const lastStates = Object.keys(latestGeo.byState).length;
+              const firstStates = Object.keys(firstGeo.byState).length;
+              const stateDelta = lastStates - firstStates;
+
+              const noChange = intervals.length > 1
+                && usTrend.every(d => d.value === usTrend[0].value)
+                && intlTrend.every(d => d.value === intlTrend[0].value)
+                && statesTrend.every(d => d.value === statesTrend[0].value)
+                && countriesTrend.every(d => d.value === countriesTrend[0].value);
+
+              const participantData = [
+                { metric: 'US', ...Object.fromEntries(intervals.map(iv => [iv.label, iv.stats.geographic.usParticipants])) },
+                { metric: 'International', ...Object.fromEntries(intervals.map(iv => [iv.label, iv.stats.geographic.internationalParticipants])) },
+              ] as Array<Record<string, string | number>>;
+
+              const reachData = [
+                { metric: 'States / Provinces', ...Object.fromEntries(intervals.map(iv => [iv.label, Object.keys(iv.stats.geographic.byState).length])) },
+                { metric: 'Countries', ...Object.fromEntries(intervals.map(iv => [iv.label, Object.keys(iv.stats.geographic.byCountry).length])) },
+              ] as Array<Record<string, string | number>>;
+
+              return (
+                <section id="rr-geography" className="chart-section">
+                  <SectionHeader title="Geography" />
+                  <div className="rd-tab-strip" role="tablist" aria-label="Geography views">
+                    {(['charts', 'table'] as const).map(id => (
+                      <button key={id} type="button" role="tab"
+                        aria-selected={geoTab === id}
+                        className={`rd-tab${geoTab === id ? ' rd-tab--active' : ''}`}
+                        onClick={() => setGeoTab(id)}
+                      >
+                        {id === 'charts' ? 'Charts' : 'Table'}
+                      </button>
+                    ))}
+                  </div>
+                  {geoTab === 'charts' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      {noChange ? (
+                        <p className="rd-empty-group">Geographic reach did not change across the compared years.</p>
+                      ) : (
+                        <>
+                          <div className="stat-cards-row">
+                            <StatCard label="US Participants" value={latestGeo.usParticipants.toLocaleString()} sub={latestLabel} />
+                            <StatCard label="International" value={latestGeo.internationalParticipants.toLocaleString()} sub={latestLabel} />
+                            <StatCard label="States / Provinces" value={lastStates.toLocaleString()} sub={latestLabel} />
+                            <StatCard label="Countries" value={Object.keys(latestGeo.byCountry).length.toLocaleString()} sub={latestLabel} />
+                          </div>
+                          {intervals.length > 1 && stateDelta !== 0 && (
+                            <div className="insight-callout">
+                              <ul className="insight-callout-list">
+                                <li className="insight-callout-item">
+                                  Geographic reach {stateDelta > 0 ? 'expanded' : 'narrowed'} from {firstStates} to {lastStates} states/provinces between {firstLabel} and {latestLabel}.
+                                </li>
+                              </ul>
+                            </div>
+                          )}
+                          <div className="chart-subsection">
+                            <p className="chart-subsection-title">Participants</p>
+                            <div className="chart-wrap chart-wrap--full" aria-hidden="true">
+                              <ResponsiveContainer width="100%" height={220}>
+                                <BarChart data={participantData} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                  <XAxis dataKey="metric" tick={{ fontSize: 12 }} />
+                                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))} width={48} />
+                                  <Tooltip contentStyle={{ fontSize: '0.8rem' }} formatter={(v: number) => v.toLocaleString()} />
+                                  <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
+                                  {intervals.map((iv, i) => (
+                                    <Bar key={iv.label} dataKey={iv.label} fill={yearColors[i]} maxBarSize={36}>
+                                      <LabelList dataKey={iv.label} position="top"
+                                        formatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))}
+                                        style={{ fontSize: '0.65rem', fill: '#555' }} />
+                                    </Bar>
+                                  ))}
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                          <div className="chart-subsection">
+                            <p className="chart-subsection-title">Geography</p>
+                            <div className="chart-wrap chart-wrap--full" aria-hidden="true">
+                              <ResponsiveContainer width="100%" height={220}>
+                                <BarChart data={reachData} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                  <XAxis dataKey="metric" tick={{ fontSize: 12 }} />
+                                  <YAxis tick={{ fontSize: 11 }} width={32} allowDecimals={false} />
+                                  <Tooltip contentStyle={{ fontSize: '0.8rem' }} />
+                                  <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
+                                  {intervals.map((iv, i) => (
+                                    <Bar key={iv.label} dataKey={iv.label} fill={yearColors[i]} maxBarSize={36}>
+                                      <LabelList dataKey={iv.label} position="top"
+                                        style={{ fontSize: '0.65rem', fill: '#555' }} />
+                                    </Bar>
+                                  ))}
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {geoTab === 'table' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      <div className="cmp-table-scroll">
+                        <table className="stats-table cmp-table">
+                          <caption className="sr-only">Geography summary by year</caption>
+                          <thead>
+                            <tr>
+                              <th scope="col">Metric</th>
+                              {intervals.map(iv => <th scope="col" key={iv.label}>{iv.label}</th>)}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>US Participants</td>
+                              {intervals.map(iv => <td key={iv.label}>{iv.stats.geographic.usParticipants.toLocaleString()}</td>)}
+                            </tr>
+                            <tr>
+                              <td>International</td>
+                              {intervals.map(iv => <td key={iv.label}>{iv.stats.geographic.internationalParticipants.toLocaleString()}</td>)}
+                            </tr>
+                            <tr>
+                              <td>States / Provinces</td>
+                              {intervals.map(iv => <td key={iv.label}>{Object.keys(iv.stats.geographic.byState).length.toLocaleString()}</td>)}
+                            </tr>
+                            <tr>
+                              <td>Countries</td>
+                              {intervals.map(iv => <td key={iv.label}>{Object.keys(iv.stats.geographic.byCountry).length.toLocaleString()}</td>)}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
+
+            {/* ── 10. Race Weather ── */}
+            {(() => {
+              if (!hasWeather) {
+                return (
+                  <section id="rr-weather" className="chart-section">
+                    <SectionHeader title="Race Weather" />
+                    <p className="rd-empty-group">Race weather trends will appear here when comparable weather data is available across years.</p>
+                  </section>
+                );
+              }
+              const weatherRows = weatherIntervals.map(iv => {
+                const snaps = (iv.weatherData as WeatherData).snapshots;
+                const first = snaps[0];
+                const peakTemp = snaps.length > 0 ? Math.max(...snaps.map(s => s.tempF)) : null;
+                const peakWind = snaps.length > 0 ? Math.max(...snaps.map(s => s.windMph)) : null;
+                const startDate = new Date((iv.weatherData as WeatherData).raceStartIso)
+                  .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                return {
+                  label: iv.label,
+                  startDate,
+                  startTemp: first?.tempF ?? null,
+                  startCondition: first?.weatherDesc ?? '—',
+                  peakTemp,
+                  peakWind,
+                };
+              });
+              const startTempSeries = weatherRows
+                .filter(r => r.startTemp != null)
+                .map(r => ({ label: r.label, value: r.startTemp as number }));
+              const peakTempSeries = weatherRows
+                .filter(r => r.peakTemp != null)
+                .map(r => ({ label: r.label, value: r.peakTemp as number }));
+              const peakWindSeries = weatherRows
+                .filter(r => r.peakWind != null)
+                .map(r => ({ label: r.label, value: r.peakWind as number }));
+              return (
+                <section id="rr-weather" className="chart-section">
+                  <SectionHeader title="Race Weather" />
+                  <div className="rd-tab-strip" role="tablist" aria-label="Weather views">
+                    {(['charts', 'table'] as const).map(id => (
+                      <button key={id} type="button" role="tab"
+                        aria-selected={weatherTab === id}
+                        className={`rd-tab${weatherTab === id ? ' rd-tab--active' : ''}`}
+                        onClick={() => setWeatherTab(id)}
+                      >
+                        {id === 'charts' ? 'Charts' : 'Table'}
+                      </button>
+                    ))}
+                  </div>
+                  {weatherTab === 'charts' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      <TrendLineChart
+                        series={[
+                          { name: 'Start Temp (°F)', data: startTempSeries },
+                          { name: 'Peak Temp (°F)', data: peakTempSeries },
+                          { name: 'Peak Wind (mph)', data: peakWindSeries },
+                        ]}
+                        formatTooltipValue={(v: number) => v.toFixed(1)}
+                      />
+                    </div>
+                  )}
+                  {weatherTab === 'table' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      <div className="cmp-table-scroll">
+                        <table className="stats-table cmp-table">
+                          <caption className="sr-only">Race weather by year</caption>
+                          <thead>
+                            <tr>
+                              <th scope="col">Year</th>
+                              <th scope="col">Race Start</th>
+                              <th scope="col">Start Temp</th>
+                              <th scope="col">Peak Temp</th>
+                              <th scope="col">Peak Wind</th>
+                              <th scope="col">Start Condition</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {weatherRows.map(row => (
+                              <tr key={row.label}>
+                                <td>{row.label}</td>
+                                <td>{row.startDate}</td>
+                                <td>{row.startTemp != null ? `${row.startTemp.toFixed(1)}°F` : '—'}</td>
+                                <td>{row.peakTemp != null ? `${row.peakTemp.toFixed(1)}°F` : '—'}</td>
+                                <td>{row.peakWind != null ? `${row.peakWind.toFixed(1)} mph` : '—'}</td>
+                                <td>{row.startCondition}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
+
+          </div>
         </>
       )}
     </div>

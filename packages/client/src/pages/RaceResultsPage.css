@@ -484,6 +484,24 @@ input[type="datetime-local"].datetime-empty {
   }
 }
 
+/* ── Multi-year trend cards ───────────────────────────────────────────────── */
+
+.trend-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.trend-card-delta {
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.trend-card-delta--good    { color: #166534; }
+.trend-card-delta--bad     { color: #991b1b; }
+.trend-card-delta--neutral { color: #6b7280; }
+
 /* ── Attrition section ────────────────────────────────────────────────────── */
 
 .rr-attrition-overall td {

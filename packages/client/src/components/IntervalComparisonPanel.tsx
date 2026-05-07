@@ -198,8 +198,10 @@ export function KeyChangesList({ rows, firstLabel, lastLabel }: KeyChangesListPr
             valueClass = row.direction === 'up' ? 'key-changes-value--up' : 'key-changes-value--down';
           }
           const arrow = isUnchanged ? null : row.direction === 'up' ? '▲' : '▼';
+          const itemMod = isUnchanged || row.neutral ? 'neutral'
+            : row.direction === 'up' ? 'up' : 'down';
           return (
-            <div key={row.label} className="key-changes-item">
+            <div key={row.label} className={`key-changes-item key-changes-item--${itemMod}`}>
               <dt className="key-changes-metric">{row.label}</dt>
               <dd className={`key-changes-value ${valueClass}`}>
                 {arrow && <span className="key-changes-arrow" aria-hidden="true">{arrow} </span>}

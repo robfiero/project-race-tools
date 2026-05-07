@@ -74,6 +74,8 @@ interface EventConfig {
   dnsRate: number;          // fraction of starters who DNS
   medianSecs: number;       // median finish time in seconds
   timeStdSecs: number;      // standard deviation in seconds
+  // Fixed-time events track partial distances for DNFs; fixed-distance events do not.
+  fixedTime?: boolean;
 }
 
 // Hardcoded synthetic weather for each sample
@@ -612,8 +614,11 @@ export function generateResultsCSV(sampleId: string): string {
         const raw = rng.normal(ev.medianSecs, ev.timeStdSecs);
         timeSecs = Math.max(ev.medianSecs * 0.5, Math.min(ev.medianSecs * 2.0, Math.round(raw)));
       } else if (finishStatus === 2) {
-        // DNF: partial distance — stopped between 20% and 85% of course
-        distanceMiles = parseFloat((ev.distanceMiles * (0.20 + rng.next() * 0.65)).toFixed(2));
+        // DNF: fixed-distance events report the event distance (matching real UltraSignup exports);
+        // fixed-time events report partial distance covered.
+        distanceMiles = ev.fixedTime
+          ? parseFloat((ev.distanceMiles * (0.20 + rng.next() * 0.65)).toFixed(2))
+          : ev.distanceMiles;
       } else {
         // DNS: no time, no distance
         distanceMiles = 0;
