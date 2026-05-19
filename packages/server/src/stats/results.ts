@@ -7,6 +7,10 @@ import type {
   EventPerformanceStats,
   FinishTimeStats,
   DistanceAchievedStats,
+  PaceStats,
+  PaceBucket,
+  PaceGenderStats,
+  PaceAgeGroupStats,
   ResultsDemographicsStats,
   GenderStats,
   AgeStats,
@@ -17,6 +21,14 @@ import type {
   ResultsCrossEventStats,
   ResultsCrossEventRow,
   GenderAgeGroupRow,
+  AgeGroupPerformanceRow,
+  AgeGroupPerformanceStats,
+  AgeGroupPerformanceByEvent,
+  DivisionPerformanceRow,
+  DivisionPerformanceStats,
+  DivisionPerformanceByEvent,
+  PerformanceBandRow,
+  PerformanceBandStats,
   EventType,
   PerformanceValue,
   FinishStatus,
@@ -238,6 +250,8 @@ function computeSummary(groups: EventGroup[]): ResultsSummaryStats {
       name: g.name,
       eventType: g.type,
       totalEntrants: gt,
+      participantAge: computeAgeStats(g.records),
+      gender: computeGenderStats(g.records),
       finishers: gc.finishers + gc.unofficial,
       dnf: gc.dnf,
       dns: gc.dns,
@@ -333,6 +347,7 @@ function computeFinishTimeStats(finishers: ResultRecord[]): FinishTimeStats | nu
       gender: g,
       finishers: pool.length,
       medianSeconds: pool.length > 0 ? median(gt) : null,
+      meanSeconds: pool.length > 0 ? Math.round(mean(gt)!) : null,
       fastestSeconds: pool.length > 0 ? Math.min(...gt) : null,
       slowestSeconds: pool.length > 0 ? Math.max(...gt) : null,
     };
@@ -349,6 +364,25 @@ function computeFinishTimeStats(finishers: ResultRecord[]): FinishTimeStats | nu
   };
 }
 
+function buildDistanceBuckets(dists: number[]): Array<{ label: string; count: number }> {
+  if (dists.length === 0) return [];
+  const minD = dists[0];
+  const maxD = dists[dists.length - 1];
+  const spread = maxD - minD;
+  const width = spread <= 25 ? 5 : spread <= 60 ? 10 : 15;
+  const firstStart = Math.floor(minD / width) * width;
+  const lastEnd = Math.ceil(maxD / width) * width;
+  const buckets: Array<{ label: string; count: number }> = [];
+  for (let start = firstStart; start < lastEnd; start += width) {
+    const end = start + width;
+    buckets.push({
+      label: `${start}–${end - 1} mi`,
+      count: dists.filter(d => d >= start && d < end).length,
+    });
+  }
+  return buckets.filter(b => b.count > 0);
+}
+
 function computeDistanceStats(finishers: ResultRecord[]): DistanceAchievedStats | null {
   const withDist = finishers
     .filter(r => r.distanceMiles !== null)
@@ -359,6 +393,8 @@ function computeDistanceStats(finishers: ResultRecord[]): DistanceAchievedStats 
   const dists = withDist.map(r => r.distanceMiles);
   const med = median(dists)!;
   const avg = mean(dists)!;
+  const minD = dists[0];
+  const maxD = dists[dists.length - 1];
 
   const percentiles = PERCENTILE_VALUES.map((p, i) => ({
     label: PERCENTILE_LABELS[i],
@@ -371,36 +407,148 @@ function computeDistanceStats(finishers: ResultRecord[]): DistanceAchievedStats 
     withDist.map(r => ({ value: r.distanceMiles, gender: r.gender })),
   );
 
+  const distBuckets = buildDistanceBuckets(dists);
+
   const genderGroups = (['M', 'F', 'NB', 'Unknown'] as const).map(g => {
     const pool = withDist.filter(r => r.gender === g);
     const gd = pool.map(r => r.distanceMiles);
     return {
       gender: g,
       finishers: pool.length,
-      medianMiles: pool.length > 0 ? median(gd) : null,
-      maxMiles: pool.length > 0 ? Math.max(...gd) : null,
-      minMiles: pool.length > 0 ? Math.min(...gd) : null,
+      medianMiles: pool.length > 0 ? Math.round(median(gd)! * 10) / 10 : null,
+      meanMiles: pool.length > 0 ? Math.round(mean(gd)! * 10) / 10 : null,
+      maxMiles: pool.length > 0 ? Math.round(Math.max(...gd) * 10) / 10 : null,
+      minMiles: pool.length > 0 ? Math.round(Math.min(...gd) * 10) / 10 : null,
     };
   }).filter(g => g.finishers > 0);
+
+  const ageGroups = AGE_GROUPS.flatMap(g => {
+    const pool = withDist.filter(r => r.age !== null && r.age >= g.min && r.age <= g.max);
+    if (pool.length === 0) return [];
+    const ad = pool.map(r => r.distanceMiles).sort((a, b) => a - b);
+    return [{
+      ageGroup: g.label,
+      finishers: pool.length,
+      medianMiles: Math.round(median(ad)! * 10) / 10,
+      meanMiles: Math.round(mean(ad)! * 10) / 10,
+      maxMiles: Math.round(Math.max(...ad) * 10) / 10,
+      minMiles: Math.round(Math.min(...ad) * 10) / 10,
+    }];
+  });
 
   return {
     medianMiles: Math.round(med * 10) / 10,
     meanMiles: Math.round(avg * 10) / 10,
-    maxMiles: dists[dists.length - 1],
+    maxMiles: Math.round(maxD * 10) / 10,
+    minMiles: Math.round(minD * 10) / 10,
+    spreadMiles: Math.round((maxD - minD) * 10) / 10,
     percentiles,
     buckets,
+    distBuckets,
     byGender: genderGroups,
+    byAgeGroup: ageGroups,
+  };
+}
+
+function computePaceStats(finishers: ResultRecord[], distanceMiles: number): PaceStats | null {
+  if (finishers.length === 0 || distanceMiles <= 0) return null;
+
+  const paces = finishers
+    .filter(r => r.timeSeconds !== null && r.timeSeconds > 0)
+    .map(r => r.timeSeconds! / distanceMiles)
+    .sort((a, b) => a - b);
+
+  if (paces.length === 0) return null;
+
+  const fastestSecsPerMile = paces[0];
+  const slowestSecsPerMile = paces[paces.length - 1];
+  const spreadSecsPerMile = slowestSecsPerMile - fastestSecsPerMile;
+  const medianVal = median(paces)!;
+  const meanVal = mean(paces)!;
+
+  // Determine bucket width based on spread in minutes
+  const spreadMinutes = spreadSecsPerMile / 60;
+  const bucketWidthSecs = spreadMinutes <= 10 ? 60 : spreadMinutes <= 20 ? 120 : 300;
+
+  // Align buckets to minute boundaries
+  const firstBucketStart = Math.floor(fastestSecsPerMile / bucketWidthSecs) * bucketWidthSecs;
+  const lastBucketEnd = Math.ceil(slowestSecsPerMile / bucketWidthSecs) * bucketWidthSecs;
+
+  const buckets: PaceBucket[] = [];
+  for (let start = firstBucketStart; start < lastBucketEnd; start += bucketWidthSecs) {
+    const end = start + bucketWidthSecs;
+    const startMin = Math.floor(start / 60);
+    const endMin = Math.floor(end / 60);
+    const label = `${startMin}–${endMin}`;
+    buckets.push({
+      label,
+      count: paces.filter(p => p >= start && p < end).length,
+      minSecsPerMile: start,
+      maxSecsPerMile: end,
+    });
+  }
+
+  // By gender
+  const genderKeys: Array<'M' | 'F' | 'NB'> = ['M', 'F', 'NB'];
+  const byGender: PaceGenderStats[] = genderKeys.flatMap(g => {
+    const gFinishers = finishers.filter(r => r.gender === g && r.timeSeconds !== null && r.timeSeconds > 0);
+    if (gFinishers.length === 0) return [];
+    const gPaces = gFinishers.map(r => r.timeSeconds! / distanceMiles).sort((a, b) => a - b);
+    return [{
+      gender: g,
+      finishers: gPaces.length,
+      medianSecsPerMile: median(gPaces)!,
+      fastestSecsPerMile: gPaces[0],
+      slowestSecsPerMile: gPaces[gPaces.length - 1],
+    }];
+  });
+
+  // By age group
+  const byAgeGroup: PaceAgeGroupStats[] = AGE_GROUPS.flatMap(g => {
+    const agFinishers = finishers.filter(
+      r => r.age !== null && r.age >= g.min && r.age <= g.max && r.timeSeconds !== null && r.timeSeconds > 0,
+    );
+    if (agFinishers.length === 0) return [];
+    const agPaces = agFinishers.map(r => r.timeSeconds! / distanceMiles).sort((a, b) => a - b);
+    return [{
+      ageGroup: g.label,
+      finishers: agPaces.length,
+      medianSecsPerMile: median(agPaces)!,
+      fastestSecsPerMile: agPaces[0],
+      slowestSecsPerMile: agPaces[agPaces.length - 1],
+    }];
+  });
+
+  return {
+    medianSecsPerMile: medianVal,
+    meanSecsPerMile: meanVal,
+    fastestSecsPerMile,
+    slowestSecsPerMile,
+    spreadSecsPerMile,
+    buckets,
+    byGender,
+    byAgeGroup,
   };
 }
 
 function computePerformance(groups: EventGroup[]): PerformanceStats {
   const events: EventPerformanceStats[] = groups.map(g => {
     const finishers = g.records.filter(r => isFinisher(r.finishStatus));
+
+    let paceStats: PaceStats | null = null;
+    if (g.type === 'fixed-distance') {
+      const distanceMiles = finishers.find(r => r.distanceMiles !== null)?.distanceMiles ?? null;
+      if (distanceMiles !== null && distanceMiles > 0) {
+        paceStats = computePaceStats(finishers, distanceMiles);
+      }
+    }
+
     return {
       eventName: g.name,
       eventType: g.type,
       finishTime: g.type === 'fixed-distance' ? computeFinishTimeStats(finishers) : null,
       distanceAchieved: g.type === 'fixed-time' ? computeDistanceStats(finishers) : null,
+      paceStats,
     };
   });
   return { events };
@@ -417,6 +565,28 @@ const AGE_GROUPS = [
   { label: '60–69',    min: 60, max: 69  },
   { label: '70+',      min: 70, max: 999 },
 ];
+
+function ageGroupLabelForAge(age: number): string {
+  return AGE_GROUPS.find(g => age >= g.min && age <= g.max)?.label ?? '70+';
+}
+
+// Division Performance is an award-division view, distinct from Age Group
+// Performance. When gender and age are known, derive gender+age rows such as
+// Male 30–39, Female 30–39, and Non-Binary 30–39. Fall back to the uploaded
+// divisionName when a generated label is unsafe; Non-Binary entrants must never
+// be collapsed into Male/Female labels.
+function divisionPerformanceLabel(record: ResultRecord): string {
+  if ((record.gender === 'M' || record.gender === 'F' || record.gender === 'NB') && record.age !== null) {
+    const genderLabel = record.gender === 'M'
+      ? 'Male'
+      : record.gender === 'F'
+        ? 'Female'
+        : 'Non-Binary';
+    return `${genderLabel} ${ageGroupLabelForAge(record.age)}`;
+  }
+
+  return record.divisionName.trim();
+}
 
 function computeGenderStats(records: ResultRecord[]): GenderStats {
   let male = 0, female = 0, nonBinary = 0, unknown = 0;
@@ -495,6 +665,14 @@ function computeDemographics(results: ResultRecord[]): ResultsDemographicsStats 
   };
 }
 
+function computeAgeDistributionByEvent(groups: EventGroup[]) {
+  return groups.map(group => ({
+    eventName: group.name,
+    eventType: group.type,
+    finisherAge: computeAgeStats(group.records.filter(r => isFinisher(r.finishStatus))),
+  }));
+}
+
 // ─── Geographic ───────────────────────────────────────────────────────────────
 
 // US state + territory abbreviations
@@ -517,7 +695,7 @@ function inferCountry(state: string, existingCountry: string): string {
   const s = state.toUpperCase().trim();
   if (US_STATES.has(s)) return 'USA';
   if (CA_PROVINCES.has(s)) return 'CAN';
-  return existingCountry || '';
+  return '';
 }
 
 function computeGeographic(results: ResultRecord[]): GeographicStats {
@@ -525,7 +703,7 @@ function computeGeographic(results: ResultRecord[]): GeographicStats {
   const byCountry: Record<string, number> = {};
 
   for (const r of results) {
-    if (r.state) byState[r.state] = (byState[r.state] ?? 0) + 1;
+    if (r.state && r.state !== 'Unknown') byState[r.state] = (byState[r.state] ?? 0) + 1;
     const country = inferCountry(r.state, r.country);
     if (country) byCountry[country] = (byCountry[country] ?? 0) + 1;
   }
@@ -541,9 +719,20 @@ function computeGeographic(results: ResultRecord[]): GeographicStats {
     .map(([country, count]) => ({ country, count }));
 
   const usParticipants = byCountry['USA'] ?? 0;
-  const internationalParticipants = results.length - usParticipants;
+  const internationalParticipants = Object.entries(byCountry)
+    .filter(([country]) => country !== 'USA')
+    .reduce((sum, [, count]) => sum + count, 0);
+  const unknownLocationParticipants = results.length - usParticipants - internationalParticipants;
 
-  return { byState, byCountry, topStates, topCountries, usParticipants, internationalParticipants };
+  return { byState, byCountry, topStates, topCountries, usParticipants, internationalParticipants, unknownLocationParticipants };
+}
+
+function computeGeographicDistributionByEvent(groups: EventGroup[]) {
+  return groups.map(group => ({
+    eventName: group.name,
+    eventType: group.type,
+    geographic: computeGeographic(group.records),
+  }));
 }
 
 // ─── Attrition ────────────────────────────────────────────────────────────────
@@ -555,9 +744,11 @@ function makeAttritionRow(name: string, records: ResultRecord[]): AttritionRow {
   return {
     name,
     total: records.length,
+    starters,
     finished: finishers,
     dnf: c.dnf,
     dns: c.dns,
+    startRate: pct(starters, records.length),
     finishRate: pct(finishers, starters),
     dnfRate: pct(c.dnf, starters),
     dnsRate: pct(c.dns, records.length),
@@ -593,6 +784,45 @@ function computeCrossEvent(groups: EventGroup[]): ResultsCrossEventStats {
     const ages = finishers.map(r => r.age).filter((a): a is number => a !== null);
     const cr = courseRecord(g);
     const lf = lastFinisher(g);
+
+    let fastestSeconds: number | null = null;
+    let medianSeconds: number | null = null;
+    let lastSeconds: number | null = null;
+    let avgPaceSecsPerMile: number | null = null;
+    let medianPaceSecsPerMile: number | null = null;
+    let farthestMiles: number | null = null;
+    let medianMiles: number | null = null;
+    let meanMiles: number | null = null;
+    let shortestMiles: number | null = null;
+    let spreadMiles: number | null = null;
+
+    if (g.type === 'fixed-distance') {
+      const ft = computeFinishTimeStats(finishers);
+      if (ft) {
+        fastestSeconds = ft.fastestSeconds;
+        medianSeconds = Math.round(ft.medianSeconds);
+        lastSeconds = ft.slowestSeconds;
+      }
+      const rawDist = finishers.map(r => r.distanceMiles).find((d): d is number => d !== null) ?? null;
+      const distMiles = rawDist !== null ? cleanDist(rawDist) : null;
+      if (distMiles !== null && distMiles > 0) {
+        const ps = computePaceStats(finishers, distMiles);
+        if (ps) {
+          avgPaceSecsPerMile = ps.meanSecsPerMile;
+          medianPaceSecsPerMile = ps.medianSecsPerMile;
+        }
+      }
+    } else {
+      const ds = computeDistanceStats(finishers);
+      if (ds) {
+        farthestMiles = ds.maxMiles;
+        medianMiles = ds.medianMiles;
+        meanMiles = ds.meanMiles;
+        shortestMiles = ds.minMiles;
+        spreadMiles = ds.spreadMiles;
+      }
+    }
+
     return {
       name: g.name,
       eventType: g.type,
@@ -608,10 +838,372 @@ function computeCrossEvent(groups: EventGroup[]): ResultsCrossEventStats {
       avgAge: ages.length > 0 ? Math.round(mean(ages)! * 10) / 10 : null,
       courseRecord: cr ? cr.display : null,
       lastFinisher: lf ? lf.display : null,
+      fastestSeconds,
+      medianSeconds,
+      lastSeconds,
+      avgPaceSecsPerMile,
+      medianPaceSecsPerMile,
+      farthestMiles,
+      medianMiles,
+      meanMiles,
+      shortestMiles,
+      spreadMiles,
     };
   });
 
   return { rows };
+}
+
+// ─── Age group performance ────────────────────────────────────────────────────
+
+function genderMedianPace(finishers: ResultRecord[], distanceMiles: number): number | null {
+  const paces = finishers
+    .filter(r => r.timeSeconds !== null && r.timeSeconds > 0)
+    .map(r => r.timeSeconds! / distanceMiles)
+    .sort((a, b) => a - b);
+  return paces.length > 0 ? median(paces) : null;
+}
+
+function genderMedianMiles(finishers: ResultRecord[]): number | null {
+  const miles = finishers
+    .filter(r => r.distanceMiles !== null)
+    .map(r => cleanDist(r.distanceMiles!))
+    .sort((a, b) => a - b);
+  return miles.length > 0 ? median(miles) : null;
+}
+
+function computeAgeGroupPerformanceForGroup(group: EventGroup): AgeGroupPerformanceStats {
+  const eventType = group.type;
+
+  const paceByAgeGroup = new Map<string, { medianSecsPerMile: number; fastestSecsPerMile: number; slowestSecsPerMile: number }>();
+  const distByAgeGroup = new Map<string, { medianMiles: number | null; maxMiles: number | null; minMiles: number | null }>();
+
+  // Hoisted so gender-pace computation inside the flatMap can access it.
+  let eventDistanceMiles: number | null = null;
+
+  if (eventType === 'fixed-distance') {
+    const finishers = group.records.filter(r => isFinisher(r.finishStatus));
+    const distanceMiles = finishers.find(r => r.distanceMiles !== null)?.distanceMiles ?? null;
+    eventDistanceMiles = distanceMiles;
+    if (distanceMiles !== null && distanceMiles > 0) {
+      const ps = computePaceStats(finishers, distanceMiles);
+      if (ps) {
+        for (const row of ps.byAgeGroup) {
+          paceByAgeGroup.set(row.ageGroup, row);
+        }
+      }
+    }
+  } else {
+    const finishers = group.records.filter(r => isFinisher(r.finishStatus));
+    const ds = computeDistanceStats(finishers);
+    if (ds) {
+      for (const row of ds.byAgeGroup) {
+        distByAgeGroup.set(row.ageGroup, { medianMiles: row.medianMiles, maxMiles: row.maxMiles, minMiles: row.minMiles });
+      }
+    }
+  }
+
+  const rows: AgeGroupPerformanceRow[] = AGE_GROUPS.flatMap(g => {
+    const inGroup = group.records.filter(r => r.age !== null && r.age >= g.min && r.age <= g.max);
+    if (inGroup.length === 0) return [];
+    const attrRow = makeAttritionRow(g.label, inGroup);
+    const groupFinishers = inGroup.filter(r => isFinisher(r.finishStatus));
+
+    // Gender sub-groups (entrants)
+    const maleGroup    = inGroup.filter(r => r.gender === 'M');
+    const femaleGroup  = inGroup.filter(r => r.gender === 'F');
+    const nbGroup      = inGroup.filter(r => r.gender === 'NB');
+
+    // Gender finish rates
+    const maleAtr   = makeAttritionRow(g.label, maleGroup);
+    const femaleAtr = makeAttritionRow(g.label, femaleGroup);
+    const nbAtr     = makeAttritionRow(g.label, nbGroup);
+
+    // Gender finisher counts — same scope as pace/distance
+    const maleFinishers   = groupFinishers.filter(r => r.gender === 'M');
+    const femaleFinishers = groupFinishers.filter(r => r.gender === 'F');
+    const nbFinishers     = groupFinishers.filter(r => r.gender === 'NB');
+
+    // Gender-specific performance
+    let malePaceSecsPerMile:    number | null = null;
+    let femalePaceSecsPerMile:  number | null = null;
+    let nonBinaryPaceSecsPerMile: number | null = null;
+    let maleMiles:    number | null = null;
+    let femaleMiles:  number | null = null;
+    let nonBinaryMiles: number | null = null;
+
+    if (eventType === 'fixed-distance' && eventDistanceMiles !== null && eventDistanceMiles > 0) {
+      malePaceSecsPerMile      = genderMedianPace(maleFinishers,   eventDistanceMiles);
+      femalePaceSecsPerMile    = genderMedianPace(femaleFinishers, eventDistanceMiles);
+      nonBinaryPaceSecsPerMile = genderMedianPace(nbFinishers,     eventDistanceMiles);
+    } else if (eventType === 'fixed-time') {
+      maleMiles      = genderMedianMiles(maleFinishers);
+      femaleMiles    = genderMedianMiles(femaleFinishers);
+      nonBinaryMiles = genderMedianMiles(nbFinishers);
+    }
+
+    const pace = paceByAgeGroup.get(g.label) ?? null;
+    const dist = distByAgeGroup.get(g.label) ?? null;
+    return [{
+      ageGroup: g.label,
+      total: attrRow.total,
+      finishers: attrRow.finished,
+      maleFinishers: maleFinishers.length,
+      femaleFinishers: femaleFinishers.length,
+      nonBinaryFinishers: nbFinishers.length,
+      finishRate: attrRow.finishRate,
+      dnf: attrRow.dnf,
+      dnfRate: attrRow.dnfRate,
+      dns: attrRow.dns,
+      dnsRate: attrRow.dnsRate,
+      maleTotal: maleGroup.length,
+      femaleTotal: femaleGroup.length,
+      nonBinaryTotal: nbGroup.length,
+      maleFinishRate: maleAtr.finishRate,
+      femaleFinishRate: femaleAtr.finishRate,
+      nonBinaryFinishRate: nbAtr.finishRate,
+      malePaceSecsPerMile,
+      femalePaceSecsPerMile,
+      nonBinaryPaceSecsPerMile,
+      maleMiles,
+      femaleMiles,
+      nonBinaryMiles,
+      medianPaceSecsPerMile: pace?.medianSecsPerMile ?? null,
+      fastestPaceSecsPerMile: pace?.fastestSecsPerMile ?? null,
+      slowestPaceSecsPerMile: pace?.slowestSecsPerMile ?? null,
+      medianMiles: dist?.medianMiles ?? null,
+      maxMiles: dist?.maxMiles ?? null,
+      minMiles: dist?.minMiles ?? null,
+    }];
+  });
+
+  return { rows, eventType };
+}
+
+function computeAgeGroupPerformance(groups: EventGroup[]): AgeGroupPerformanceStats | null {
+  if (groups.length === 0) return null;
+  const stats = computeAgeGroupPerformanceForGroup(groups[0]);
+  return stats.rows.length > 0 ? stats : null;
+}
+
+function computeAgeGroupPerformanceByEvent(groups: EventGroup[]): AgeGroupPerformanceByEvent[] {
+  return groups.map(group => {
+    const stats = computeAgeGroupPerformanceForGroup(group);
+    return {
+      eventName: group.name,
+      eventType: stats.eventType,
+      rows: stats.rows,
+    };
+  });
+}
+
+function computeDivisionPerformanceForGroup(group: EventGroup): DivisionPerformanceStats {
+  const eventType = group.type;
+
+  // Scope division rows to this event so counts and performance metrics
+  // describe the same runner set.
+  const divisionNames = [...new Set(group.records.map(divisionPerformanceLabel).filter(d => d !== ''))].sort();
+
+  // Precompute pace or distance per division for event finishers.
+  const paceByDivision = new Map<string, { medianSecsPerMile: number; fastestSecsPerMile: number; slowestSecsPerMile: number }>();
+  const distByDivision = new Map<string, { medianMiles: number | null; maxMiles: number | null; minMiles: number | null }>();
+
+  if (eventType === 'fixed-distance') {
+    const rawDist = group.records.find(r => r.distanceMiles !== null)?.distanceMiles ?? null;
+    const distanceMiles = rawDist !== null ? cleanDist(rawDist) : null;
+    if (distanceMiles !== null && distanceMiles > 0) {
+      const groupFinishers = group.records.filter(r => isFinisher(r.finishStatus));
+      for (const div of divisionNames) {
+        const divFinishers = groupFinishers.filter(r => divisionPerformanceLabel(r) === div && r.timeSeconds !== null && r.timeSeconds > 0);
+        if (divFinishers.length === 0) continue;
+        const paces = divFinishers.map(r => r.timeSeconds! / distanceMiles).sort((a, b) => a - b);
+        const med = median(paces);
+        if (med !== null) {
+          paceByDivision.set(div, {
+            medianSecsPerMile: med,
+            fastestSecsPerMile: paces[0],
+            slowestSecsPerMile: paces[paces.length - 1],
+          });
+        }
+      }
+    }
+  } else {
+    const groupFinishers = group.records.filter(r => isFinisher(r.finishStatus));
+    for (const div of divisionNames) {
+      const divFinishers = groupFinishers.filter(r => divisionPerformanceLabel(r) === div && r.distanceMiles !== null);
+      if (divFinishers.length === 0) continue;
+      const miles = divFinishers.map(r => r.distanceMiles!).sort((a, b) => a - b);
+      const med = median(miles);
+      distByDivision.set(div, {
+        medianMiles: med,
+        maxMiles: miles[miles.length - 1],
+        minMiles: miles[0],
+      });
+    }
+  }
+
+  const rows: DivisionPerformanceRow[] = divisionNames.flatMap(div => {
+    const inDiv = group.records.filter(r => divisionPerformanceLabel(r) === div);
+    if (inDiv.length === 0) return [];
+    const attrRow = makeAttritionRow(div, inDiv);
+    const divFinishers = inDiv.filter(r => isFinisher(r.finishStatus));
+    const pace = paceByDivision.get(div) ?? null;
+    const dist = distByDivision.get(div) ?? null;
+    return [{
+      division: div,
+      total: attrRow.total,
+      finishers: attrRow.finished,
+      maleFinishers: divFinishers.filter(r => r.gender === 'M').length,
+      femaleFinishers: divFinishers.filter(r => r.gender === 'F').length,
+      nonBinaryFinishers: divFinishers.filter(r => r.gender === 'NB').length,
+      finishRate: attrRow.finishRate,
+      dnf: attrRow.dnf,
+      dnfRate: attrRow.dnfRate,
+      dns: attrRow.dns,
+      dnsRate: attrRow.dnsRate,
+      medianPaceSecsPerMile: pace?.medianSecsPerMile ?? null,
+      fastestPaceSecsPerMile: pace?.fastestSecsPerMile ?? null,
+      slowestPaceSecsPerMile: pace?.slowestSecsPerMile ?? null,
+      medianMiles: dist?.medianMiles ?? null,
+      maxMiles: dist?.maxMiles ?? null,
+      minMiles: dist?.minMiles ?? null,
+    }];
+  });
+
+  return { rows, eventType };
+}
+
+function computeDivisionPerformance(groups: EventGroup[]): DivisionPerformanceStats | null {
+  if (groups.length === 0) return null;
+  const stats = computeDivisionPerformanceForGroup(groups[0]);
+  return stats.rows.length > 0 ? stats : null;
+}
+
+function computeDivisionPerformanceByEvent(groups: EventGroup[]): DivisionPerformanceByEvent[] {
+  return groups.map(group => {
+    const stats = computeDivisionPerformanceForGroup(group);
+    return {
+      eventName: group.name,
+      eventType: stats.eventType,
+      rows: stats.rows,
+    };
+  });
+}
+
+function computePerformanceBandsForGroup(group: EventGroup): PerformanceBandStats['events'][number] | null {
+  const eventType = group.type;
+  const allFinishers = group.records.filter(r => isFinisher(r.finishStatus));
+  const n = allFinishers.length;
+  if (n < 5) return null;
+
+  type BandDef = { label: string; start: number; end: number };
+
+  let sorted: ResultRecord[];
+  let bandDefs: BandDef[];
+
+  if (eventType === 'fixed-distance') {
+    sorted = [...allFinishers].sort((a, b) => (a.timeSeconds ?? Infinity) - (b.timeSeconds ?? Infinity));
+    const f10 = Math.max(1, Math.floor(n * 0.10));
+    const f25 = Math.max(1, Math.floor(n * 0.25));
+    const b25 = Math.max(1, Math.floor(n * 0.25));
+    const b10 = Math.max(1, Math.floor(n * 0.10));
+    bandDefs = [
+      { label: 'Front 10%', start: 0,          end: f10 },
+      { label: 'Front 25%', start: 0,          end: f25 },
+      { label: 'Middle 50%', start: f25,        end: n - b25 },
+      { label: 'Back 25%',  start: n - b25,    end: n },
+      { label: 'Back 10%',  start: n - b10,    end: n },
+    ];
+  } else {
+    sorted = [...allFinishers].sort((a, b) => (b.distanceMiles ?? 0) - (a.distanceMiles ?? 0));
+    const f10 = Math.max(1, Math.floor(n * 0.10));
+    const f25 = Math.max(1, Math.floor(n * 0.25));
+    const b25 = Math.max(1, Math.floor(n * 0.25));
+    const b10 = Math.max(1, Math.floor(n * 0.10));
+    bandDefs = [
+      { label: 'Front 10%', start: 0,          end: f10 },
+      { label: 'Front 25%', start: 0,          end: f25 },
+      { label: 'Middle 50%', start: f25,        end: n - b25 },
+      { label: 'Back 25%',  start: n - b25,    end: n },
+      { label: 'Back 10%',  start: n - b10,    end: n },
+    ];
+  }
+
+  const rawDist = group.records.find(r => r.distanceMiles !== null)?.distanceMiles ?? null;
+  const distanceMiles = rawDist !== null ? cleanDist(rawDist) : null;
+
+  const rows: PerformanceBandRow[] = bandDefs.flatMap(({ label, start, end }) => {
+    const band = sorted.slice(start, end);
+    if (band.length === 0) return [];
+
+    const ages = band.map(r => r.age).filter((a): a is number => a !== null).sort((a, b) => a - b);
+
+    let fastestSeconds: number | null = null;
+    let medianSeconds: number | null = null;
+    let slowestSeconds: number | null = null;
+    let medianPaceSecsPerMile: number | null = null;
+    let farthestMiles: number | null = null;
+    let medianMiles: number | null = null;
+    let shortestMiles: number | null = null;
+
+    if (eventType === 'fixed-distance') {
+      const times = band.map(r => r.timeSeconds).filter((t): t is number => t !== null && t > 0).sort((a, b) => a - b);
+      if (times.length > 0) {
+        fastestSeconds = times[0];
+        slowestSeconds = times[times.length - 1];
+        medianSeconds  = median(times);
+        if (distanceMiles !== null && distanceMiles > 0 && medianSeconds !== null) {
+          medianPaceSecsPerMile = medianSeconds / distanceMiles;
+        }
+      }
+    } else {
+      const miles = band.map(r => r.distanceMiles).filter((d): d is number => d !== null).sort((a, b) => a - b);
+      if (miles.length > 0) {
+        shortestMiles  = miles[0];
+        farthestMiles  = miles[miles.length - 1];
+        medianMiles    = median(miles);
+      }
+    }
+
+    return [{
+      label,
+      finishers: band.length,
+      percentOfFinishers: (band.length / n) * 100,
+      maleFinishers: band.filter(r => r.gender === 'M').length,
+      femaleFinishers: band.filter(r => r.gender === 'F').length,
+      nonBinaryFinishers: band.filter(r => r.gender === 'NB').length,
+      meanAge: mean(ages.map(a => a)),
+      medianAge: median(ages),
+      fastestSeconds,
+      medianSeconds,
+      slowestSeconds,
+      medianPaceSecsPerMile,
+      farthestMiles,
+      medianMiles,
+      shortestMiles,
+    }];
+  });
+
+  if (rows.length === 0) return null;
+  return { eventName: group.name, rows, eventType, totalFinishers: n };
+}
+
+function computePerformanceBands(groups: EventGroup[]): PerformanceBandStats | null {
+  if (groups.length === 0) return null;
+
+  const events = groups.flatMap(g => {
+    const bands = computePerformanceBandsForGroup(g);
+    return bands ? [bands] : [];
+  });
+  if (events.length === 0) return null;
+
+  const primary = events[0];
+  return {
+    rows: primary.rows,
+    eventType: primary.eventType,
+    totalFinishers: primary.totalFinishers,
+    events,
+  };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -619,12 +1211,22 @@ function computeCrossEvent(groups: EventGroup[]): ResultsCrossEventStats {
 export function computeResultsStats(results: ResultRecord[]): ResultsStats {
   const groups = detectEventGroups(results);
 
+  // Top-level fields remain for overall, legacy, and primary-event consumers.
+  // By-event arrays let selected-event report sections avoid mixing co-event
+  // records; event-scoped sections should prefer them when available.
   return {
     summary: computeSummary(groups),
     performance: computePerformance(groups),
     demographics: computeDemographics(results),
+    ageDistributionByEvent: computeAgeDistributionByEvent(groups),
     geographic: computeGeographic(results),
+    geographicDistributionByEvent: computeGeographicDistributionByEvent(groups),
     attrition: computeAttrition(groups, results),
     crossEvent: computeCrossEvent(groups),
+    ageGroupPerformance: computeAgeGroupPerformance(groups),
+    ageGroupPerformanceByEvent: computeAgeGroupPerformanceByEvent(groups),
+    divisionPerformance: computeDivisionPerformance(groups),
+    divisionPerformanceByEvent: computeDivisionPerformanceByEvent(groups),
+    performanceBands: computePerformanceBands(groups),
   };
 }

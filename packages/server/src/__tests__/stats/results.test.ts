@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeResultsStats, formatTime } from '../../stats/results.js';
+import { generateResultsCSV, RESULTS_SAMPLE_CONFIGS } from '../../sample/resultsGenerator.js';
 import { makeResultRecord, makeResultRecords } from '../helpers.js';
 import type { ResultRecord } from '../../types.js';
 
@@ -174,6 +175,64 @@ describe('computeResultsStats — event group detection', () => {
     const s = computeResultsStats(results);
     expect(s.summary.events[0].totalEntrants).toBe(6);
   });
+
+  it('summary event gender counts use all entrants, including DNS and DNF', () => {
+    const results = [
+      makeResultRecord({ bib: '1', finishStatus: 1, gender: 'M', distanceMiles: 50, timeSeconds: 18000 }),
+      makeResultRecord({ bib: '2', finishStatus: 1, gender: 'F', distanceMiles: 50, timeSeconds: 19000 }),
+      makeResultRecord({ bib: '3', finishStatus: 1, gender: 'NB', distanceMiles: 50, timeSeconds: 20000 }),
+      makeResultRecord({ bib: '4', finishStatus: 2, gender: 'NB', distanceMiles: 50, timeSeconds: null }),
+      makeResultRecord({ bib: '5', finishStatus: 3, gender: 'F', distanceMiles: 50, timeSeconds: null }),
+    ];
+    const eventGender = computeResultsStats(results).summary.events[0].gender;
+
+    expect(eventGender.male).toBe(1);
+    expect(eventGender.female).toBe(2);
+    expect(eventGender.nonBinary).toBe(2);
+  });
+
+  it('summary event participant age range uses all event entrants, not only finishers', () => {
+    const results = [
+      makeResultRecord({ bib: '1', age: 35, finishStatus: 1, distanceMiles: 50, timeSeconds: 18000 }),
+      makeResultRecord({ bib: '2', age: 42, finishStatus: 1, distanceMiles: 50, timeSeconds: 19000 }),
+      makeResultRecord({ bib: '3', age: 50, finishStatus: 1, distanceMiles: 50, timeSeconds: 20000 }),
+      makeResultRecord({ bib: '4', age: 18, finishStatus: 3, distanceMiles: 50, timeSeconds: null }),
+      makeResultRecord({ bib: '5', age: 65, finishStatus: 2, distanceMiles: 50, timeSeconds: null }),
+    ];
+    const eventAge = computeResultsStats(results).summary.events[0].participantAge;
+
+    expect(eventAge.min).toBe(18);
+    expect(eventAge.max).toBe(65);
+  });
+
+  it('summary event participant age range stays scoped to each event and ignores missing ages', () => {
+    const stats = computeResultsStats([
+      makeResultRecord({ bib: '1', age: 30, finishStatus: 1, distanceMiles: 50, timeSeconds: 18000 }),
+      makeResultRecord({ bib: '2', age: 45, finishStatus: 1, distanceMiles: 50, timeSeconds: 19000 }),
+      makeResultRecord({ bib: '3', age: null, finishStatus: 1, distanceMiles: 50, timeSeconds: 20000 }),
+      makeResultRecord({ bib: '4', age: 20, finishStatus: 1, distanceMiles: 25, timeSeconds: 9000 }),
+      makeResultRecord({ bib: '5', age: 24, finishStatus: 1, distanceMiles: 25, timeSeconds: 10000 }),
+      makeResultRecord({ bib: '6', age: null, finishStatus: 1, distanceMiles: 25, timeSeconds: 11000 }),
+    ]);
+
+    const event50 = stats.summary.events.find(e => e.name === '50 mi')!.participantAge;
+    const event25 = stats.summary.events.find(e => e.name === '25 mi')!.participantAge;
+
+    expect(event50.min).toBe(30);
+    expect(event50.max).toBe(45);
+    expect(event25.min).toBe(20);
+    expect(event25.max).toBe(24);
+  });
+
+  it('computes field depth bands for each event with enough finishers', () => {
+    const results = [
+      ...recs(5, { finishStatus: 1, distanceMiles: 50, timeSeconds: 18000 }),
+      ...recs(5, { finishStatus: 1, distanceMiles: 100, timeSeconds: 36000 }),
+    ].map((r, i) => ({ ...r, bib: String(i) }));
+    const pb = computeResultsStats(results).performanceBands!;
+    expect(pb.events.map(e => e.eventName)).toEqual(['100 mi', '50 mi']);
+    expect(pb.events.every(e => e.rows.length > 0)).toBe(true);
+  });
 });
 
 // ─── Performance: fixed-distance finish time stats ─────────────────────────────
@@ -223,6 +282,7 @@ describe('computeResultsStats — performance (fixed-distance finish times)', ()
     expect(m.fastestSeconds).toBe(14400);
     expect(m.slowestSeconds).toBe(18000);
     expect(m.medianSeconds).toBe(16200);
+    expect(m.meanSeconds).toBe(16200);
   });
   it('byGender includes F row', () => {
     const f = ft.byGender.find(g => g.gender === 'F')!;
@@ -374,6 +434,122 @@ describe('computeResultsStats — demographics age', () => {
   });
 });
 
+describe('computeResultsStats — ageDistributionByEvent', () => {
+  it('scopes finisher age stats to each fixed-distance event', () => {
+    const stats = computeResultsStats([
+      finisher({ bib: '1', age: 30, distanceMiles: 50, timeSeconds: 18000 }),
+      finisher({ bib: '2', age: 40, distanceMiles: 50, timeSeconds: 19000 }),
+      finisher({ bib: '3', age: 50, distanceMiles: 50, timeSeconds: 20000 }),
+      makeResultRecord({ bib: '4', age: 70, distanceMiles: 50, timeSeconds: null, finishStatus: 2 }),
+      finisher({ bib: '5', age: 20, distanceMiles: 25, timeSeconds: 9000 }),
+      finisher({ bib: '6', age: 22, distanceMiles: 25, timeSeconds: 10000 }),
+      finisher({ bib: '7', age: 24, distanceMiles: 25, timeSeconds: 11000 }),
+      makeResultRecord({ bib: '8', age: 80, distanceMiles: 25, timeSeconds: null, finishStatus: 3 }),
+    ]);
+
+    expect(stats.ageDistributionByEvent.map(e => e.eventName)).toEqual(['50 mi', '25 mi']);
+    expect(stats.ageDistributionByEvent.map(e => e.eventType)).toEqual(['fixed-distance', 'fixed-distance']);
+
+    const event50 = stats.ageDistributionByEvent.find(e => e.eventName === '50 mi')!.finisherAge;
+    const event25 = stats.ageDistributionByEvent.find(e => e.eventName === '25 mi')!.finisherAge;
+
+    expect(event50.min).toBe(30);
+    expect(event50.max).toBe(50);
+    expect(event50.median).toBe(40);
+    expect(event50.mean).toBe(40);
+    expect(event50.buckets.reduce((sum, bucket) => sum + bucket.count, 0)).toBe(3);
+
+    expect(event25.min).toBe(20);
+    expect(event25.max).toBe(24);
+    expect(event25.median).toBe(22);
+    expect(event25.mean).toBe(22);
+    expect(event25.buckets.reduce((sum, bucket) => sum + bucket.count, 0)).toBe(3);
+  });
+
+  it('preserves top-level finisher age as overall while by-event entries stay event-scoped', () => {
+    const stats = computeResultsStats([
+      finisher({ bib: '1', age: 30, distanceMiles: 50, timeSeconds: 18000 }),
+      finisher({ bib: '2', age: 40, distanceMiles: 50, timeSeconds: 19000 }),
+      finisher({ bib: '3', age: 50, distanceMiles: 50, timeSeconds: 20000 }),
+      finisher({ bib: '4', age: 20, distanceMiles: 25, timeSeconds: 9000 }),
+      finisher({ bib: '5', age: 22, distanceMiles: 25, timeSeconds: 10000 }),
+      finisher({ bib: '6', age: 24, distanceMiles: 25, timeSeconds: 11000 }),
+    ]);
+
+    expect(stats.demographics.finisherAge.min).toBe(20);
+    expect(stats.demographics.finisherAge.max).toBe(50);
+    expect(stats.demographics.finisherAge.median).toBe(27);
+    expect(stats.ageDistributionByEvent.find(e => e.eventName === '50 mi')!.finisherAge.min).toBe(30);
+    expect(stats.ageDistributionByEvent.find(e => e.eventName === '25 mi')!.finisherAge.max).toBe(24);
+  });
+
+  it('aligns ageDistributionByEvent event names with performance events', () => {
+    const stats = computeResultsStats([
+      finisher({ bib: '1', age: 30, distanceMiles: 50, timeSeconds: 18000 }),
+      finisher({ bib: '2', age: 40, distanceMiles: 50, timeSeconds: 19000 }),
+      finisher({ bib: '3', age: 50, distanceMiles: 50, timeSeconds: 20000 }),
+      finisher({ bib: '4', age: 20, distanceMiles: 25, timeSeconds: 9000 }),
+      finisher({ bib: '5', age: 22, distanceMiles: 25, timeSeconds: 10000 }),
+      finisher({ bib: '6', age: 24, distanceMiles: 25, timeSeconds: 11000 }),
+    ]);
+
+    expect(stats.ageDistributionByEvent.map(e => e.eventName)).toEqual(
+      stats.performance.events.map(e => e.eventName),
+    );
+  });
+
+  it('excludes missing ages consistently with overall finisher age stats', () => {
+    const stats = computeResultsStats([
+      finisher({ bib: '1', age: 35, distanceMiles: 50, timeSeconds: 18000 }),
+      finisher({ bib: '2', age: null, distanceMiles: 50, timeSeconds: 19000 }),
+      finisher({ bib: '3', age: 45, distanceMiles: 50, timeSeconds: 20000 }),
+    ]);
+    const eventAge = stats.ageDistributionByEvent[0].finisherAge;
+
+    expect(eventAge.min).toBe(35);
+    expect(eventAge.max).toBe(45);
+    expect(eventAge.median).toBe(40);
+    expect(eventAge.buckets.reduce((sum, bucket) => sum + bucket.count, 0)).toBe(2);
+  });
+
+  it('keeps an all-null-age event empty while other event ages remain scoped', () => {
+    const stats = computeResultsStats([
+      finisher({ bib: '1', age: null, distanceMiles: 50, timeSeconds: 18000 }),
+      finisher({ bib: '2', age: null, distanceMiles: 50, timeSeconds: 19000 }),
+      finisher({ bib: '3', age: null, distanceMiles: 50, timeSeconds: 20000 }),
+      finisher({ bib: '4', age: 20, distanceMiles: 25, timeSeconds: 9000 }),
+      finisher({ bib: '5', age: 22, distanceMiles: 25, timeSeconds: 10000 }),
+      finisher({ bib: '6', age: 24, distanceMiles: 25, timeSeconds: 11000 }),
+    ]);
+
+    const event50 = stats.ageDistributionByEvent.find(e => e.eventName === '50 mi')!.finisherAge;
+    const event25 = stats.ageDistributionByEvent.find(e => e.eventName === '25 mi')!.finisherAge;
+
+    expect(event50.mean).toBeNull();
+    expect(event50.median).toBeNull();
+    expect(event50.min).toBeNull();
+    expect(event50.max).toBeNull();
+    expect(event50.buckets.reduce((sum, bucket) => sum + bucket.count, 0)).toBe(0);
+    expect(event25.mean).toBe(22);
+    expect(event25.median).toBe(22);
+    expect(stats.demographics.finisherAge.mean).toBe(22);
+  });
+
+  it('emits fixed-time event-scoped finisher age stats', () => {
+    const stats = computeResultsStats([
+      finisher({ bib: '1', age: 31, distanceMiles: 41, timeSeconds: null }),
+      finisher({ bib: '2', age: 35, distanceMiles: 44, timeSeconds: null }),
+      finisher({ bib: '3', age: 39, distanceMiles: 47, timeSeconds: null }),
+      finisher({ bib: '4', age: 43, distanceMiles: 50, timeSeconds: null }),
+    ]);
+
+    expect(stats.ageDistributionByEvent).toHaveLength(1);
+    expect(stats.ageDistributionByEvent[0].eventType).toBe('fixed-time');
+    expect(stats.ageDistributionByEvent[0].finisherAge.median).toBe(37);
+    expect(stats.ageDistributionByEvent[0].finisherAge.mean).toBe(37);
+  });
+});
+
 describe('computeResultsStats — demographics finisherAgeByGender', () => {
   const results = [
     makeResultRecord({ bib: '1', finishStatus: 1, gender: 'M', age: 30, distanceMiles: 50 }),
@@ -497,7 +673,7 @@ describe('computeResultsStats — geographic', () => {
     expect(g.topStates[0].count).toBe(3);
   });
 
-  it('internationalParticipants is total minus US count', () => {
+  it('counts explicit non-US countries as international', () => {
     const results = [
       ...recs(3, { state: 'MA', country: 'USA' }),
       makeResultRecord({ bib: 'x1', state: 'ON', country: 'CAN' }),
@@ -505,6 +681,22 @@ describe('computeResultsStats — geographic', () => {
     const g = computeResultsStats(results).geographic;
     expect(g.usParticipants).toBe(3);
     expect(g.internationalParticipants).toBe(1);
+    expect(g.unknownLocationParticipants).toBe(0);
+  });
+
+  it('does not count missing or unknown locations as international', () => {
+    const g = computeResultsStats([
+      makeResultRecord({ bib: '1', state: 'MA', country: 'USA' }),
+      makeResultRecord({ bib: '2', state: 'ON', country: 'CAN' }),
+      makeResultRecord({ bib: '3', state: '', country: '' }),
+      makeResultRecord({ bib: '4', state: 'Unknown', country: 'Unknown' }),
+    ]).geographic;
+
+    expect(g.usParticipants).toBe(1);
+    expect(g.internationalParticipants).toBe(1);
+    expect(g.unknownLocationParticipants).toBe(2);
+    expect(g.byCountry).toEqual({ USA: 1, CAN: 1 });
+    expect(g.byState).toEqual({ MA: 1, ON: 1 });
   });
 
   it('records with empty state are still counted in byCountry', () => {
@@ -512,6 +704,111 @@ describe('computeResultsStats — geographic', () => {
     const g = computeResultsStats(results).geographic;
     expect(g.byCountry['GBR']).toBe(1);
     expect(g.byState).toEqual({});
+  });
+
+  it('scopes unknown-location geography by event without leaking between events', () => {
+    const stats = computeResultsStats([
+      makeResultRecord({ bib: '1', state: 'MA', country: 'USA', distanceMiles: 50, timeSeconds: 18000 }),
+      makeResultRecord({ bib: '2', state: '', country: '', distanceMiles: 50, timeSeconds: 19000 }),
+      makeResultRecord({ bib: '3', state: 'NH', country: 'USA', distanceMiles: 50, timeSeconds: 20000 }),
+      makeResultRecord({ bib: '4', state: 'ON', country: 'CAN', distanceMiles: 25, timeSeconds: 9000 }),
+      makeResultRecord({ bib: '5', state: 'Unknown', country: 'Unknown', distanceMiles: 25, timeSeconds: 10000 }),
+      makeResultRecord({ bib: '6', state: '', country: 'GBR', distanceMiles: 25, timeSeconds: 11000 }),
+    ]);
+
+    expect(stats.geographic.usParticipants).toBe(2);
+    expect(stats.geographic.internationalParticipants).toBe(2);
+    expect(stats.geographic.unknownLocationParticipants).toBe(2);
+
+    const event50 = stats.geographicDistributionByEvent.find(e => e.eventName === '50 mi')!.geographic;
+    const event25 = stats.geographicDistributionByEvent.find(e => e.eventName === '25 mi')!.geographic;
+
+    expect(event50.usParticipants).toBe(2);
+    expect(event50.internationalParticipants).toBe(0);
+    expect(event50.unknownLocationParticipants).toBe(1);
+    expect(event50.byCountry).toEqual({ USA: 2 });
+
+    expect(event25.usParticipants).toBe(0);
+    expect(event25.internationalParticipants).toBe(2);
+    expect(event25.unknownLocationParticipants).toBe(1);
+    expect(event25.byCountry).toEqual({ CAN: 1, GBR: 1 });
+  });
+
+  it('scopes geographic distribution by fixed-distance event', () => {
+    const stats = computeResultsStats([
+      makeResultRecord({ bib: '1', state: 'MA', country: 'USA', distanceMiles: 50, timeSeconds: 18000 }),
+      makeResultRecord({ bib: '2', state: 'MA', country: 'USA', distanceMiles: 50, timeSeconds: 19000 }),
+      makeResultRecord({ bib: '3', state: 'ON', country: 'CAN', distanceMiles: 50, timeSeconds: 20000 }),
+      makeResultRecord({ bib: '4', state: 'CO', country: 'USA', distanceMiles: 25, timeSeconds: 9000 }),
+      makeResultRecord({ bib: '5', state: 'BC', country: 'CAN', distanceMiles: 25, timeSeconds: 10000 }),
+      makeResultRecord({ bib: '6', state: '', country: 'GBR', distanceMiles: 25, timeSeconds: 11000 }),
+    ]);
+
+    expect(stats.geographicDistributionByEvent.map(e => e.eventName)).toEqual(['50 mi', '25 mi']);
+    expect(stats.geographicDistributionByEvent.map(e => e.eventType)).toEqual(['fixed-distance', 'fixed-distance']);
+
+    const event50 = stats.geographicDistributionByEvent.find(e => e.eventName === '50 mi')!.geographic;
+    const event25 = stats.geographicDistributionByEvent.find(e => e.eventName === '25 mi')!.geographic;
+
+    expect(event50.usParticipants).toBe(2);
+    expect(event50.internationalParticipants).toBe(1);
+    expect(event50.byState).toEqual({ MA: 2, ON: 1 });
+    expect(event50.byCountry).toEqual({ USA: 2, CAN: 1 });
+
+    expect(event25.usParticipants).toBe(1);
+    expect(event25.internationalParticipants).toBe(2);
+    expect(event25.byState).toEqual({ CO: 1, BC: 1 });
+    expect(event25.byCountry).toEqual({ USA: 1, CAN: 1, GBR: 1 });
+  });
+
+  it('emits fixed-time event-scoped geographic distribution', () => {
+    const stats = computeResultsStats([
+      makeResultRecord({ bib: '1', state: 'CO', country: 'USA', distanceMiles: 41, timeSeconds: null }),
+      makeResultRecord({ bib: '2', state: 'UT', country: 'USA', distanceMiles: 44, timeSeconds: null }),
+      makeResultRecord({ bib: '3', state: 'BC', country: 'CAN', distanceMiles: 47, timeSeconds: null }),
+      makeResultRecord({ bib: '4', state: '', country: 'AUS', distanceMiles: 50, timeSeconds: null }),
+    ]);
+
+    expect(stats.geographicDistributionByEvent).toHaveLength(1);
+    expect(stats.geographicDistributionByEvent[0].eventType).toBe('fixed-time');
+    expect(stats.geographicDistributionByEvent[0].geographic.usParticipants).toBe(2);
+    expect(stats.geographicDistributionByEvent[0].geographic.internationalParticipants).toBe(2);
+    expect(stats.geographicDistributionByEvent[0].geographic.byCountry).toEqual({ USA: 2, CAN: 1, AUS: 1 });
+  });
+
+  it('preserves top-level geography as overall while by-event entries stay event-scoped', () => {
+    const stats = computeResultsStats([
+      makeResultRecord({ bib: '1', state: 'MA', country: 'USA', distanceMiles: 50, timeSeconds: 18000 }),
+      makeResultRecord({ bib: '2', state: 'ON', country: 'CAN', distanceMiles: 50, timeSeconds: 19000 }),
+      makeResultRecord({ bib: '3', state: 'CO', country: 'USA', distanceMiles: 25, timeSeconds: 9000 }),
+      makeResultRecord({ bib: '4', state: '', country: 'GBR', distanceMiles: 25, timeSeconds: 10000 }),
+      makeResultRecord({ bib: '5', state: 'BC', country: 'CAN', distanceMiles: 25, timeSeconds: 11000 }),
+      makeResultRecord({ bib: '6', state: 'NH', country: 'USA', distanceMiles: 50, timeSeconds: 20000 }),
+    ]);
+
+    expect(stats.geographic.usParticipants).toBe(3);
+    expect(stats.geographic.internationalParticipants).toBe(3);
+    expect(stats.geographic.byCountry).toEqual({ USA: 3, CAN: 2, GBR: 1 });
+
+    const event50 = stats.geographicDistributionByEvent.find(e => e.eventName === '50 mi')!.geographic;
+    const event25 = stats.geographicDistributionByEvent.find(e => e.eventName === '25 mi')!.geographic;
+    expect(event50.byCountry).toEqual({ USA: 2, CAN: 1 });
+    expect(event25.byCountry).toEqual({ USA: 1, GBR: 1, CAN: 1 });
+  });
+
+  it('aligns geographicDistributionByEvent event names with performance events', () => {
+    const stats = computeResultsStats([
+      makeResultRecord({ bib: '1', state: 'MA', country: 'USA', distanceMiles: 50, timeSeconds: 18000 }),
+      makeResultRecord({ bib: '2', state: 'ON', country: 'CAN', distanceMiles: 50, timeSeconds: 19000 }),
+      makeResultRecord({ bib: '3', state: 'NH', country: 'USA', distanceMiles: 50, timeSeconds: 20000 }),
+      makeResultRecord({ bib: '4', state: 'CO', country: 'USA', distanceMiles: 25, timeSeconds: 9000 }),
+      makeResultRecord({ bib: '5', state: 'BC', country: 'CAN', distanceMiles: 25, timeSeconds: 10000 }),
+      makeResultRecord({ bib: '6', state: '', country: 'GBR', distanceMiles: 25, timeSeconds: 11000 }),
+    ]);
+
+    expect(stats.geographicDistributionByEvent.map(e => e.eventName)).toEqual(
+      stats.performance.events.map(e => e.eventName),
+    );
   });
 });
 
@@ -741,5 +1038,395 @@ describe('computeResultsStats — edge cases', () => {
   it('handles extreme time values (near-zero finish)', () => {
     const results = recs(3, { finishStatus: 1, distanceMiles: 50, timeSeconds: 1 });
     expect(() => computeResultsStats(results)).not.toThrow();
+  });
+});
+
+// ─── Age Group Performance — consistent selected-event scope ──────────────────
+
+describe('computeResultsStats — ageGroupPerformance co-event isolation', () => {
+  // Multi-event race: 50-mile primary (3 M finishers) + 25-mile co-event (1 NB finisher).
+  // All runners are in the 30–39 age group.
+  // After scope fix, Age Group Performance is based on the primary event only.
+  // The co-event NB finisher must NOT appear in the primary-event row.
+  const primary50 = [
+    finisher({ bib: '1', gender: 'M', age: 32, distanceMiles: 50, timeSeconds: 18000 }),
+    finisher({ bib: '2', gender: 'M', age: 34, distanceMiles: 50, timeSeconds: 19800 }),
+    finisher({ bib: '3', gender: 'M', age: 36, distanceMiles: 50, timeSeconds: 21600 }),
+  ];
+  const coEvent25 = [
+    finisher({ bib: '4', gender: 'NB', age: 35, distanceMiles: 25, timeSeconds: 10800 }),
+  ];
+  const stats = computeResultsStats([...primary50, ...coEvent25]);
+  const agp = stats.ageGroupPerformance!;
+  const row3039 = agp.rows.find(r => r.ageGroup === '30–39')!;
+
+  it('ageGroupPerformance is not null', () => expect(agp).not.toBeNull());
+  it('30–39 row exists', () => expect(row3039).toBeDefined());
+  it('co-event NB finisher does not leak into nonBinaryFinishers', () =>
+    expect(row3039.nonBinaryFinishers).toBe(0));
+  it('nonBinaryPaceSecsPerMile is null — no NB in primary event', () =>
+    expect(row3039.nonBinaryPaceSecsPerMile).toBeNull());
+  it('maleFinishers counts primary-event M finishers', () =>
+    expect(row3039.maleFinishers).toBe(3));
+  it('total finishers counts primary-event participants only', () =>
+    expect(row3039.finishers).toBe(3));
+});
+
+describe('computeResultsStats — ageGroupPerformance primary-event NB finisher', () => {
+  // Single-event race where NB is a primary-event finisher.
+  // NB must appear in nonBinaryFinishers and produce a valid pace.
+  const records = [
+    finisher({ bib: '1', gender: 'M',  age: 32, distanceMiles: 50, timeSeconds: 18000 }),
+    finisher({ bib: '2', gender: 'M',  age: 34, distanceMiles: 50, timeSeconds: 19800 }),
+    finisher({ bib: '3', gender: 'M',  age: 36, distanceMiles: 50, timeSeconds: 21600 }),
+    finisher({ bib: '4', gender: 'NB', age: 35, distanceMiles: 50, timeSeconds: 20000 }),
+  ];
+  const stats = computeResultsStats(records);
+  const agp = stats.ageGroupPerformance!;
+  const row3039 = agp.rows.find(r => r.ageGroup === '30–39')!;
+
+  it('nonBinaryFinishers is 1', () => expect(row3039.nonBinaryFinishers).toBe(1));
+  it('nonBinaryPaceSecsPerMile is non-null', () =>
+    expect(row3039.nonBinaryPaceSecsPerMile).not.toBeNull());
+  it('total finishers is 4', () => expect(row3039.finishers).toBe(4));
+});
+
+// ─── Division Performance — consistent selected-event scope ───────────────────
+
+describe('computeResultsStats — divisionPerformance co-event isolation', () => {
+  const primary50 = [
+    finisher({ bib: '1', gender: 'M',  age: 35, divisionName: 'Open',   distanceMiles: 50, timeSeconds: 18000 }),
+    finisher({ bib: '2', gender: 'F',  age: 35, divisionName: 'Open',   distanceMiles: 50, timeSeconds: 19800 }),
+    finisher({ bib: '3', gender: 'NB', age: 35, divisionName: 'Open',   distanceMiles: 50, timeSeconds: null }),
+    finisher({ bib: '4', gender: 'M',  age: 35, divisionName: 'Masters', distanceMiles: 50, timeSeconds: 21600 }),
+  ];
+  const coEvent25 = [
+    finisher({ bib: '5', gender: 'F', age: 35, divisionName: 'Open',    distanceMiles: 25, timeSeconds: 9000 }),
+    finisher({ bib: '6', gender: 'M', age: 35, divisionName: 'Co Event', distanceMiles: 25, timeSeconds: 8000 }),
+    finisher({ bib: '7', gender: 'M', age: 35, divisionName: 'Co Event', distanceMiles: 25, timeSeconds: 7000 }),
+  ];
+
+  const stats = computeResultsStats([...primary50, ...coEvent25]);
+  const divPerf = stats.divisionPerformance!;
+  const male3039 = divPerf.rows.find(r => r.division === 'Male 30–39')!;
+  const female3039 = divPerf.rows.find(r => r.division === 'Female 30–39')!;
+  const nb3039 = divPerf.rows.find(r => r.division === 'Non-Binary 30–39')!;
+
+  it('divisionPerformance is not null', () => expect(divPerf).not.toBeNull());
+  it('excludes divisions that exist only in co-events', () => {
+    expect(divPerf.rows.some(r => r.division === 'Co Event')).toBe(false);
+  });
+  it('generates true gender-age division rows for the primary event', () => {
+    expect(male3039.total).toBe(2);
+    expect(female3039.total).toBe(1);
+    expect(nb3039.total).toBe(1);
+  });
+  it('does not map Non-Binary participants into Female or Male division labels', () => {
+    expect(nb3039.finishers).toBe(1);
+    expect(nb3039.nonBinaryFinishers).toBe(1);
+    expect(female3039.nonBinaryFinishers).toBe(0);
+    expect(male3039.nonBinaryFinishers).toBe(0);
+  });
+  it('does not narrow finisher counts to pace-eligible records', () => {
+    expect(nb3039.finishers).toBe(1);
+    expect(nb3039.medianPaceSecsPerMile).toBeNull();
+  });
+  it('keeps pace metrics based on valid primary-event performance data', () => {
+    expect(male3039.fastestPaceSecsPerMile).toBe(360);
+    expect(male3039.medianPaceSecsPerMile).toBe(396);
+    expect(male3039.slowestPaceSecsPerMile).toBe(432);
+  });
+});
+
+describe('computeResultsStats — divisionPerformance Non-Binary division rows', () => {
+  const stats = computeResultsStats([
+    finisher({ bib: '1', gender: 'NB', age: 35, divisionName: 'Female 30-39', distanceMiles: 50, timeSeconds: 20000 }),
+    makeResultRecord({ bib: '2', gender: 'NB', age: 35, divisionName: 'Female 30-39', distanceMiles: 50, timeSeconds: null, finishStatus: 2 }),
+    makeResultRecord({ bib: '3', gender: 'NB', age: 35, divisionName: 'Female 30-39', distanceMiles: null, timeSeconds: null, finishStatus: 3 }),
+    finisher({ bib: '4', gender: 'M', age: 35, divisionName: 'Male 30-39', distanceMiles: 50, timeSeconds: 18000 }),
+    finisher({ bib: '5', gender: 'M', age: 36, divisionName: 'Male 30-39', distanceMiles: 50, timeSeconds: 19000 }),
+  ]);
+  const row = stats.divisionPerformanceByEvent[0].rows.find(r => r.division === 'Non-Binary 30–39')!;
+
+  it('creates a Non-Binary age-division row even when the source division label is wrong', () => {
+    expect(row).toBeDefined();
+    expect(stats.divisionPerformanceByEvent[0].rows.some(r => r.division === 'Female 30-39')).toBe(false);
+  });
+  it('counts Non-Binary total, finishers, DNS, DNF, and finish rate in that true division row', () => {
+    expect(row.total).toBe(3);
+    expect(row.finishers).toBe(1);
+    expect(row.dnf).toBe(1);
+    expect(row.dns).toBe(1);
+    expect(row.finishRate).toBe(50);
+    expect(row.nonBinaryFinishers).toBe(1);
+  });
+  it('computes pace from valid Non-Binary finisher performance only', () => {
+    expect(row.medianPaceSecsPerMile).toBe(400);
+    expect(row.fastestPaceSecsPerMile).toBe(400);
+    expect(row.slowestPaceSecsPerMile).toBe(400);
+  });
+});
+
+describe('computeResultsStats — divisionPerformance Non-Binary missing pace', () => {
+  const stats = computeResultsStats([
+    finisher({ bib: '1', gender: 'NB', age: 35, divisionName: 'Female 30-39', distanceMiles: 50, timeSeconds: null }),
+    finisher({ bib: '2', gender: 'M', age: 35, divisionName: 'Male 30-39', distanceMiles: 50, timeSeconds: 18000 }),
+    finisher({ bib: '3', gender: 'M', age: 36, divisionName: 'Male 30-39', distanceMiles: 50, timeSeconds: 19000 }),
+    finisher({ bib: '4', gender: 'F', age: 37, divisionName: 'Female 30-39', distanceMiles: 50, timeSeconds: 20000 }),
+  ]);
+  const row = stats.divisionPerformanceByEvent[0].rows.find(r => r.division === 'Non-Binary 30–39')!;
+
+  it('preserves the Non-Binary division row and finisher count when pace is missing', () => {
+    expect(row.total).toBe(1);
+    expect(row.finishers).toBe(1);
+    expect(row.nonBinaryFinishers).toBe(1);
+  });
+  it('leaves missing pace fields null, not zero', () => {
+    expect(row.medianPaceSecsPerMile).toBeNull();
+    expect(row.fastestPaceSecsPerMile).toBeNull();
+    expect(row.slowestPaceSecsPerMile).toBeNull();
+  });
+});
+
+describe('computeResultsStats — divisionPerformance division label fallbacks', () => {
+  it('uses uploaded divisionName when age is missing', () => {
+    const stats = computeResultsStats([
+      finisher({ bib: '1', gender: 'NB', age: null, divisionName: 'Open NB', distanceMiles: 50, timeSeconds: 18000 }),
+      finisher({ bib: '2', gender: 'M', age: 35, divisionName: 'Male 30-39', distanceMiles: 50, timeSeconds: 19000 }),
+      finisher({ bib: '3', gender: 'F', age: 35, divisionName: 'Female 30-39', distanceMiles: 50, timeSeconds: 20000 }),
+    ]);
+    const fallback = stats.divisionPerformanceByEvent[0].rows.find(r => r.division === 'Open NB')!;
+
+    expect(fallback).toBeDefined();
+    expect(stats.divisionPerformanceByEvent[0].rows.some(r => r.division.startsWith('Non-Binary '))).toBe(false);
+    expect(fallback.total).toBe(1);
+    expect(fallback.finishers).toBe(1);
+    expect(fallback.nonBinaryFinishers).toBe(1);
+    expect(fallback.medianPaceSecsPerMile).toBe(360);
+  });
+
+  it('uses uploaded divisionName when gender is unknown', () => {
+    const stats = computeResultsStats([
+      finisher({ bib: '1', gender: 'Unknown', age: 35, divisionName: 'Awards Pending', distanceMiles: 50, timeSeconds: 18000 }),
+      finisher({ bib: '2', gender: 'M', age: 35, divisionName: 'Male 30-39', distanceMiles: 50, timeSeconds: 19000 }),
+      finisher({ bib: '3', gender: 'F', age: 35, divisionName: 'Female 30-39', distanceMiles: 50, timeSeconds: 20000 }),
+    ]);
+    const fallback = stats.divisionPerformanceByEvent[0].rows.find(r => r.division === 'Awards Pending')!;
+
+    expect(fallback).toBeDefined();
+    expect(fallback.total).toBe(1);
+    expect(fallback.finishers).toBe(1);
+    expect(fallback.maleFinishers).toBe(0);
+    expect(fallback.femaleFinishers).toBe(0);
+    expect(fallback.nonBinaryFinishers).toBe(0);
+  });
+
+  it('supports generated and fallback labels in the same event', () => {
+    const stats = computeResultsStats([
+      finisher({ bib: '1', gender: 'M', age: 35, divisionName: 'Open', distanceMiles: 50, timeSeconds: 18000 }),
+      finisher({ bib: '2', gender: 'NB', age: null, divisionName: 'Open NB', distanceMiles: 50, timeSeconds: 19000 }),
+      finisher({ bib: '3', gender: 'F', age: 45, divisionName: 'Open', distanceMiles: 50, timeSeconds: 20000 }),
+    ]);
+    const labels = stats.divisionPerformanceByEvent[0].rows.map(r => r.division);
+
+    expect(labels).toContain('Male 30–39');
+    expect(labels).toContain('Female 40–49');
+    expect(labels).toContain('Open NB');
+  });
+});
+
+describe('computeResultsStats — divisionPerformance DNS/DNF event isolation', () => {
+  it('keeps shared division label DNS/DNF scoped to each event', () => {
+    const stats = computeResultsStats([
+      makeResultRecord({ bib: '1', gender: 'Unknown', age: null, divisionName: 'Open', distanceMiles: 50, timeSeconds: 18000, finishStatus: 1 }),
+      makeResultRecord({ bib: '2', gender: 'Unknown', age: null, divisionName: 'Open', distanceMiles: 50, timeSeconds: 19000, finishStatus: 1 }),
+      makeResultRecord({ bib: '3', gender: 'Unknown', age: null, divisionName: 'Open', distanceMiles: 50, timeSeconds: 20000, finishStatus: 1 }),
+      makeResultRecord({ bib: '4', gender: 'Unknown', age: null, divisionName: 'Open', distanceMiles: 50, timeSeconds: null, finishStatus: 2 }),
+      makeResultRecord({ bib: '5', gender: 'Unknown', age: null, divisionName: 'Open', distanceMiles: 50, timeSeconds: null, finishStatus: 3 }),
+      makeResultRecord({ bib: '6', gender: 'Unknown', age: null, divisionName: 'Open', distanceMiles: 25, timeSeconds: 9000, finishStatus: 1 }),
+      makeResultRecord({ bib: '7', gender: 'Unknown', age: null, divisionName: 'Open', distanceMiles: 25, timeSeconds: 10000, finishStatus: 1 }),
+      makeResultRecord({ bib: '8', gender: 'Unknown', age: null, divisionName: 'Open', distanceMiles: 25, timeSeconds: 11000, finishStatus: 1 }),
+      makeResultRecord({ bib: '9', gender: 'Unknown', age: null, divisionName: 'Open', distanceMiles: 25, timeSeconds: null, finishStatus: 2 }),
+    ]);
+    const open50 = stats.divisionPerformanceByEvent.find(e => e.eventName === '50 mi')!.rows.find(r => r.division === 'Open')!;
+    const open25 = stats.divisionPerformanceByEvent.find(e => e.eventName === '25 mi')!.rows.find(r => r.division === 'Open')!;
+
+    expect(open50.total).toBe(5);
+    expect(open50.finishers).toBe(3);
+    expect(open50.dnf).toBe(1);
+    expect(open50.dns).toBe(1);
+    expect(open25.total).toBe(4);
+    expect(open25.finishers).toBe(3);
+    expect(open25.dnf).toBe(1);
+    expect(open25.dns).toBe(0);
+  });
+});
+
+describe('computeResultsStats — divisionPerformance fixed-time NB isolation', () => {
+  it('preserves fixed-time Non-Binary division rows and null distance fields when distance is missing', () => {
+    const stats = computeResultsStats([
+      finisher({ bib: '1', gender: 'NB', age: 35, divisionName: 'Female 30-39', distanceMiles: null, timeSeconds: null }),
+      finisher({ bib: '2', gender: 'M', age: 35, divisionName: 'Male 30-39', distanceMiles: 41, timeSeconds: null }),
+      finisher({ bib: '3', gender: 'F', age: 35, divisionName: 'Female 30-39', distanceMiles: 44, timeSeconds: null }),
+      finisher({ bib: '4', gender: 'M', age: 45, divisionName: 'Male 40-49', distanceMiles: 47, timeSeconds: null }),
+    ]);
+    const nbRow = stats.divisionPerformanceByEvent[0].rows.find(r => r.division === 'Non-Binary 30–39')!;
+
+    expect(stats.divisionPerformanceByEvent).toHaveLength(1);
+    expect(stats.divisionPerformanceByEvent[0].eventType).toBe('fixed-time');
+    expect(nbRow.total).toBe(1);
+    expect(nbRow.finishers).toBe(1);
+    expect(nbRow.nonBinaryFinishers).toBe(1);
+    expect(nbRow.medianMiles).toBeNull();
+    expect(nbRow.maxMiles).toBeNull();
+    expect(nbRow.minMiles).toBeNull();
+  });
+});
+
+describe('computeResultsStats — ageGroupPerformanceByEvent and divisionPerformanceByEvent', () => {
+  const primary50 = [
+    finisher({ bib: '1', gender: 'M',  age: 32, divisionName: 'Open',    distanceMiles: 50, timeSeconds: 18000 }),
+    finisher({ bib: '2', gender: 'NB', age: 35, divisionName: 'Open',    distanceMiles: 50, timeSeconds: 20000 }),
+    finisher({ bib: '3', gender: 'F',  age: 42, divisionName: 'Masters', distanceMiles: 50, timeSeconds: 22000 }),
+    finisher({ bib: '4', gender: 'M',  age: 34, divisionName: 'Open',    distanceMiles: 50, timeSeconds: null }),
+  ];
+  const coEvent25 = [
+    finisher({ bib: '5', gender: 'M',  age: 32, divisionName: 'Open',    distanceMiles: 25, timeSeconds: 10000 }),
+    finisher({ bib: '6', gender: 'F',  age: 37, divisionName: 'Co Only', distanceMiles: 25, timeSeconds: 12000 }),
+    finisher({ bib: '7', gender: 'NB', age: 36, divisionName: 'Co Only', distanceMiles: 25, timeSeconds: 14000 }),
+    makeResultRecord({ bib: '8', gender: 'M', age: 34, divisionName: 'Open', distanceMiles: 25, timeSeconds: null, finishStatus: 2 }),
+    makeResultRecord({ bib: '9', gender: 'F', age: 34, divisionName: 'Open', distanceMiles: 25, timeSeconds: null, finishStatus: 3 }),
+  ];
+
+  const stats = computeResultsStats([...primary50, ...coEvent25]);
+
+  it('emits age group performance for each event in event order', () => {
+    expect(stats.ageGroupPerformanceByEvent.map(e => e.eventName)).toEqual(['50 mi', '25 mi']);
+    expect(stats.ageGroupPerformanceByEvent.map(e => e.eventType)).toEqual(['fixed-distance', 'fixed-distance']);
+  });
+
+  it('keeps age group counts and NB finishers scoped to each fixed-distance event', () => {
+    const row50 = stats.ageGroupPerformanceByEvent
+      .find(e => e.eventName === '50 mi')!
+      .rows.find(r => r.ageGroup === '30–39')!;
+    const row25 = stats.ageGroupPerformanceByEvent
+      .find(e => e.eventName === '25 mi')!
+      .rows.find(r => r.ageGroup === '30–39')!;
+
+    expect(row50.total).toBe(3);
+    expect(row50.finishers).toBe(3);
+    expect(row50.nonBinaryFinishers).toBe(1);
+    expect(row50.medianPaceSecsPerMile).toBe(380);
+    expect(row50.nonBinaryPaceSecsPerMile).toBe(400);
+
+    expect(row25.total).toBe(5);
+    expect(row25.finishers).toBe(3);
+    expect(row25.dnf).toBe(1);
+    expect(row25.dns).toBe(1);
+    expect(row25.nonBinaryFinishers).toBe(1);
+    expect(row25.medianPaceSecsPerMile).toBe(480);
+  });
+
+  it('emits division performance for each event in event order', () => {
+    expect(stats.divisionPerformanceByEvent.map(e => e.eventName)).toEqual(['50 mi', '25 mi']);
+    expect(stats.divisionPerformanceByEvent.map(e => e.eventType)).toEqual(['fixed-distance', 'fixed-distance']);
+  });
+
+  it('aligns by-event analytics entries with performance event ordering', () => {
+    const eventNames = stats.performance.events.map(e => e.eventName);
+    expect(stats.ageGroupPerformanceByEvent).toHaveLength(eventNames.length);
+    expect(stats.divisionPerformanceByEvent).toHaveLength(eventNames.length);
+    expect(stats.ageDistributionByEvent).toHaveLength(eventNames.length);
+    expect(stats.geographicDistributionByEvent).toHaveLength(eventNames.length);
+    expect(stats.ageGroupPerformanceByEvent.map(e => e.eventName)).toEqual(eventNames);
+    expect(stats.divisionPerformanceByEvent.map(e => e.eventName)).toEqual(eventNames);
+    expect(stats.ageDistributionByEvent.map(e => e.eventName)).toEqual(eventNames);
+    expect(stats.geographicDistributionByEvent.map(e => e.eventName)).toEqual(eventNames);
+  });
+
+  it('keeps division counts, attrition, and pace scoped to each fixed-distance event', () => {
+    const div50 = stats.divisionPerformanceByEvent.find(e => e.eventName === '50 mi')!;
+    const div25 = stats.divisionPerformanceByEvent.find(e => e.eventName === '25 mi')!;
+    const male50 = div50.rows.find(r => r.division === 'Male 30–39')!;
+    const nb50 = div50.rows.find(r => r.division === 'Non-Binary 30–39')!;
+    const male25 = div25.rows.find(r => r.division === 'Male 30–39')!;
+    const female25 = div25.rows.find(r => r.division === 'Female 30–39')!;
+    const nb25 = div25.rows.find(r => r.division === 'Non-Binary 30–39')!;
+
+    expect(div50.rows.some(r => r.division === 'Co Only')).toBe(false);
+    expect(male50.total).toBe(2);
+    expect(male50.finishers).toBe(2);
+    expect(male50.medianPaceSecsPerMile).toBe(360);
+    expect(nb50.total).toBe(1);
+    expect(nb50.finishers).toBe(1);
+    expect(nb50.nonBinaryFinishers).toBe(1);
+    expect(nb50.medianPaceSecsPerMile).toBe(400);
+
+    expect(male25.total).toBe(2);
+    expect(male25.finishers).toBe(1);
+    expect(male25.dnf).toBe(1);
+    expect(male25.medianPaceSecsPerMile).toBe(400);
+    expect(female25.total).toBe(2);
+    expect(female25.finishers).toBe(1);
+    expect(female25.dns).toBe(1);
+    expect(nb25.total).toBe(1);
+    expect(nb25.finishers).toBe(1);
+    expect(nb25.nonBinaryFinishers).toBe(1);
+    expect(nb25.medianPaceSecsPerMile).toBe(560);
+  });
+});
+
+describe('computeResultsStats — event-scoped fixed-time performance fields', () => {
+  const stats = computeResultsStats([
+    finisher({ bib: '1', gender: 'M',  age: 32, divisionName: 'Timed', distanceMiles: 45, timeSeconds: null }),
+    finisher({ bib: '2', gender: 'NB', age: 35, divisionName: 'Timed', distanceMiles: 47, timeSeconds: null }),
+    finisher({ bib: '3', gender: 'F',  age: 37, divisionName: 'Timed', distanceMiles: 49, timeSeconds: null }),
+    finisher({ bib: '4', gender: 'M',  age: 42, divisionName: 'Timed', distanceMiles: 51, timeSeconds: null }),
+    finisher({ bib: '5', gender: 'NB', age: 35, divisionName: 'Timed', distanceMiles: null, timeSeconds: null }),
+  ]);
+
+  it('preserves fixed-time distance fields by event for age groups and divisions', () => {
+    expect(stats.ageGroupPerformanceByEvent).toHaveLength(1);
+    expect(stats.divisionPerformanceByEvent).toHaveLength(1);
+    expect(stats.ageGroupPerformanceByEvent[0].eventType).toBe('fixed-time');
+    expect(stats.divisionPerformanceByEvent[0].eventType).toBe('fixed-time');
+
+    const ageRow = stats.ageGroupPerformanceByEvent[0].rows.find(r => r.ageGroup === '30–39')!;
+    const divRow = stats.divisionPerformanceByEvent[0].rows.find(r => r.division === 'Non-Binary 30–39')!;
+
+    expect(ageRow.total).toBe(4);
+    expect(ageRow.finishers).toBe(4);
+    expect(ageRow.nonBinaryFinishers).toBe(2);
+    expect(ageRow.medianMiles).toBe(47);
+    expect(ageRow.nonBinaryMiles).toBe(47);
+
+    expect(divRow.total).toBe(2);
+    expect(divRow.finishers).toBe(2);
+    expect(divRow.nonBinaryFinishers).toBe(2);
+    expect(divRow.medianMiles).toBe(47);
+    expect(divRow.maxMiles).toBe(47);
+    expect(divRow.minMiles).toBe(47);
+  });
+});
+
+describe('generateResultsCSV — Non-Binary division labels', () => {
+  it('assigns generated Non-Binary participants to Non-Binary division labels', () => {
+    let nbRows = 0;
+    for (const sampleId of Object.keys(RESULTS_SAMPLE_CONFIGS)) {
+      const [header, ...rows] = generateResultsCSV(sampleId).split('\n');
+      const columns = header.split(',');
+      const genderIdx = columns.indexOf('gender');
+      const divisionIdx = columns.indexOf('division');
+
+      for (const row of rows) {
+        const fields = row.split(',');
+        if (fields[genderIdx] === 'NB') {
+          nbRows++;
+          expect(fields[divisionIdx].startsWith('Non-Binary ')).toBe(true);
+        }
+      }
+    }
+
+    expect(nbRows).toBeGreaterThan(0);
   });
 });

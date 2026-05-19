@@ -44,7 +44,7 @@ export function ageInsights(stats: AgeStats): string[] {
 
 export function geographicInsights(stats: GeographicStats): string[] {
   const insights: string[] = [];
-  const total = stats.usParticipants + stats.internationalParticipants;
+  const total = stats.usParticipants + stats.internationalParticipants + (stats.unknownLocationParticipants ?? 0);
   if (total === 0) return insights;
 
   if (stats.topStates.length > 0) {
@@ -64,7 +64,7 @@ export function geographicInsights(stats: GeographicStats): string[] {
     );
   } else if (stats.internationalParticipants > 0 && intlPct < 5) {
     insights.push(
-      `A small but present international contingent (${stats.internationalParticipants} participants) — if growing this segment is of interest, connecting with international running communities and global race directories could help.`,
+      `A small but present international contingent (${stats.internationalParticipants} participants). If growing this segment is a priority, connecting with international running communities and global race directories could help.`,
     );
   }
 
@@ -180,7 +180,7 @@ export function finishTimeInsights(events: EventPerformanceStats[]): string[] {
 
   if (ft.medianSeconds > 0 && ft.meanSeconds / ft.medianSeconds >= 1.12) {
     insights.push(
-      `Mean finish time is notably higher than the median, suggesting a tail of slower finishers. This is common with a challenging course or a field that includes many first-timers.`,
+      `Average finish time is notably higher than the median, suggesting a tail of slower finishers. This is common with a challenging course or a field that includes many first-timers.`,
     );
   }
 

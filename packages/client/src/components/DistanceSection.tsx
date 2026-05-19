@@ -23,7 +23,7 @@ export default function DistanceSection({ stats }: Props) {
 
       <div className="stat-cards-row">
         <StatCard label="Median Travel Distance" value={`${stats.medianMiles} mi`} />
-        <StatCard label="Mean Travel Distance" value={`${stats.meanMiles} mi`} />
+        <StatCard label="Average Travel Distance" value={`${stats.meanMiles} mi`} />
         <StatCard
           label="Local (< 50 mi)"
           value={stats.local.toLocaleString()}

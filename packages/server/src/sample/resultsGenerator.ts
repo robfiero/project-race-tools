@@ -49,6 +49,7 @@ const CITIES_BY_STATE: Record<string, string[]> = {
   ME: ['Portland', 'Bangor', 'Augusta', 'Lewiston', 'Biddeford', 'Saco'],
   VT: ['Burlington', 'Montpelier', 'Rutland', 'Barre', 'St Johnsbury'],
   MA: ['Boston', 'Worcester', 'Springfield', 'Lowell', 'Cambridge', 'Northampton'],
+  RI: ['Providence', 'Warwick', 'Newport', 'Pawtucket'],
   CT: ['Hartford', 'New Haven', 'Stamford', 'Bridgeport', 'Waterbury'],
   NY: ['New York', 'Buffalo', 'Albany', 'Syracuse', 'Saratoga Springs'],
   NJ: ['Newark', 'Jersey City', 'Trenton', 'Hoboken', 'Morristown'],
@@ -68,14 +69,17 @@ const CITIES_BY_STATE: Record<string, string[]> = {
 interface StateWeight { state: string; weight: number; }
 
 interface EventConfig {
-  distanceMiles: number;    // exact distance (e.g. 31.07 for 50K)
-  count: number;            // starters for this event
-  dnfRate: number;          // fraction of starters who DNF
-  dnsRate: number;          // fraction of starters who DNS
-  medianSecs: number;       // median finish time in seconds
-  timeStdSecs: number;      // standard deviation in seconds
-  // Fixed-time events track partial distances for DNFs; fixed-distance events do not.
+  distanceMiles: number;      // exact distance (fixed-distance) or unused placeholder (fixed-time)
+  count: number;              // starters for this event
+  dnfRate: number;            // fraction of starters who DNF
+  dnsRate: number;            // fraction of starters who DNS
+  medianSecs: number;         // median finish time in seconds (fixed-distance only)
+  timeStdSecs: number;        // std dev of finish time (fixed-distance only)
+  // Fixed-time event fields (set fixedTime: true and provide the three below):
   fixedTime?: boolean;
+  durationSecs?: number;      // race duration (e.g. 24 * 3600 for a 24-hour race)
+  medianMiles?: number;       // median distance covered by finishers
+  distanceStdMiles?: number;  // std dev of finisher distance
 }
 
 // Hardcoded synthetic weather for each sample
@@ -112,6 +116,49 @@ const LARGE_ULTRA_STATES: StateWeight[] = [
   { state: 'CO', weight: 4 },  { state: 'CA', weight: 4 },  { state: 'TX', weight: 2 },
   { state: 'WA', weight: 2 },  { state: 'OR', weight: 1 },  { state: 'CAN', weight: 1 },
 ];
+
+const CO_ULTRA_STATES: StateWeight[] = [
+  { state: 'CO', weight: 30 }, { state: 'CA', weight: 16 }, { state: 'TX', weight: 10 },
+  { state: 'WA', weight: 8 },  { state: 'OR', weight: 7 },  { state: 'AZ', weight: 6 },
+  { state: 'UT', weight: 5 },  { state: 'NY', weight: 4 },  { state: 'IL', weight: 3 },
+  { state: 'PA', weight: 3 },  { state: 'GA', weight: 2 },  { state: 'NC', weight: 2 },
+  { state: 'MN', weight: 2 },  { state: 'CAN', weight: 2 },
+];
+
+const COMMUNITY_5K_STATES: StateWeight[] = [
+  { state: 'MA', weight: 44 }, { state: 'NH', weight: 18 }, { state: 'RI', weight: 12 },
+  { state: 'CT', weight: 10 }, { state: 'ME', weight: 6 },  { state: 'VT', weight: 4 },
+  { state: 'NY', weight: 4 },  { state: 'NJ', weight: 2 },
+];
+
+function maSpring5kWeather(startIso: string, endIso: string): SampleWeather {
+  const d = startIso.slice(0, 11);
+  return {
+    venueAddress: '100 Park Drive, Boston, MA 02215',
+    raceStart: startIso,
+    raceEnd: endIso,
+    snapshots: [
+      {
+        timeIso: startIso, label: 'Race Start',
+        tempF: 58, feelsLikeF: 57, weatherCode: 1, weatherDesc: 'Mainly clear',
+        cloudCoverPct: 18, windMph: 4.6, windGustMph: 8.4, windDir: 'SW',
+        precipInch: 0, precipType: '', precipIntensity: '',
+      },
+      {
+        timeIso: d + '09:00', label: '+1h',
+        tempF: 62, feelsLikeF: 61, weatherCode: 2, weatherDesc: 'Partly cloudy',
+        cloudCoverPct: 32, windMph: 5.8, windGustMph: 10.1, windDir: 'SW',
+        precipInch: 0, precipType: '', precipIntensity: '',
+      },
+      {
+        timeIso: endIso, label: 'Race End',
+        tempF: 64, feelsLikeF: 63, weatherCode: 2, weatherDesc: 'Partly cloudy',
+        cloudCoverPct: 36, windMph: 6.2, windGustMph: 11.0, windDir: 'WSW',
+        precipInch: 0, precipType: '', precipIntensity: '',
+      },
+    ],
+  };
+}
 
 function nhAugustWeather(startIso: string, endIso: string): SampleWeather {
   const d = startIso.slice(0, 11); // 'YYYY-MM-DDT'
@@ -371,6 +418,60 @@ function nhOctoberWeather(startIso: string, endIso: string, rainy: boolean): Sam
   };
 }
 
+function coWeather24hr(startIso: string, endIso: string): SampleWeather {
+  const d = startIso.slice(0, 11); // day 1 'YYYY-MM-DDT'
+  const nd = (h: number) => nextDayHour(startIso, h); // day 2 helper
+  return {
+    venueAddress: '14 Ridgecrest Road, Salida, CO 81201',
+    raceStart: startIso,
+    raceEnd: endIso,
+    snapshots: [
+      {
+        timeIso: startIso, label: 'Race Start',
+        tempF: 58, feelsLikeF: 56, weatherCode: 1, weatherDesc: 'Mainly clear',
+        cloudCoverPct: 8, windMph: 5.2, windGustMph: 9.4, windDir: 'SW',
+        precipInch: 0, precipType: '', precipIntensity: '',
+      },
+      {
+        timeIso: d + '10:00', label: '+4h',
+        tempF: 68, feelsLikeF: 67, weatherCode: 1, weatherDesc: 'Mainly clear',
+        cloudCoverPct: 12, windMph: 6.1, windGustMph: 11.2, windDir: 'SW',
+        precipInch: 0, precipType: '', precipIntensity: '',
+      },
+      {
+        timeIso: d + '14:00', label: '+8h',
+        tempF: 78, feelsLikeF: 76, weatherCode: 2, weatherDesc: 'Partly cloudy',
+        cloudCoverPct: 30, windMph: 7.8, windGustMph: 14.3, windDir: 'SSW',
+        precipInch: 0, precipType: '', precipIntensity: '',
+      },
+      {
+        timeIso: d + '18:00', label: '+12h',
+        tempF: 72, feelsLikeF: 70, weatherCode: 2, weatherDesc: 'Partly cloudy',
+        cloudCoverPct: 35, windMph: 5.4, windGustMph: 9.8, windDir: 'W',
+        precipInch: 0, precipType: '', precipIntensity: '',
+      },
+      {
+        timeIso: d + '22:00', label: '+16h',
+        tempF: 59, feelsLikeF: 57, weatherCode: 1, weatherDesc: 'Mainly clear',
+        cloudCoverPct: 15, windMph: 3.2, windGustMph: 5.8, windDir: 'NW',
+        precipInch: 0, precipType: '', precipIntensity: '',
+      },
+      {
+        timeIso: nd(2), label: '+20h',
+        tempF: 52, feelsLikeF: 49, weatherCode: 1, weatherDesc: 'Clear',
+        cloudCoverPct: 5, windMph: 2.1, windGustMph: 3.9, windDir: 'NW',
+        precipInch: 0, precipType: '', precipIntensity: '',
+      },
+      {
+        timeIso: nd(6), label: 'Finish',
+        tempF: 61, feelsLikeF: 59, weatherCode: 1, weatherDesc: 'Mainly clear',
+        cloudCoverPct: 10, windMph: 4.4, windGustMph: 8.1, windDir: 'SW',
+        precipInch: 0, precipType: '', precipIntensity: '',
+      },
+    ],
+  };
+}
+
 function nextDayHour(startIso: string, hour: number): string {
   const date = new Date(startIso.slice(0, 10) + 'T00:00:00Z');
   date.setUTCDate(date.getUTCDate() + 1);
@@ -383,15 +484,38 @@ function nextDayHour(startIso: string, hour: number): string {
 
 export const RESULTS_SAMPLE_CONFIGS: Record<string, ResultsSampleConfig> = {
 
-  // ── Ridgeline Trail Races — single 50K ────────────────────────────────────
+  // ── Harbor Park 5K — single-event road race ───────────────────────────────
+
+  'harbor-park-5k-results-2024': {
+    raceName: 'Harbor Park 5K',
+    events: [
+      {
+        distanceMiles: 3.11, count: 452,
+        dnfRate: 0.003, dnsRate: 0.06,
+        medianSecs: 28 * 60, timeStdSecs: 7 * 60,
+      },
+    ],
+    stateWeights: COMMUNITY_5K_STATES,
+    genderM: 0.46, ageMean: 36, ageStd: 13,
+    weather: maSpring5kWeather('2024-05-18T08:00', '2024-05-18T09:30'),
+  },
+
+  // ── Ridgeline Trail Races — 25K + 50K ────────────────────────────────────
 
   'ghost-train-2022': {
     raceName: 'Ridgeline Trail Races',
-    events: [{
-      distanceMiles: 31.07, count: 74,
-      dnfRate: 0.16, dnsRate: 0.09,
-      medianSecs: 6.9 * 3600, timeStdSecs: 1.3 * 3600,
-    }],
+    events: [
+      {
+        distanceMiles: 15.53, count: 38,
+        dnfRate: 0.06, dnsRate: 0.05,
+        medianSecs: 2.9 * 3600, timeStdSecs: 0.58 * 3600,
+      },
+      {
+        distanceMiles: 31.07, count: 74,
+        dnfRate: 0.16, dnsRate: 0.09,
+        medianSecs: 6.9 * 3600, timeStdSecs: 1.3 * 3600,
+      },
+    ],
     stateWeights: NE_ULTRA_STATES,
     genderM: 0.58, ageMean: 38, ageStd: 9,
     weather: nhAugustWeather('2022-08-13T07:00', '2022-08-13T21:00'),
@@ -399,11 +523,18 @@ export const RESULTS_SAMPLE_CONFIGS: Record<string, ResultsSampleConfig> = {
 
   'ghost-train-2023': {
     raceName: 'Ridgeline Trail Races',
-    events: [{
-      distanceMiles: 31.07, count: 84,
-      dnfRate: 0.14, dnsRate: 0.08,
-      medianSecs: 6.75 * 3600, timeStdSecs: 1.25 * 3600,
-    }],
+    events: [
+      {
+        distanceMiles: 15.53, count: 46,
+        dnfRate: 0.05, dnsRate: 0.05,
+        medianSecs: 2.85 * 3600, timeStdSecs: 0.55 * 3600,
+      },
+      {
+        distanceMiles: 31.07, count: 84,
+        dnfRate: 0.14, dnsRate: 0.08,
+        medianSecs: 6.75 * 3600, timeStdSecs: 1.25 * 3600,
+      },
+    ],
     stateWeights: NE_ULTRA_STATES,
     genderM: 0.57, ageMean: 38, ageStd: 9,
     weather: nhAugustWeather('2023-08-12T07:00', '2023-08-12T21:00'),
@@ -411,11 +542,18 @@ export const RESULTS_SAMPLE_CONFIGS: Record<string, ResultsSampleConfig> = {
 
   'ghost-train-2024': {
     raceName: 'Ridgeline Trail Races',
-    events: [{
-      distanceMiles: 31.07, count: 96,
-      dnfRate: 0.13, dnsRate: 0.07,
-      medianSecs: 6.6 * 3600, timeStdSecs: 1.2 * 3600,
-    }],
+    events: [
+      {
+        distanceMiles: 15.53, count: 54,
+        dnfRate: 0.04, dnsRate: 0.04,
+        medianSecs: 2.8 * 3600, timeStdSecs: 0.52 * 3600,
+      },
+      {
+        distanceMiles: 31.07, count: 96,
+        dnfRate: 0.13, dnsRate: 0.07,
+        medianSecs: 6.6 * 3600, timeStdSecs: 1.2 * 3600,
+      },
+    ],
     stateWeights: NE_ULTRA_STATES,
     genderM: 0.56, ageMean: 38, ageStd: 9,
     weather: nhAugustWeather('2024-08-10T07:00', '2024-08-10T21:00'),
@@ -530,6 +668,27 @@ export const RESULTS_SAMPLE_CONFIGS: Record<string, ResultsSampleConfig> = {
     genderM: 0.58, ageMean: 39, ageStd: 9,
     weather: nhOctoberWeather('2024-10-12T05:00', '2024-10-13T17:00', false),
   },
+
+  // ── Coyote Ridge 24-Hour Endurance Run ────────────────────────────────────
+
+  'coyote-ridge-24hr-2024': {
+    raceName: 'Coyote Ridge 24-Hour Endurance Run',
+    events: [{
+      distanceMiles: 0,           // unused for fixed-time events
+      count: 88,
+      dnfRate: 0.18,
+      dnsRate: 0.09,
+      medianSecs: 0,              // unused for fixed-time events
+      timeStdSecs: 0,             // unused for fixed-time events
+      fixedTime: true,
+      durationSecs: 24 * 3600,   // 24-hour race
+      medianMiles: 55,            // median finisher covers ~55 miles
+      distanceStdMiles: 16,       // wide spread: back-of-pack ~25 mi, elites ~95 mi
+    }],
+    stateWeights: CO_ULTRA_STATES,
+    genderM: 0.60, ageMean: 40, ageStd: 10,
+    weather: coWeather24hr('2024-06-22T06:00', '2024-06-23T06:00'),
+  },
 };
 
 // ─── CSV generation ───────────────────────────────────────────────────────────
@@ -544,7 +703,7 @@ function formatTime(totalSecs: number): string {
 }
 
 function divisionName(gender: string, age: number): string {
-  const g = gender === 'M' ? 'Male' : 'Female';
+  const g = gender === 'M' ? 'Male' : gender === 'F' ? 'Female' : 'Non-Binary';
   if (age < 20) return `${g} 0-19`;
   if (age < 30) return `${g} 20-29`;
   if (age < 40) return `${g} 30-39`;
@@ -582,6 +741,34 @@ export function generateResultsCSV(sampleId: string): string {
 
   // Generate participants per event
   const allByEvent: Participant[][] = config.events.map((ev, evIdx) => {
+    const isFixedTime = ev.fixedTime === true && ev.durationSecs != null && ev.medianMiles != null;
+
+    // For fixed-time events: pre-generate a pool of unique integer distance buckets sampled
+    // without replacement so no 3+ finishers share a rounded mile (which would cause the
+    // event-type detector to classify it as fixed-distance instead of fixed-time).
+    const fixedTimeBuckets: number[] = [];
+    if (isFixedTime) {
+      const medMi = ev.medianMiles!;
+      const stdMi = ev.distanceStdMiles ?? medMi * 0.25;
+      const minB = Math.max(3, Math.floor(medMi * 0.20));
+      const maxB = Math.ceil(medMi * 1.95);
+      const available = new Set(Array.from({ length: maxB - minB + 1 }, (_, i) => minB + i));
+      const needed = Math.ceil(ev.count * (1 - ev.dnsRate - ev.dnfRate)) + 10;
+      for (let k = 0; k < needed && available.size > 0; k++) {
+        const candidates = [...available];
+        const wts = candidates.map(d => {
+          const z = (d - medMi) / stdMi;
+          return Math.exp(-0.5 * z * z) + 0.02;
+        });
+        const chosen = rng.pickWeighted(candidates.map((d, j) => ({ value: d, weight: wts[j] })));
+        fixedTimeBuckets.push(chosen);
+        available.delete(chosen);
+      }
+      // Sort descending: highest mileage gets place 1
+      fixedTimeBuckets.sort((a, b) => b - a);
+    }
+    let bucketIdx = 0;
+
     const participants: Participant[] = [];
 
     for (let i = 0; i < ev.count; i++) {
@@ -610,15 +797,28 @@ export function generateResultsCSV(sampleId: string): string {
       let distanceMiles = ev.distanceMiles;
 
       if (finishStatus === 1) {
-        // Normal distribution around median, clamp to reasonable range
-        const raw = rng.normal(ev.medianSecs, ev.timeStdSecs);
-        timeSecs = Math.max(ev.medianSecs * 0.5, Math.min(ev.medianSecs * 2.0, Math.round(raw)));
+        if (isFixedTime) {
+          // Fixed-time finisher: everyone runs the full duration; distance varies
+          timeSecs = ev.durationSecs!;
+          const baseMile = fixedTimeBuckets[bucketIdx++] ?? Math.round(ev.medianMiles! * 0.6);
+          // Add fractional noise ±0.4 miles — stays within the integer bucket
+          const noise = (rng.next() - 0.5) * 0.8;
+          distanceMiles = parseFloat(Math.max(1, baseMile + noise).toFixed(2));
+        } else {
+          // Fixed-distance finisher: time varies
+          const raw = rng.normal(ev.medianSecs, ev.timeStdSecs);
+          timeSecs = Math.max(ev.medianSecs * 0.5, Math.min(ev.medianSecs * 2.0, Math.round(raw)));
+        }
       } else if (finishStatus === 2) {
-        // DNF: fixed-distance events report the event distance (matching real UltraSignup exports);
-        // fixed-time events report partial distance covered.
-        distanceMiles = ev.fixedTime
-          ? parseFloat((ev.distanceMiles * (0.20 + rng.next() * 0.65)).toFixed(2))
-          : ev.distanceMiles;
+        if (isFixedTime) {
+          // DNF in fixed-time: stopped early, ran partial distance
+          const pct = 0.05 + rng.next() * 0.70;
+          timeSecs = Math.round(ev.durationSecs! * pct);
+          distanceMiles = parseFloat((ev.medianMiles! * pct * (0.7 + rng.next() * 0.5)).toFixed(2));
+        } else {
+          // DNF in fixed-distance: reports the event distance
+          distanceMiles = ev.distanceMiles;
+        }
       } else {
         // DNS: no time, no distance
         distanceMiles = 0;
@@ -636,9 +836,13 @@ export function generateResultsCSV(sampleId: string): string {
       });
     }
 
-    // Assign overall places within this event (sorted by finish time)
+    // Assign overall places: fixed-time → more distance = better; fixed-distance → faster = better
     const finishers = participants.filter(p => p.finishStatus === 1);
-    finishers.sort((a, b) => (a.timeSecs ?? 0) - (b.timeSecs ?? 0));
+    if (isFixedTime) {
+      finishers.sort((a, b) => b.distanceMiles - a.distanceMiles);
+    } else {
+      finishers.sort((a, b) => (a.timeSecs ?? 0) - (b.timeSecs ?? 0));
+    }
     finishers.forEach((p, i) => { p.overallPlace = i + 1; });
 
     return participants;

@@ -72,6 +72,7 @@ export interface GeographicStats {
   topCountries: Array<{ country: string; count: number }>;
   usParticipants: number;
   internationalParticipants: number;
+  unknownLocationParticipants?: number;
 }
 
 export interface DistanceStats {
@@ -299,13 +300,141 @@ export interface ResultsStatsResponse {
   weatherData?: WeatherData;
 }
 
+export interface AgeGroupPerformanceRow {
+  ageGroup: string;
+  total: number;
+  finishers: number;
+  maleFinishers: number;
+  femaleFinishers: number;
+  nonBinaryFinishers: number;
+  finishRate: number;
+  dnf: number;
+  dnfRate: number;
+  dns: number;
+  dnsRate: number;
+  // Gender-specific entrant totals and finish rates:
+  maleTotal: number;
+  femaleTotal: number;
+  nonBinaryTotal: number;
+  maleFinishRate: number;
+  femaleFinishRate: number;
+  nonBinaryFinishRate: number;
+  // Gender-specific pace — fixed-distance only (null for fixed-time):
+  malePaceSecsPerMile: number | null;
+  femalePaceSecsPerMile: number | null;
+  nonBinaryPaceSecsPerMile: number | null;
+  // Gender-specific distance — fixed-time only (null for fixed-distance):
+  maleMiles: number | null;
+  femaleMiles: number | null;
+  nonBinaryMiles: number | null;
+  // Overall performance — fixed-distance (null for fixed-time):
+  medianPaceSecsPerMile: number | null;
+  fastestPaceSecsPerMile: number | null;
+  slowestPaceSecsPerMile: number | null;
+  // Overall performance — fixed-time (null for fixed-distance):
+  medianMiles: number | null;
+  maxMiles: number | null;
+  minMiles: number | null;
+}
+
+export interface AgeGroupPerformanceStats {
+  rows: AgeGroupPerformanceRow[];
+  eventType: EventType;
+}
+
+export interface AgeGroupPerformanceByEvent {
+  eventName: string;
+  eventType: EventType;
+  rows: AgeGroupPerformanceRow[];
+}
+
+export interface DivisionPerformanceRow {
+  division: string;
+  total: number;
+  finishers: number;
+  maleFinishers: number;
+  femaleFinishers: number;
+  nonBinaryFinishers: number;
+  finishRate: number;
+  dnf: number;
+  dnfRate: number;
+  dns: number;
+  dnsRate: number;
+  medianPaceSecsPerMile: number | null;
+  fastestPaceSecsPerMile: number | null;
+  slowestPaceSecsPerMile: number | null;
+  medianMiles: number | null;
+  maxMiles: number | null;
+  minMiles: number | null;
+}
+
+export interface DivisionPerformanceStats {
+  rows: DivisionPerformanceRow[];
+  eventType: EventType;
+}
+
+export interface DivisionPerformanceByEvent {
+  eventName: string;
+  eventType: EventType;
+  rows: DivisionPerformanceRow[];
+}
+
+export interface PerformanceBandRow {
+  label: string;
+  finishers: number;
+  percentOfFinishers: number;
+  maleFinishers: number;
+  femaleFinishers: number;
+  nonBinaryFinishers: number;
+  meanAge: number | null;
+  medianAge: number | null;
+  fastestSeconds: number | null;
+  medianSeconds: number | null;
+  slowestSeconds: number | null;
+  medianPaceSecsPerMile: number | null;
+  farthestMiles: number | null;
+  medianMiles: number | null;
+  shortestMiles: number | null;
+}
+
+export interface PerformanceBandStats {
+  rows: PerformanceBandRow[];
+  eventType: EventType;
+  totalFinishers: number;
+  events: Array<{
+    eventName: string;
+    rows: PerformanceBandRow[];
+    eventType: EventType;
+    totalFinishers: number;
+  }>;
+}
+
+export interface AgeDistributionByEvent {
+  eventName: string;
+  eventType: EventType;
+  finisherAge: AgeStats;
+}
+
+export interface GeographicDistributionByEvent {
+  eventName: string;
+  eventType: EventType;
+  geographic: GeographicStats;
+}
+
 export interface ResultsStats {
   summary: ResultsSummaryStats;
   performance: PerformanceStats;
   demographics: ResultsDemographicsStats;
+  ageDistributionByEvent: AgeDistributionByEvent[];
   geographic: GeographicStats;
+  geographicDistributionByEvent: GeographicDistributionByEvent[];
   attrition: AttritionStats;
   crossEvent: ResultsCrossEventStats;
+  ageGroupPerformance: AgeGroupPerformanceStats | null;
+  ageGroupPerformanceByEvent: AgeGroupPerformanceByEvent[];
+  divisionPerformance: DivisionPerformanceStats | null;
+  divisionPerformanceByEvent: DivisionPerformanceByEvent[];
+  performanceBands: PerformanceBandStats | null;
 }
 
 export interface ResultsSummaryStats {
@@ -325,6 +454,8 @@ export interface ResultsEventSummary {
   name: string;
   eventType: EventType;
   totalEntrants: number;
+  participantAge: AgeStats;
+  gender: GenderStats;
   finishers: number;
   dnf: number;
   dns: number;
@@ -349,6 +480,41 @@ export interface EventPerformanceStats {
   eventType: EventType;
   finishTime: FinishTimeStats | null;
   distanceAchieved: DistanceAchievedStats | null;
+  paceStats: PaceStats | null;
+}
+
+export interface PaceBucket {
+  label: string;
+  count: number;
+  minSecsPerMile: number;
+  maxSecsPerMile: number;
+}
+
+export interface PaceGenderStats {
+  gender: string;
+  finishers: number;
+  medianSecsPerMile: number;
+  fastestSecsPerMile: number;
+  slowestSecsPerMile: number;
+}
+
+export interface PaceAgeGroupStats {
+  ageGroup: string;
+  finishers: number;
+  medianSecsPerMile: number;
+  fastestSecsPerMile: number;
+  slowestSecsPerMile: number;
+}
+
+export interface PaceStats {
+  medianSecsPerMile: number;
+  meanSecsPerMile: number;
+  fastestSecsPerMile: number;
+  slowestSecsPerMile: number;
+  spreadSecsPerMile: number;
+  buckets: PaceBucket[];
+  byGender: PaceGenderStats[];
+  byAgeGroup: PaceAgeGroupStats[];
 }
 
 export interface FinishTimeStats {
@@ -358,16 +524,20 @@ export interface FinishTimeStats {
   slowestSeconds: number;
   percentiles: Array<{ label: string; seconds: number }>;
   buckets: Array<{ label: string; total: number; male: number; female: number; nonBinary: number }>;
-  byGender: Array<{ gender: string; finishers: number; medianSeconds: number | null; fastestSeconds: number | null; slowestSeconds: number | null }>;
+  byGender: Array<{ gender: string; finishers: number; medianSeconds: number | null; meanSeconds: number | null; fastestSeconds: number | null; slowestSeconds: number | null }>;
 }
 
 export interface DistanceAchievedStats {
   medianMiles: number;
   meanMiles: number;
   maxMiles: number;
+  minMiles: number;
+  spreadMiles: number;
   percentiles: Array<{ label: string; miles: number }>;
   buckets: Array<{ label: string; total: number; male: number; female: number; nonBinary: number }>;
-  byGender: Array<{ gender: string; finishers: number; medianMiles: number | null; maxMiles: number | null; minMiles: number | null }>;
+  distBuckets: Array<{ label: string; count: number }>;
+  byGender: Array<{ gender: string; finishers: number; medianMiles: number | null; meanMiles: number | null; maxMiles: number | null; minMiles: number | null }>;
+  byAgeGroup: Array<{ ageGroup: string; finishers: number; medianMiles: number | null; meanMiles: number | null; maxMiles: number | null; minMiles: number | null }>;
 }
 
 export interface ResultsDemographicsStats {
@@ -398,9 +568,11 @@ export interface AttritionStats {
 export interface AttritionRow {
   name: string;
   total: number;
+  starters: number;
   finished: number;
   dnf: number;
   dns: number;
+  startRate: number;
   finishRate: number;
   dnfRate: number;
   dnsRate: number;
@@ -425,6 +597,16 @@ export interface ResultsCrossEventRow {
   avgAge: number | null;
   courseRecord: string | null;
   lastFinisher: string | null;
+  fastestSeconds: number | null;
+  medianSeconds: number | null;
+  lastSeconds: number | null;
+  avgPaceSecsPerMile: number | null;
+  medianPaceSecsPerMile: number | null;
+  farthestMiles: number | null;
+  medianMiles: number | null;
+  meanMiles: number | null;
+  shortestMiles: number | null;
+  spreadMiles: number | null;
 }
 
 // ─── Results multi-year comparison types ─────────────────────────────────────

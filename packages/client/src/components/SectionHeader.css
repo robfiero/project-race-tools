@@ -11,9 +11,7 @@
   color: #1a1a1a;
 }
 
-.section-title::after {
-  content: '';
-  display: block;
+.section-divider {
   width: 3rem;
   height: 3px;
   background: var(--color-primary);

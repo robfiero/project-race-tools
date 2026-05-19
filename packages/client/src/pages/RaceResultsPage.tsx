@@ -1,6 +1,6 @@
 import {
   useState, useEffect, useRef, Fragment,
-  type ChangeEvent, type DragEvent, type FormEvent,
+  type ChangeEvent, type DragEvent, type FormEvent, type ReactNode,
 } from 'react';
 import {
   BarChart, Bar, Cell, LabelList, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -9,21 +9,20 @@ import {
 import { apiUrl } from '../api.ts';
 import type {
   ResultsUploadResponse, ResultsStatsResponse, ResultsStats,
-  ResultsSummaryStats, PerformanceStats, EventPerformanceStats, ResultsDemographicsStats,
-  AttritionStats, ResultsCrossEventStats,
+  ResultsSummaryStats, EventPerformanceStats, ResultsDemographicsStats,
+  AttritionStats, ResultsCrossEventStats, AgeGroupPerformanceStats, AgeGroupPerformanceByEvent, DivisionPerformanceStats, DivisionPerformanceByEvent, PerformanceBandStats, GenderStats, AgeStats,
   ResultsComparisonStats, ResultsComparisonTrends, ResultsIntervalStats,
   TrendPoint, WeatherData,
 } from '../types.ts';
 import { useTheme } from '../ThemeContext.tsx';
 import { chartPalette, genderColors, comparisonPalette, comparisonPaletteName } from '../chartColors.ts';
 import SectionHeader from '../components/SectionHeader.tsx';
-import GenderSection from '../components/GenderSection.tsx';
 import AgeSection from '../components/AgeSection.tsx';
 import GeographicSection from '../components/GeographicSection.tsx';
 import StatCard from '../components/StatCard.tsx';
 import InsightCallout from '../components/InsightCallout.tsx';
 import WeatherSection from '../components/WeatherSection.tsx';
-import { finishTimeInsights, attritionInsights, demographicsInsights } from '../insights.ts';
+import { finishTimeInsights, demographicsInsights } from '../insights.ts';
 import {
   TrendLineChart,
   KeyChangesList,
@@ -52,6 +51,48 @@ function fmtPct(n: number): string {
 function fmtBarCount(v: number): string {
   if (v <= 0) return '';
   return v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v));
+}
+
+function fmtDist(miles: number): string {
+  return `${miles.toFixed(1)} mi`;
+}
+
+function fmtPace(secsPerMile: number): string {
+  const totalSecs = Math.round(secsPerMile);
+  const h = Math.floor(totalSecs / 3600);
+  const m = Math.floor((totalSecs % 3600) / 60);
+  const s = totalSecs % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}/mi`;
+  return `${m}:${String(s).padStart(2, '0')}/mi`;
+}
+
+function displayGenderLabel(gender: string): string {
+  const trimmed = gender.trim();
+  if (!trimmed) return 'Unknown';
+  const normalized = trimmed.toUpperCase();
+  if (normalized === 'M' || normalized === 'MALE') return 'Male';
+  if (normalized === 'F' || normalized === 'FEMALE') return 'Female';
+  if (normalized === 'NB' || normalized === 'NON-BINARY' || normalized === 'NONBINARY') return 'Non-Binary';
+  if (normalized === 'UNKNOWN') return 'Unknown';
+  return trimmed;
+}
+
+function activeByEventIdx<T extends { eventName: string }>(
+  items: T[],
+  selectedEventName: string | null,
+): number {
+  if (items.length === 0) return 0;
+  return Math.max(0, items.findIndex(item => item.eventName === selectedEventName));
+}
+
+function hasCrossEventPerformance(crossEvent: ResultsCrossEventStats): boolean {
+  if (crossEvent.rows.length === 0) return false;
+  const hasFixedDist = crossEvent.rows.some(r => r.eventType === 'fixed-distance');
+  const hasFixedTime = crossEvent.rows.some(r => r.eventType === 'fixed-time');
+  const hasTimePerfData = crossEvent.rows.some(r => r.fastestSeconds != null && Number.isFinite(r.fastestSeconds));
+  const hasPacePerfData = crossEvent.rows.some(r => r.medianPaceSecsPerMile != null && Number.isFinite(r.medianPaceSecsPerMile));
+  const hasDistPerfData = crossEvent.rows.some(r => r.farthestMiles != null && Number.isFinite(r.farthestMiles));
+  return (hasFixedDist && (hasTimePerfData || hasPacePerfData)) || (hasFixedTime && hasDistPerfData);
 }
 
 // ─── Upload phase ─────────────────────────────────────────────────────────────
@@ -499,118 +540,239 @@ function formatRaceDatetime(iso: string): { date: string; time: string } {
   return { date, time };
 }
 
-function SummarySection({ summary, weather, performance, raceName }: { summary: ResultsSummaryStats; weather?: WeatherData; performance?: PerformanceStats; raceName?: string }) {
-  const start = weather?.raceStartIso ? formatRaceDatetime(weather.raceStartIso) : null;
-  const end   = weather?.raceEndIso   ? formatRaceDatetime(weather.raceEndIso)   : null;
+function reportTitleWithYear(raceName: string, year: string | null): string {
+  if (!year || raceName.includes(year)) return raceName;
+  return `${raceName} ${year}`;
+}
+
+function reportYearFromWeatherOrLabel(weather: WeatherData | undefined, label: string): string | null {
+  if (weather?.raceStartIso) return weather.raceStartIso.slice(0, 4);
+  return /^\d{4}$/.test(label) ? label : null;
+}
+
+function GenderSummary({ male, female, nonBinary }: { male: number; female: number; nonBinary: number }) {
+  const { theme } = useTheme();
+  const gc = genderColors(theme);
+  const total = male + female + nonBinary;
+  if (total === 0) return null;
+  const segments = [
+    { key: 'M',  label: 'Male',       count: male,      pct: (male / total) * 100,      color: gc.M },
+    { key: 'F',  label: 'Female',     count: female,    pct: (female / total) * 100,    color: gc.F },
+    { key: 'NB', label: 'Non-Binary', count: nonBinary, pct: (nonBinary / total) * 100, color: gc.NB },
+  ].filter(s => s.count > 0);
+  return (
+    <div className="rr-gender-summary" role="list" aria-label="Gender breakdown">
+      {segments.map(s => (
+        <div key={s.key} className="rr-gender-summary-item" role="listitem">
+          <span className="rr-gender-summary-chip" style={{ background: s.color }} aria-hidden="true" />
+          <span className="rr-gender-summary-label">{s.label}</span>
+          <span className="rr-gender-summary-count">{s.count.toLocaleString()}</span>
+          <span className="rr-gender-summary-pct">{s.pct.toFixed(1)}%</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DemographicTeaserRow({
+  label,
+  children,
+  className = '',
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`rr-demo-teaser-row${className ? ` ${className}` : ''}`}>
+      <span className="rr-demo-teaser-label">{label}</span>
+      <div className="rr-demo-teaser-content">{children}</div>
+    </div>
+  );
+}
+
+function ParticipantAgeRange({ stats }: { stats?: AgeStats }) {
+  if (!stats || stats.min === null || stats.max === null) return null;
+  return (
+    <DemographicTeaserRow label="Participant Age Range:">
+      <span className="rr-age-range-inline-value">Youngest participant: {stats.min}</span>
+      <span className="rr-age-range-inline-separator" aria-hidden="true">·</span>
+      <span className="rr-age-range-inline-value">Oldest participant: {stats.max}</span>
+    </DemographicTeaserRow>
+  );
+}
+
+function SelectedEventContext({ eventName }: { eventName?: string | null }) {
+  if (!eventName) return null;
+  return (
+    <p className="rr-selected-event-context">
+      <span>Selected event: <strong>{eventName}</strong></span>
+      <span className="rr-selected-event-context-separator" aria-hidden="true">·</span>
+      <a href="#rr-report-controls">Change event ↑</a>
+    </p>
+  );
+}
+
+
+function SummarySection({
+  summary,
+  entrantGender,
+  participantAge,
+  attrition,
+}: {
+  summary: ResultsSummaryStats;
+  entrantGender?: GenderStats;
+  participantAge?: AgeStats;
+  attrition?: AttritionStats;
+}) {
+  const overallAttrition = attrition?.overall;
+  const starters = overallAttrition?.starters ?? (summary.totalEntrants - summary.dns);
+  const overallFinishRate = overallAttrition?.finishRate ?? (starters > 0 ? (summary.finishers / starters) * 100 : 0);
+  const overallDnfRate = overallAttrition?.dnfRate ?? summary.dnfRate;
+  const overallDnsRate = overallAttrition?.dnsRate ?? (summary.totalEntrants > 0 ? (summary.dns / summary.totalEntrants) * 100 : 0);
 
   return (
     <section className="chart-section" aria-labelledby="rr-summary-heading">
-      <SectionHeader title={raceName ? `Summary — ${raceName}` : 'Summary'} />
+      <SectionHeader title="Overall Summary" />
 
-      {(start || end) && (
-        <div className="rr-race-dates">
-          {start && (
-            <div className="rr-race-date-item">
-              <span className="rr-race-date-label">Race start</span>
-              <span className="rr-race-date-value">{start.date}</span>
-              <span className="rr-race-date-time">{start.time}</span>
-            </div>
-          )}
-          {end && (
-            <div className="rr-race-date-item">
-              <span className="rr-race-date-label">Race end</span>
-              <span className="rr-race-date-value">{end.date}</span>
-              <span className="rr-race-date-time">{end.time}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="summary-cards">
-        <StatCard label="Total Entrants" value={summary.totalEntrants.toLocaleString()} />
-        <StatCard
-          label="Finishers"
-          value={summary.finishers.toLocaleString()}
-          sub={`${fmtPct(summary.finishRate)} finish rate`}
-        />
-        <StatCard
-          label="DNF"
-          value={summary.dnf.toLocaleString()}
-          sub={`${fmtPct(summary.dnfRate)} of starters`}
-        />
-        <StatCard label="DNS" value={summary.dns.toLocaleString()} />
+      {/* 1 — Overall race snapshot */}
+      <div className="summary-cards rr-summary-snap-cards">
+        <StatCard label="Total Participants" value={summary.totalEntrants.toLocaleString()} />
+        <StatCard label="DNS"            value={summary.dns.toLocaleString()} sub={`${fmtPct(overallDnsRate)} of participants`} />
+        <StatCard label="Starters"       value={starters.toLocaleString()} />
+        <StatCard label="Finishers"      value={summary.finishers.toLocaleString()} />
+        <StatCard label="DNF"            value={summary.dnf.toLocaleString()} sub={`${fmtPct(overallDnfRate)} of starters`} />
+        <StatCard label="Finish Rate"    value={fmtPct(overallFinishRate)} sub="of starters" />
       </div>
 
-      {summary.events.length > 1 && (
-        <div className="rr-event-summary-grid">
-          {summary.events.map(ev => (
-            <div key={ev.name} className="rr-event-card card">
-              <div className="rr-event-card-name">{ev.name}</div>
-              <div className="rr-event-card-stats">
-                <span><strong>{ev.finishers}</strong> finishers</span>
-                <span>{fmtPct(ev.finishRate)} finish rate</span>
-                <span>{ev.dnf} DNF · {ev.dns} DNS</span>
-              </div>
-              {ev.courseRecord && (
-                <div className="rr-event-record">
-                  <span className="rr-event-record-label">Fastest time</span>
-                  <span className="rr-event-record-value">{ev.courseRecord.display}</span>
-                </div>
-              )}
-              {ev.lastFinisher && (
-                <div className="rr-event-record rr-event-record--last">
-                  <span className="rr-event-record-label">Last finisher</span>
-                  <span className="rr-event-record-value">{ev.lastFinisher.display}</span>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+      {/* 2 — Overall entrant gender mix — compact centered inline row */}
+      {entrantGender && (entrantGender.male + entrantGender.female + entrantGender.nonBinary > 0) && (
+        <DemographicTeaserRow label="Participant Gender Mix:">
+          <GenderSummary male={entrantGender.male} female={entrantGender.female} nonBinary={entrantGender.nonBinary} />
+        </DemographicTeaserRow>
       )}
-
-      {summary.events.length === 1 && (() => {
-        const ev = summary.events[0];
-        const GENDER_NAME: Record<string, string> = { M: 'Male', F: 'Female', NB: 'Non-Binary' };
-        const byGender = (performance?.events[0]?.finishTime?.byGender ?? [])
-          .filter(g => g.fastestSeconds != null && g.gender !== 'Unknown')
-          .sort((a, b) => (a.fastestSeconds ?? Infinity) - (b.fastestSeconds ?? Infinity));
-        const hasFastest = ev.courseRecord || byGender.length > 0;
-        return (
-          <div className="rr-records-block">
-            {hasFastest && (
-              <div className="rr-record-group">
-                <span className="rr-record-group-label">Fastest Times</span>
-                <div className="rr-record-group-items">
-                  {ev.courseRecord && (
-                    <span className="rr-record-group-item">
-                      <span className="rr-record-group-gender">Overall</span>
-                      <span className="rr-record-group-time">{ev.courseRecord.display}</span>
-                    </span>
-                  )}
-                  {byGender.map(g => (
-                    <span key={g.gender} className="rr-record-group-item">
-                      <span className="rr-record-group-gender">{GENDER_NAME[g.gender] ?? g.gender}</span>
-                      <span className="rr-record-group-time">{fmtTime(g.fastestSeconds!)}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {ev.lastFinisher && (
-              <div className="rr-record-group">
-                <span className="rr-record-group-label">Last Finisher</span>
-                <div className="rr-record-group-items">
-                  <span className="rr-record-group-item">
-                    <span className="rr-record-group-gender">Overall</span>
-                    <span className="rr-record-group-time">{ev.lastFinisher.display}</span>
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
+      <ParticipantAgeRange stats={participantAge} />
     </section>
+  );
+}
+
+function EventSnapshotSection({
+  summary,
+  selectedEventName,
+  showSelectedEventContext = true,
+}: {
+  summary: ResultsSummaryStats;
+  selectedEventName: string | null;
+  showSelectedEventContext?: boolean;
+}) {
+  const activeEventIdx = Math.max(0, summary.events.findIndex(ev => ev.name === selectedEventName));
+  const activeEvent = summary.events[activeEventIdx];
+
+  return (
+    <section className="chart-section" aria-labelledby="rr-event-snapshot-heading">
+      <div className="rr-event-snapshot">
+        <p id="rr-event-snapshot-heading" className="rr-snap-subheading">Event Snapshot</p>
+        {showSelectedEventContext && <SelectedEventContext eventName={activeEvent?.name} />}
+        <div className="rr-snap-divider" aria-hidden="true" />
+
+        {summary.events.map((ev, i) => {
+          if (summary.events.length > 1 && i !== activeEventIdx) return null;
+          const evStarters = ev.totalEntrants - ev.dns;
+          const evMale = ev.gender.male;
+          const evFemale = ev.gender.female;
+          const evNB = ev.gender.nonBinary;
+
+          const evFieldShare = summary.totalEntrants > 0 ? (ev.totalEntrants / summary.totalEntrants) * 100 : 0;
+
+          return (
+            <div key={ev.name} className="rr-event-snap-panel">
+
+              {/* Participation block */}
+              <div className="rr-event-snap-block">
+                <p className="rr-event-snap-block-label">Participation</p>
+                <div className="rr-event-snap-stats">
+                  <div className="rr-event-snap-stat">
+                    <span className="rr-event-snap-stat-label">Total Participants</span>
+                    <span className="rr-event-snap-stat-value">{ev.totalEntrants.toLocaleString()}</span>
+                  </div>
+                  {summary.events.length > 1 && (
+                    <div className="rr-event-snap-stat">
+                      <span className="rr-event-snap-stat-label">Race Field %</span>
+                      <span className="rr-event-snap-stat-value">{evFieldShare.toFixed(1)}%</span>
+                    </div>
+                  )}
+                  <div className="rr-event-snap-stat">
+                    <span className="rr-event-snap-stat-label">DNS</span>
+                    <span className="rr-event-snap-stat-value">{ev.dns.toLocaleString()}</span>
+                  </div>
+                  <div className="rr-event-snap-stat">
+                    <span className="rr-event-snap-stat-label">Starters</span>
+                    <span className="rr-event-snap-stat-value">{evStarters.toLocaleString()}</span>
+                  </div>
+                  <div className="rr-event-snap-stat">
+                    <span className="rr-event-snap-stat-label">Finishers</span>
+                    <span className="rr-event-snap-stat-value">{ev.finishers.toLocaleString()}</span>
+                  </div>
+                  <div className="rr-event-snap-stat">
+                    <span className="rr-event-snap-stat-label">DNF</span>
+                    <span className="rr-event-snap-stat-value">{ev.dnf.toLocaleString()}</span>
+                  </div>
+                  <div className="rr-event-snap-stat">
+                    <span className="rr-event-snap-stat-label">Finish Rate</span>
+                    <span className="rr-event-snap-stat-value">{fmtPct(ev.finishRate)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Gender mix block */}
+              {(evMale + evFemale + evNB) > 0 && (
+                <DemographicTeaserRow label="Participant Gender Mix:" className="rr-event-snap-gender-row">
+                  <GenderSummary male={evMale} female={evFemale} nonBinary={evNB} />
+                </DemographicTeaserRow>
+              )}
+              <ParticipantAgeRange stats={ev.participantAge} />
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function SelectedEventSelector({
+  events,
+  selectedEventName,
+  onSelect,
+}: {
+  events: EventPerformanceStats[];
+  selectedEventName: string | null;
+  onSelect: (eventName: string) => void;
+}) {
+  if (events.length <= 1) return null;
+  const activeName = selectedEventName && events.some(ev => ev.eventName === selectedEventName)
+    ? selectedEventName
+    : events[0].eventName;
+
+  return (
+    <div className="rr-selected-event-control no-print" aria-label="Report selected event selector">
+      <div className="rr-selected-event-copy">
+        <span className="rr-selected-event-label">Selected Event</span>
+      </div>
+      <div className="rr-perf-tabs rr-selected-event-tabs" role="tablist" aria-label="Selected Event">
+        {events.map(ev => (
+          <button
+            key={ev.eventName}
+            type="button"
+            role="tab"
+            aria-selected={activeName === ev.eventName}
+            className={`rr-perf-tab${activeName === ev.eventName ? ' rr-perf-tab--active' : ''}`}
+            onClick={() => onSelect(ev.eventName)}
+          >
+            {ev.eventName}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -619,288 +781,1670 @@ function PerformancePanel({ perf }: { perf: EventPerformanceStats }) {
   const gc = genderColors(theme);
   const ft = perf.finishTime;
   const da = perf.distanceAchieved;
+  const [paceView, setPaceView] = useState<'chart' | 'tables'>('chart');
+  const [distView, setDistView] = useState<'chart' | 'tables'>('chart');
   const buckets = ft?.buckets ?? da?.buckets ?? [];
   const chartData = buckets.map(b => ({ label: b.label, Male: b.male, Female: b.female, 'Non-Binary': b.nonBinary }));
+  const ftFinishers = ft?.byGender.reduce((sum, row) => sum + row.finishers, 0) ?? 0;
+  const daFinishers = da?.byGender.reduce((sum, row) => sum + row.finishers, 0) ?? 0;
 
   return (
-    <div className="rr-perf-panel">
+    <div className="rr-perf-panel rr-finish-distribution-panel">
       {perf.eventType === 'fixed-distance' && ft ? (
-        <div className="rr-perf-summary">
-          <div className="rr-perf-stat">
-            <span className="rr-perf-stat-label">Median time</span>
-            <span className="rr-perf-stat-value">{fmtTime(ft.medianSeconds)}</span>
-          </div>
-          <div className="rr-perf-stat">
-            <span className="rr-perf-stat-label">Mean time</span>
-            <span className="rr-perf-stat-value">{fmtTime(ft.meanSeconds)}</span>
-          </div>
-          <div className="rr-perf-stat">
-            <span className="rr-perf-stat-label">Fastest</span>
-            <span className="rr-perf-stat-value">{fmtTime(ft.fastestSeconds)}</span>
-          </div>
-          <div className="rr-perf-stat">
-            <span className="rr-perf-stat-label">Last</span>
-            <span className="rr-perf-stat-value">{fmtTime(ft.slowestSeconds)}</span>
+        <div className="rr-finish-distribution-group">
+          <div className="rr-finish-distribution-table-panel">
+            <h4 className="rr-finish-distribution-table-heading">Finish Time Summary</h4>
+            <table className="stats-table rr-gender-time-table rr-finish-summary-table">
+              <caption className="sr-only">Finish time summary by group</caption>
+              <thead>
+                <tr><th>Group</th><th>Finishers</th><th>Fastest Time</th><th>Average Time</th><th>Median Time</th><th>Last Finisher</th></tr>
+              </thead>
+              <tbody>
+                <tr className="rr-finish-summary-overall-row">
+                  <td>Overall</td>
+                  <td>{ftFinishers.toLocaleString()}</td>
+                  <td>{fmtTime(ft.fastestSeconds)}</td>
+                  <td>{fmtTime(ft.meanSeconds)}</td>
+                  <td>{fmtTime(ft.medianSeconds)}</td>
+                  <td>{fmtTime(ft.slowestSeconds)}</td>
+                </tr>
+                {ft.byGender.map(row => (
+                  <tr key={row.gender}>
+                    <td>{displayGenderLabel(row.gender)}</td>
+                    <td>{row.finishers}</td>
+                    <td>{row.fastestSeconds != null ? fmtTime(row.fastestSeconds) : '—'}</td>
+                    <td>{row.meanSeconds != null ? fmtTime(row.meanSeconds) : '—'}</td>
+                    <td>{row.medianSeconds != null ? fmtTime(row.medianSeconds) : '—'}</td>
+                    <td>{row.slowestSeconds != null ? fmtTime(row.slowestSeconds) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       ) : da ? (
-        <div className="rr-perf-summary">
-          <div className="rr-perf-stat">
-            <span className="rr-perf-stat-label">Median distance</span>
-            <span className="rr-perf-stat-value">{da.medianMiles.toFixed(1)} mi</span>
-          </div>
-          <div className="rr-perf-stat">
-            <span className="rr-perf-stat-label">Mean distance</span>
-            <span className="rr-perf-stat-value">{da.meanMiles.toFixed(1)} mi</span>
-          </div>
-          <div className="rr-perf-stat">
-            <span className="rr-perf-stat-label">Farthest</span>
-            <span className="rr-perf-stat-value">{da.maxMiles.toFixed(1)} mi</span>
+        <div className="rr-finish-distribution-group">
+          <div className="rr-finish-distribution-table-panel">
+            <h4 className="rr-finish-distribution-table-heading">Finish Distance Summary</h4>
+            <table className="stats-table rr-gender-time-table rr-finish-summary-table">
+              <caption className="sr-only">Finish distance summary by group</caption>
+              <thead>
+                <tr><th>Group</th><th>Finishers</th><th>Longest Distance</th><th>Average Distance</th><th>Median Distance</th><th>Shortest Distance</th></tr>
+              </thead>
+              <tbody>
+                <tr className="rr-finish-summary-overall-row">
+                  <td>Overall</td>
+                  <td>{daFinishers.toLocaleString()}</td>
+                  <td>{fmtDist(da.maxMiles)}</td>
+                  <td>{fmtDist(da.meanMiles)}</td>
+                  <td>{fmtDist(da.medianMiles)}</td>
+                  <td>{fmtDist(da.minMiles)}</td>
+                </tr>
+                {da.byGender.map(row => (
+                  <tr key={row.gender}>
+                    <td>{displayGenderLabel(row.gender)}</td>
+                    <td>{row.finishers}</td>
+                    <td>{row.maxMiles != null ? fmtDist(row.maxMiles) : '—'}</td>
+                    <td>{row.meanMiles != null ? fmtDist(row.meanMiles) : '—'}</td>
+                    <td>{row.medianMiles != null ? fmtDist(row.medianMiles) : '—'}</td>
+                    <td>{row.minMiles != null ? fmtDist(row.minMiles) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       ) : null}
 
-      {(ft || da) && (
-        <div className="rr-percentile-block">
-          <span className="rr-percentile-heading">
-            {ft ? 'Finish time percentiles' : 'Distance percentiles'}
-          </span>
-          <div className="rr-percentile-row">
-            {ft && ft.percentiles.map(p => (
-              <div key={p.label} className="rr-percentile-cell">
-                <span className="rr-percentile-label">{p.label}</span>
-                <span className="rr-percentile-value">{fmtTime(p.seconds)}</span>
-              </div>
-            ))}
-            {da && da.percentiles.map(p => (
-              <div key={p.label} className="rr-percentile-cell">
-                <span className="rr-percentile-label">{p.label}</span>
-                <span className="rr-percentile-value">{p.miles.toFixed(1)} mi</span>
-              </div>
-            ))}
+      {ft && (
+        <div className="rr-finish-distribution-group">
+          <h4 className="rr-finish-distribution-group-heading">Finish Time Distribution</h4>
+          <p className="rr-finish-distribution-helper">
+            Equal time-slice buckets show where finishers landed across the selected event’s finish-time span.
+          </p>
+
+          {chartData.length > 0 && (
+            <div className="rr-perf-chart rr-finish-distribution-chart-panel">
+              <p className="rr-perf-chart-label">Finishers per time range, stacked by gender</p>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 64, left: 32 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    allowDecimals={false}
+                    label={{ value: 'Finishers', angle: -90, position: 'insideLeft', offset: 10, style: { fontSize: '0.72rem', fill: '#888' } }}
+                  />
+                  <Tooltip contentStyle={{ fontSize: '0.8rem' }} />
+                  <Legend verticalAlign="top" iconType="square" wrapperStyle={{ fontSize: '0.8rem', paddingBottom: '0.5rem' }} />
+                  <Bar dataKey="Male" stackId="a" fill={gc.M} />
+                  <Bar dataKey="Female" stackId="a" fill={gc.F} />
+                  <Bar dataKey="Non-Binary" stackId="a" fill={gc.NB} radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      )}
+
+      {ft && (
+        <div className="rr-finish-distribution-group rr-finish-percentiles-group">
+          <h4 className="rr-finish-distribution-group-heading">Finish Time Percentiles</h4>
+          <p className="rr-finish-distribution-helper">
+            Percentiles mark the exact time reached by each share of the finishing field.
+          </p>
+          <div className="rr-percentile-block">
+            <span className="rr-percentile-heading">Percentile times</span>
+            <div className="rr-percentile-row">
+              {ft.percentiles.map(p => (
+                <div key={p.label} className="rr-percentile-cell">
+                  <span className="rr-percentile-label">{p.label}</span>
+                  <span className="rr-percentile-value">{fmtTime(p.seconds)}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      {chartData.length > 0 && (
-        <div className="rr-perf-chart">
-          <p className="rr-perf-chart-label">
-            {ft
-              ? 'Finishers per time range — each bar represents an equal-width slice of the total finish-time span, stacked by gender'
-              : 'Finishers per distance range — each bar represents an equal-width slice of the distance spread, stacked by gender'}
+      {da && (
+        <div className="rr-finish-distribution-group">
+          <h4 className="rr-finish-distribution-group-heading">Finish Distance Distribution</h4>
+          <p className="rr-finish-distribution-helper">
+            Equal distance buckets show how finishers spread across the selected event’s distance range.
           </p>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 64, left: 32 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                allowDecimals={false}
-                label={{ value: 'Finishers', angle: -90, position: 'insideLeft', offset: 10, style: { fontSize: '0.72rem', fill: '#888' } }}
-              />
-              <Tooltip contentStyle={{ fontSize: '0.8rem' }} />
-              <Legend verticalAlign="top" iconType="square" wrapperStyle={{ fontSize: '0.8rem', paddingBottom: '0.5rem' }} />
-              <Bar dataKey="Male" stackId="a" fill={gc.M} />
-              <Bar dataKey="Female" stackId="a" fill={gc.F} />
-              <Bar dataKey="Non-Binary" stackId="a" fill={gc.NB} radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+
+          {chartData.length > 0 && (
+            <div className="rr-perf-chart rr-finish-distribution-chart-panel">
+              <p className="rr-perf-chart-label">Finishers per distance range, stacked by gender</p>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 64, left: 32 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    allowDecimals={false}
+                    label={{ value: 'Finishers', angle: -90, position: 'insideLeft', offset: 10, style: { fontSize: '0.72rem', fill: '#888' } }}
+                  />
+                  <Tooltip contentStyle={{ fontSize: '0.8rem' }} />
+                  <Legend verticalAlign="top" iconType="square" wrapperStyle={{ fontSize: '0.8rem', paddingBottom: '0.5rem' }} />
+                  <Bar dataKey="Male" stackId="a" fill={gc.M} />
+                  <Bar dataKey="Female" stackId="a" fill={gc.F} />
+                  <Bar dataKey="Non-Binary" stackId="a" fill={gc.NB} radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       )}
 
-      {ft && ft.byGender.length > 0 && (
-        <table className="stats-table rr-gender-time-table">
-          <caption className="sr-only">Finish time by gender</caption>
-          <thead>
-            <tr><th>Gender</th><th>Finishers</th><th>Median</th><th>Fastest</th><th>Last finisher</th></tr>
-          </thead>
-          <tbody>
-            {ft.byGender.map(row => (
-              <tr key={row.gender}>
-                <td>{row.gender}</td>
-                <td>{row.finishers}</td>
-                <td>{row.medianSeconds != null ? fmtTime(row.medianSeconds) : '—'}</td>
-                <td>{row.fastestSeconds != null ? fmtTime(row.fastestSeconds) : '—'}</td>
-                <td>{row.slowestSeconds != null ? fmtTime(row.slowestSeconds) : '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {da && (
+        <div className="rr-finish-distribution-group rr-finish-percentiles-group">
+          <h4 className="rr-finish-distribution-group-heading">Finish Distance Percentiles</h4>
+          <p className="rr-finish-distribution-helper">
+            Percentiles mark the distance reached by each share of the finishing field.
+          </p>
+          <div className="rr-percentile-block">
+            <span className="rr-percentile-heading">Distance percentiles</span>
+            <div className="rr-percentile-row">
+              {da.percentiles.map(p => (
+                <div key={p.label} className="rr-percentile-cell">
+                  <span className="rr-percentile-label">{p.label}</span>
+                  <span className="rr-percentile-value">{p.miles.toFixed(1)} mi</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
-      {da && da.byGender.length > 0 && (
-        <table className="stats-table rr-gender-time-table">
-          <caption className="sr-only">Distance achieved by gender</caption>
-          <thead>
-            <tr><th>Gender</th><th>Finishers</th><th>Median distance</th><th>Farthest</th></tr>
-          </thead>
-          <tbody>
-            {da.byGender.map(row => (
-              <tr key={row.gender}>
-                <td>{row.gender}</td>
-                <td>{row.finishers}</td>
-                <td>{row.medianMiles != null ? row.medianMiles.toFixed(1) + ' mi' : '—'}</td>
-                <td>{row.maxMiles != null ? row.maxMiles.toFixed(1) + ' mi' : '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      {perf.paceStats && (() => {
+        const ps = perf.paceStats;
+        const paceChartData = ps.buckets.map(b => ({ label: b.label, Finishers: b.count }));
+        return (
+          <div className="rr-pace-section rr-distribution-analysis-section">
+            <h4 className="rr-pace-heading">Pace Bracket Analysis</h4>
+            <p className="rr-distribution-analysis-helper">A secondary view of finishers grouped by pace range.</p>
+
+            <div className="rr-perf-summary rr-distribution-analysis-metric-strip">
+              <div className="rr-perf-stat">
+                <span className="rr-perf-stat-label">Fastest Pace</span>
+                <span className="rr-perf-stat-value">{fmtPace(ps.fastestSecsPerMile)}</span>
+              </div>
+              <div className="rr-perf-stat">
+                <span className="rr-perf-stat-label">Average Pace</span>
+                <span className="rr-perf-stat-value">{fmtPace(ps.meanSecsPerMile)}</span>
+              </div>
+              <div className="rr-perf-stat">
+                <span className="rr-perf-stat-label">Median Pace</span>
+                <span className="rr-perf-stat-value">{fmtPace(ps.medianSecsPerMile)}</span>
+              </div>
+              <div className="rr-perf-stat">
+                <span className="rr-perf-stat-label">Last Finisher Pace</span>
+                <span className="rr-perf-stat-value">{fmtPace(ps.slowestSecsPerMile)}</span>
+              </div>
+              <div className="rr-perf-stat">
+                <span className="rr-perf-stat-label">Pace Spread</span>
+                <span className="rr-perf-stat-value">{fmtPace(ps.spreadSecsPerMile)}</span>
+              </div>
+            </div>
+
+            <div className="rd-tab-strip rr-distribution-analysis-tabs" role="tablist">
+              <button
+                role="tab"
+                aria-selected={paceView === 'chart'}
+                className={`rd-tab${paceView === 'chart' ? ' rd-tab--active' : ''}`}
+                onClick={() => setPaceView('chart')}
+              >Chart</button>
+              <button
+                role="tab"
+                aria-selected={paceView === 'tables'}
+                className={`rd-tab${paceView === 'tables' ? ' rd-tab--active' : ''}`}
+                onClick={() => setPaceView('tables')}
+              >Tables</button>
+            </div>
+
+            {paceView === 'chart' && paceChartData.length > 0 && (
+              <div role="tabpanel" className="rd-tab-panel rr-distribution-analysis-chart-panel">
+                <p className="rr-perf-chart-label">Finishers per pace range (min/mi) — each bar is a 1–5 minute pace bucket depending on the spread of the field</p>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={paceChartData} margin={{ top: 8, right: 8, bottom: 56, left: 32 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} />
+                    <YAxis
+                      tick={{ fontSize: 11 }}
+                      allowDecimals={false}
+                      label={{ value: 'Finishers', angle: -90, position: 'insideLeft', offset: 10, style: { fontSize: '0.72rem', fill: '#888' } }}
+                    />
+                    <Tooltip contentStyle={{ fontSize: '0.8rem' }} formatter={(v: number) => [v, 'Finishers']} />
+                    <Bar dataKey="Finishers" fill="var(--color-primary)" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {paceView === 'tables' && (
+              <div role="tabpanel" className="rd-tab-panel rr-distribution-analysis-table-panel">
+                {ps.byGender.length > 0 && (
+                  <table className="stats-table rr-gender-time-table">
+                    <caption className="sr-only">Pace by gender</caption>
+                    <thead>
+                      <tr><th>Gender</th><th>Finishers</th><th>Fastest</th><th>Median</th><th>Last finisher</th></tr>
+                    </thead>
+                    <tbody>
+                      {ps.byGender.map(row => (
+                        <tr key={row.gender}>
+                          <td>{row.gender}</td>
+                          <td>{row.finishers}</td>
+                          <td>{fmtPace(row.fastestSecsPerMile)}</td>
+                          <td>{fmtPace(row.medianSecsPerMile)}</td>
+                          <td>{fmtPace(row.slowestSecsPerMile)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {ps.byAgeGroup.length > 0 && (
+                  <table className="stats-table rr-gender-time-table">
+                    <caption className="sr-only">Pace by age group</caption>
+                    <thead>
+                      <tr><th>Age group</th><th>Finishers</th><th>Fastest</th><th>Median</th><th>Last finisher</th></tr>
+                    </thead>
+                    <tbody>
+                      {ps.byAgeGroup.map(row => (
+                        <tr key={row.ageGroup}>
+                          <td>{row.ageGroup}</td>
+                          <td>{row.finishers}</td>
+                          <td>{fmtPace(row.fastestSecsPerMile)}</td>
+                          <td>{fmtPace(row.medianSecsPerMile)}</td>
+                          <td>{fmtPace(row.slowestSecsPerMile)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {da && (() => {
+        return (
+          <div className="rr-pace-section rr-distribution-analysis-section">
+            <h4 className="rr-pace-heading">Distance Bracket Analysis</h4>
+            <p className="rr-distribution-analysis-helper">A secondary view of finishers grouped by distance bracket.</p>
+
+            <div className="rr-perf-summary rr-distribution-analysis-metric-strip">
+              <div className="rr-perf-stat">
+                <span className="rr-perf-stat-label">Longest Distance</span>
+                <span className="rr-perf-stat-value">{fmtDist(da.maxMiles)}</span>
+              </div>
+              <div className="rr-perf-stat">
+                <span className="rr-perf-stat-label">Average Distance</span>
+                <span className="rr-perf-stat-value">{fmtDist(da.meanMiles)}</span>
+              </div>
+              <div className="rr-perf-stat">
+                <span className="rr-perf-stat-label">Median Distance</span>
+                <span className="rr-perf-stat-value">{fmtDist(da.medianMiles)}</span>
+              </div>
+              <div className="rr-perf-stat">
+                <span className="rr-perf-stat-label">Shortest Distance</span>
+                <span className="rr-perf-stat-value">{fmtDist(da.minMiles)}</span>
+              </div>
+              <div className="rr-perf-stat">
+                <span className="rr-perf-stat-label">Distance Spread</span>
+                <span className="rr-perf-stat-value">{fmtDist(da.spreadMiles)}</span>
+              </div>
+            </div>
+
+            <div className="rd-tab-strip rr-distribution-analysis-tabs" role="tablist">
+              <button
+                role="tab"
+                aria-selected={distView === 'chart'}
+                className={`rd-tab${distView === 'chart' ? ' rd-tab--active' : ''}`}
+                onClick={() => setDistView('chart')}
+              >Chart</button>
+              <button
+                role="tab"
+                aria-selected={distView === 'tables'}
+                className={`rd-tab${distView === 'tables' ? ' rd-tab--active' : ''}`}
+                onClick={() => setDistView('tables')}
+              >Tables</button>
+            </div>
+
+            {distView === 'chart' && da.distBuckets.length > 0 && (
+              <div role="tabpanel" className="rd-tab-panel rr-distribution-analysis-chart-panel">
+                <p className="rr-perf-chart-label">Finishers per distance range — bars show how many finishers reached each distance bracket</p>
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={da.distBuckets} barCategoryGap="35%" margin={{ top: 22, right: 8, bottom: 56, left: 32 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} />
+                    <YAxis
+                      tick={{ fontSize: 11 }}
+                      allowDecimals={false}
+                      label={{ value: 'Finishers', angle: -90, position: 'insideLeft', offset: 10, style: { fontSize: '0.72rem', fill: '#888' } }}
+                    />
+                    <Tooltip contentStyle={{ fontSize: '0.8rem' }} formatter={(v: number) => [v, 'Finishers']} />
+                    <Bar dataKey="count" fill="var(--color-primary)" maxBarSize={40} radius={[3, 3, 0, 0]}>
+                      <LabelList dataKey="count" position="top"
+                        formatter={(v: number) => (v > 0 ? String(v) : '')}
+                        style={{ fontSize: '0.68rem', fill: '#555' }} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {distView === 'tables' && (
+              <div role="tabpanel" className="rd-tab-panel rr-distribution-analysis-table-panel">
+                {da.byGender.length > 0 && (
+                  <table className="stats-table rr-gender-time-table">
+                    <caption className="sr-only">Distance by gender</caption>
+                    <thead>
+                      <tr><th>Gender</th><th>Finishers</th><th>Longest</th><th>Average</th><th>Median</th><th>Shortest distance</th></tr>
+                    </thead>
+                    <tbody>
+                      {da.byGender.map(row => (
+                        <tr key={row.gender}>
+                          <td>{row.gender}</td>
+                          <td>{row.finishers}</td>
+                          <td>{row.maxMiles != null ? fmtDist(row.maxMiles) : '—'}</td>
+                          <td>{row.meanMiles != null ? fmtDist(row.meanMiles) : '—'}</td>
+                          <td>{row.medianMiles != null ? fmtDist(row.medianMiles) : '—'}</td>
+                          <td>{row.minMiles != null ? fmtDist(row.minMiles) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {da.byAgeGroup.length > 0 && (
+                  <table className="stats-table rr-gender-time-table">
+                    <caption className="sr-only">Distance by age group</caption>
+                    <thead>
+                      <tr><th>Age group</th><th>Finishers</th><th>Longest</th><th>Average</th><th>Median</th><th>Shortest distance</th></tr>
+                    </thead>
+                    <tbody>
+                      {da.byAgeGroup.map(row => (
+                        <tr key={row.ageGroup}>
+                          <td>{row.ageGroup}</td>
+                          <td>{row.finishers}</td>
+                          <td>{row.maxMiles != null ? fmtDist(row.maxMiles) : '—'}</td>
+                          <td>{row.meanMiles != null ? fmtDist(row.meanMiles) : '—'}</td>
+                          <td>{row.medianMiles != null ? fmtDist(row.medianMiles) : '—'}</td>
+                          <td>{row.minMiles != null ? fmtDist(row.minMiles) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
 
-function PerformanceSection({ events }: { events: EventPerformanceStats[] }) {
-  const [activeIdx, setActiveIdx] = useState(0);
+function PerformanceSection({
+  events,
+  selectedEventName,
+  showSelectedEventContext = true,
+}: {
+  events: EventPerformanceStats[];
+  selectedEventName: string | null;
+  showSelectedEventContext?: boolean;
+}) {
   if (events.length === 0) return null;
 
-  const isFixedDist = events[activeIdx]?.eventType === 'fixed-distance';
-  const insights = finishTimeInsights(events);
+  const activeIdx = activeByEventIdx(events, selectedEventName);
+  const activeEvent = events[activeIdx];
+  const isFixedDist = activeEvent?.eventType === 'fixed-distance';
+  const insights = finishTimeInsights([events[activeIdx]]);
 
   return (
-    <section className="chart-section" aria-labelledby="rr-perf-heading">
-      <SectionHeader title="Finish Time Distribution" />
+    <section className="chart-section rr-finish-distribution-section" aria-labelledby="rr-perf-heading">
+      <SectionHeader
+        title={isFixedDist ? 'Finish Performance' : 'Distance Performance'}
+        contextStrip={showSelectedEventContext ? <SelectedEventContext eventName={activeEvent?.eventName} /> : undefined}
+      />
       <p className="rr-perf-intro">
         {isFixedDist
-          ? 'Finish time statistics for finishers. Percentiles show the exact time at each threshold — e.g. the 90th percentile is the time by which 90% of finishers had crossed the line. The chart groups finishers into equal time ranges to show the overall distribution.'
-          : 'Distance statistics for finishers in this fixed-time event. Percentiles show the distance at each threshold — e.g. the 90th percentile is the distance exceeded by only 10% of finishers. The chart groups finishers into equal distance ranges to show the spread of results.'}
+          ? 'Selected-event finish performance for finishers. The summary compares overall results with gender groups, followed by equal time-slice distribution, percentile times, and pace brackets.'
+          : 'Selected-event distance performance for finishers. The summary compares overall results with gender groups, followed by equal distance distribution, distance percentiles, and distance brackets.'}
       </p>
       <InsightCallout insights={insights} />
-      {events.length > 1 && (
-        <div className="rr-perf-tabs" role="tablist">
-          {events.map((ev, i) => (
-            <button
-              key={ev.eventName}
-              role="tab"
-              aria-selected={i === activeIdx}
-              className={`rr-perf-tab${i === activeIdx ? ' rr-perf-tab--active' : ''}`}
-              onClick={() => setActiveIdx(i)}
-            >
-              {ev.eventName}
-            </button>
-          ))}
-        </div>
-      )}
       <PerformancePanel perf={events[activeIdx]} />
     </section>
   );
 }
 
-function AttritionSection({ attrition, multiEvent }: { attrition: AttritionStats; multiEvent: boolean }) {
+function EventBreakdownSection({ attrition }: { attrition: AttritionStats }) {
   const { theme } = useTheme();
-  // When multi-event, per-event rows are already shown in Event Comparison — show only overall + gender here
-  const rows = multiEvent
-    ? [attrition.overall, ...attrition.byGender]
-    : [attrition.overall, ...attrition.byEvent, ...attrition.byGender];
-  const chartRows = rows.filter(r => r.total > 0);
-  const chartData = chartRows.map(r => ({ name: r.name, finished: r.finished, dnf: r.dnf, dns: r.dns }));
+  const [atrTab, setAtrTab] = useState<'charts' | 'table'>('charts');
+
+  if (attrition.byEvent.length <= 1) return null;
+
   const colors = chartPalette(theme, 3);
-  const insights = attritionInsights(attrition);
+  const overall = attrition.overall;
+  const atrChartRows = attrition.byEvent.filter(r => r.total > 0);
+  const atrChartData = atrChartRows.map(r => ({
+    name: r.name, Finished: r.finished, DNF: r.dnf, DNS: r.dns, total: r.total,
+  }));
+  const atrTableRows = [overall, ...attrition.byEvent];
+  const atrChartHeight = Math.max(120, atrChartData.length * 56) + 40;
+
+  const atrInsights: string[] = [];
+  if (overall.dns > 0 || overall.dnf > 0) {
+    if (overall.dns > overall.dnf * 1.25) {
+      atrInsights.push('Most attrition happened before race day, with DNS exceeding on-course DNFs.');
+    } else if (overall.dnf > overall.dns * 1.25) {
+      atrInsights.push('Most attrition happened on course, with DNFs exceeding DNS.');
+    } else {
+      atrInsights.push('Attrition was split fairly evenly between DNS and DNF outcomes.');
+    }
+  }
 
   return (
-    <section className="chart-section" aria-labelledby="rr-attrition-heading">
-      <SectionHeader title="Completion Rates" />
-      <InsightCallout insights={insights} />
-      <table className="stats-table">
-        <caption className="sr-only">Finish, DNF, and DNS counts by group</caption>
-        <thead>
-          <tr>
-            <th>Group</th><th>Total</th><th>Finished</th><th>Finish %</th>
-            <th>DNF</th><th>DNF %</th><th>DNS</th><th>DNS %</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(r => (
-            <tr key={r.name} className={r.name === 'Overall' ? 'rr-attrition-overall' : ''}>
-              <td>{r.name}</td>
-              <td>{r.total > 0 ? r.total : '—'}</td>
-              <td>{r.total > 0 ? r.finished : '—'}</td>
-              <td>{r.total > 0 ? fmtPct(r.finishRate) : '—'}</td>
-              <td>{r.total > 0 ? r.dnf : '—'}</td>
-              <td>{r.total > 0 && r.dnfRate > 0 ? fmtPct(r.dnfRate) : '—'}</td>
-              <td>{r.total > 0 ? r.dns : '—'}</td>
-              <td>{r.total > 0 && r.dnsRate > 0 ? fmtPct(r.dnsRate) : '—'}</td>
-            </tr>
+    <section className="chart-section" aria-labelledby="rr-event-breakdown-heading">
+      <SectionHeader title="Event Breakdown" />
+      <div className="ce-subsection">
+        <h3 id="rr-event-breakdown-heading" className="ce-subsection-title">Completion &amp; Attrition by Event</h3>
+
+        <div className="rd-tab-strip" role="tablist" aria-label="DNS, starters and DNF views">
+          {(['charts', 'table'] as const).map(id => (
+            <button key={id} type="button" role="tab"
+              aria-selected={atrTab === id}
+              className={`rd-tab${atrTab === id ? ' rd-tab--active' : ''}`}
+              onClick={() => setAtrTab(id)}
+            >
+              {id === 'charts' ? 'Charts' : 'Table'}
+            </button>
           ))}
-        </tbody>
-      </table>
-      {chartData.length > 1 && (
-        <div className="rr-attrition-chart" role="img" aria-label="Attrition breakdown chart">
-          <ResponsiveContainer width="100%" height={Math.max(160, chartData.length * 36) + 30}>
-            <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 8, left: 8 }} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11 }} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
-              <Tooltip contentStyle={{ fontSize: '0.8rem' }} />
-              <Legend verticalAlign="top" iconType="square" wrapperStyle={{ fontSize: '0.8rem' }} />
-              <Bar dataKey="finished" name="Finished" stackId="a" fill={colors[0]} />
-              <Bar dataKey="dnf" name="DNF" stackId="a" fill={colors[1]} />
-              <Bar dataKey="dns" name="DNS" stackId="a" fill={colors[2]} radius={[0, 3, 3, 0]} />
+        </div>
+
+        {atrTab === 'charts' && (
+          <div role="tabpanel" className="rd-tab-panel">
+            <div className="rr-attrition-chart" role="img" aria-label="Completion and attrition breakdown chart">
+              <ResponsiveContainer width="100%" height={atrChartHeight}>
+                <BarChart data={atrChartData} margin={{ top: 8, right: 72, bottom: 8, left: 8 }} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
+                  <Tooltip contentStyle={{ fontSize: '0.8rem' }} />
+                  <Legend verticalAlign="top" iconType="square" wrapperStyle={{ fontSize: '0.8rem' }} />
+                  <Bar dataKey="Finished" stackId="a" fill={colors[0]} />
+                  <Bar dataKey="DNF" stackId="a" fill={colors[1]} />
+                  <Bar dataKey="DNS" stackId="a" fill={colors[2]} radius={[0, 3, 3, 0]}>
+                    <LabelList dataKey="total" position="right"
+                      formatter={fmtBarCount}
+                      style={{ fontSize: '0.72rem', fill: '#555' }} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {atrTab === 'table' && (
+          <div role="tabpanel" className="rd-tab-panel">
+            <div className="rr-agp-table-wrap">
+              <table className="stats-table">
+                <caption className="sr-only">Completion and attrition by group</caption>
+                <thead>
+                  <tr>
+                    <th>Group</th>
+                    <th>Total Participants</th>
+                    <th>Starters</th>
+                    <th>Start %</th>
+                    <th>Finishers</th>
+                    <th>Finish % of Starters</th>
+                    <th>DNF</th>
+                    <th>DNF % of Starters</th>
+                    <th>DNS</th>
+                    <th>DNS % of Participants</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {atrTableRows.map(r => (
+                    <tr key={r.name} className={r.name === 'Overall' ? 'rr-attrition-overall' : ''}>
+                      <td>{r.name}</td>
+                      <td>{r.total}</td>
+                      <td>{r.starters}</td>
+                      <td>{r.total > 0 ? fmtPct(r.startRate) : '—'}</td>
+                      <td>{r.finished}</td>
+                      <td>{r.starters > 0 ? fmtPct(r.finishRate) : '—'}</td>
+                      <td>{r.dnf}</td>
+                      <td>{r.starters > 0 && r.dnf > 0 ? fmtPct(r.dnfRate) : '—'}</td>
+                      <td>{r.dns}</td>
+                      <td>{r.total > 0 && r.dns > 0 ? fmtPct(r.dnsRate) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {atrInsights.length > 0 && <InsightCallout insights={atrInsights} />}
+      </div>
+    </section>
+  );
+}
+
+function CrossEventSection({ crossEvent }: { crossEvent: ResultsCrossEventStats }) {
+  const { theme } = useTheme();
+
+  type PerfMetric = 'fastestSeconds' | 'medianSeconds' | 'lastSeconds' | 'avgPaceSecsPerMile' | 'medianPaceSecsPerMile';
+  type DistMetric = 'farthestMiles' | 'meanMiles' | 'medianMiles' | 'shortestMiles';
+
+  const [perfGroup, setPerfGroup]   = useState<'time' | 'pace'>('pace');
+  const [perfMetric, setPerfMetric] = useState<PerfMetric>('medianPaceSecsPerMile');
+  const [distMetric, setDistMetric] = useState<DistMetric>('farthestMiles');
+  const [perfTab, setPerfTab]       = useState<'charts' | 'table'>('charts');
+
+  if (crossEvent.rows.length === 0) return null;
+
+  const hasFixedDist    = crossEvent.rows.some(r => r.eventType === 'fixed-distance');
+  const hasFixedTime    = crossEvent.rows.some(r => r.eventType === 'fixed-time');
+  const hasTimePerfData = crossEvent.rows.some(r => r.fastestSeconds != null && Number.isFinite(r.fastestSeconds));
+  const hasPacePerfData = crossEvent.rows.some(r => r.medianPaceSecsPerMile != null && Number.isFinite(r.medianPaceSecsPerMile));
+  const hasDistPerfData = crossEvent.rows.some(r => r.farthestMiles != null && Number.isFinite(r.farthestMiles));
+  const hasPerfTab      = hasFixedDist && (hasTimePerfData || hasPacePerfData);
+  const hasDistTab      = hasFixedTime && hasDistPerfData;
+  const barH    = Math.max(220, crossEvent.rows.length * 52 + 44);
+  const barColor = chartPalette(theme, 3)[0];
+
+  if (!hasPerfTab && !hasDistTab) return null;
+
+  const perfData = crossEvent.rows.map(row => ({
+    name: row.name,
+    fastestSeconds: row.fastestSeconds, medianSeconds: row.medianSeconds, lastSeconds: row.lastSeconds,
+    avgPaceSecsPerMile: row.avgPaceSecsPerMile, medianPaceSecsPerMile: row.medianPaceSecsPerMile,
+  }));
+
+  const distData = crossEvent.rows.map(row => ({
+    name: row.name,
+    farthestMiles: row.farthestMiles, meanMiles: row.meanMiles,
+    medianMiles: row.medianMiles, shortestMiles: row.shortestMiles,
+  }));
+
+  function fmtPerf(m: PerfMetric, v: number): string {
+    return (m === 'avgPaceSecsPerMile' || m === 'medianPaceSecsPerMile') ? fmtPace(v) : fmtTime(Math.round(v));
+  }
+
+  function switchPerfGroup(g: 'time' | 'pace') {
+    setPerfGroup(g);
+    if (g === 'time' && (perfMetric === 'avgPaceSecsPerMile' || perfMetric === 'medianPaceSecsPerMile')) {
+      setPerfMetric('medianSeconds');
+    }
+    if (g === 'pace' && perfMetric !== 'avgPaceSecsPerMile' && perfMetric !== 'medianPaceSecsPerMile') {
+      setPerfMetric('medianPaceSecsPerMile');
+    }
+  }
+
+  // Clamp perfMetric to available data (guards against initial state when only pace data exists)
+  const activeMetric: PerfMetric =
+    (perfMetric !== 'avgPaceSecsPerMile' && perfMetric !== 'medianPaceSecsPerMile' && !hasTimePerfData)
+      ? 'medianPaceSecsPerMile'
+      : (perfMetric === 'avgPaceSecsPerMile' || perfMetric === 'medianPaceSecsPerMile') && !hasPacePerfData
+        ? 'medianSeconds'
+        : perfMetric;
+  const performanceIntro = hasPacePerfData
+    ? 'Compare performance across race distances. Pace is the default view because it normalizes finish performance across events of different lengths.'
+    : 'Compare performance across race events using the available event-level performance metrics.';
+  const scopeNote = 'Cross-event view: compares all events and is not affected by the selected event control.';
+
+  return (
+    <section className="chart-section" aria-labelledby="rr-cross-heading">
+      <SectionHeader title="Cross-Event Performance" />
+      <p className="ce-performance-intro">{performanceIntro}</p>
+      <p className="rr-cross-event-scope-note">{scopeNote}</p>
+
+      <div className="ce-subsection">
+          <div className="ce-performance-toolbar" aria-label="Cross-event performance controls">
+            <div className="ce-control-row">
+              <span className="ce-control-label">View:</span>
+              <div className="metric-pills" role="group" aria-label="Performance view">
+            {(['charts', 'table'] as const).map(id => (
+              <button key={id} type="button"
+                aria-pressed={perfTab === id}
+                className={`metric-pill${perfTab === id ? ' metric-pill--active' : ''}`}
+                onClick={() => setPerfTab(id)}
+              >
+                {id === 'charts' ? 'Charts' : 'Table'}
+              </button>
+            ))}
+              </div>
+            </div>
+            {perfTab === 'charts' && hasPerfTab && hasTimePerfData && hasPacePerfData && (
+              <div className="ce-control-row">
+                <span className="ce-control-label">Type:</span>
+                <div className="metric-pills" role="group" aria-label="Performance type">
+                  <button type="button"
+                    className={`metric-pill${perfGroup === 'pace' ? ' metric-pill--active' : ''}`}
+                    aria-pressed={perfGroup === 'pace'}
+                    onClick={() => switchPerfGroup('pace')}
+                  >Pace</button>
+                  <button type="button"
+                    className={`metric-pill${perfGroup === 'time' ? ' metric-pill--active' : ''}`}
+                    aria-pressed={perfGroup === 'time'}
+                    onClick={() => switchPerfGroup('time')}
+                  >Time</button>
+                </div>
+              </div>
+            )}
+            {perfTab === 'charts' && hasTimePerfData && (perfGroup === 'time' || !hasPacePerfData) && (
+              <div className="ce-control-row">
+                <span className="ce-control-label">Metric:</span>
+                <div className="metric-pills" role="group" aria-label="Time metric">
+                  {([
+                    ['fastestSeconds', 'Fastest Time'],
+                    ['medianSeconds',  'Median Time'],
+                    ['lastSeconds',    'Last Finisher'],
+                  ] as const).map(([m, label]) => (
+                    <button key={m} type="button"
+                      className={`metric-pill${activeMetric === m ? ' metric-pill--active' : ''}`}
+                      aria-pressed={activeMetric === m}
+                      onClick={() => setPerfMetric(m)}
+                    >{label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {perfTab === 'charts' && hasPacePerfData && (perfGroup === 'pace' || !hasTimePerfData) && (
+              <div className="ce-control-row">
+                <span className="ce-control-label">Metric:</span>
+                <div className="metric-pills" role="group" aria-label="Pace metric">
+                  {([
+                    ['avgPaceSecsPerMile',    'Average Pace'],
+                    ['medianPaceSecsPerMile', 'Median Pace'],
+                  ] as const).map(([m, label]) => (
+                    <button key={m} type="button"
+                      className={`metric-pill${activeMetric === m ? ' metric-pill--active' : ''}`}
+                      aria-pressed={activeMetric === m}
+                      onClick={() => setPerfMetric(m)}
+                    >{label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {perfTab === 'charts' && hasDistTab && (
+              <div className="ce-control-row">
+                <span className="ce-control-label">Metric:</span>
+                <div className="metric-pills" role="group" aria-label="Distance metric">
+                  {([
+                    ['farthestMiles', 'Longest'],
+                    ['meanMiles',     'Average'],
+                    ['medianMiles',   'Median'],
+                    ['shortestMiles', 'Shortest'],
+                  ] as const).map(([m, label]) => (
+                    <button key={m} type="button"
+                      className={`metric-pill${distMetric === m ? ' metric-pill--active' : ''}`}
+                      aria-pressed={distMetric === m}
+                      onClick={() => setDistMetric(m)}
+                    >{label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {perfTab === 'charts' && (
+            <div role="tabpanel" className="rd-tab-panel">
+              {/* Fixed-distance: Type/Metric controls + chart */}
+              {hasPerfTab && (
+                <>
+                  <div className="chart-wrap chart-wrap--full" aria-hidden="true">
+                    <ResponsiveContainer width="100%" height={barH}>
+                      <BarChart layout="vertical" data={perfData} barCategoryGap="20%"
+                        margin={{ top: 4, right: 116, bottom: 4, left: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" tick={{ fontSize: 11 }}
+                          tickFormatter={(v: number) => fmtPerf(activeMetric, v)} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
+                        <Tooltip contentStyle={{ fontSize: '0.8rem' }}
+                          formatter={(v: number) => fmtPerf(activeMetric, v)} />
+                        <Bar dataKey={activeMetric} fill={barColor} radius={[0, 3, 3, 0]} maxBarSize={56}>
+                          <LabelList dataKey={activeMetric} position="right"
+                            formatter={(v: unknown) => typeof v === 'number' ? fmtPerf(activeMetric, v) : ''}
+                            style={{ fontSize: '0.72rem', fill: '#555' }} />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
+              )}
+
+              {/* Fixed-time: Distance metric controls + chart */}
+              {hasDistTab && (
+                <>
+                  <div className="chart-wrap chart-wrap--full" aria-hidden="true">
+                    <ResponsiveContainer width="100%" height={barH}>
+                      <BarChart layout="vertical" data={distData} barCategoryGap="20%"
+                        margin={{ top: 4, right: 116, bottom: 4, left: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v: number) => fmtDist(v)} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
+                        <Tooltip contentStyle={{ fontSize: '0.8rem' }} formatter={(v: number) => fmtDist(v)} />
+                        <Bar dataKey={distMetric} fill={barColor} radius={[0, 3, 3, 0]} maxBarSize={56}>
+                          <LabelList dataKey={distMetric} position="right"
+                            formatter={(v: unknown) => typeof v === 'number' ? fmtDist(v) : ''}
+                            style={{ fontSize: '0.72rem', fill: '#555' }} />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {perfTab === 'table' && (
+            <div role="tabpanel" className="rd-tab-panel">
+              <p className="rr-field-depth-gender-note">Scroll horizontally to view all event metrics.</p>
+              <div className="rr-agp-table-wrap">
+                <table className="stats-table">
+                  <caption className="sr-only">Performance comparison across events</caption>
+                  <thead>
+                    <tr>
+                      <th>Event</th>
+                      <th>Male %</th><th>Female %</th><th>NB %</th><th>Avg Age</th>
+                      {hasFixedDist && hasTimePerfData && <><th>Fastest Time</th><th>Median Time</th><th>Last Finisher</th></>}
+                      {hasFixedDist && hasPacePerfData && <><th>Avg Pace</th><th>Median Pace</th></>}
+                      {hasFixedTime && hasDistPerfData && <><th>Longest</th><th>Median Dist</th><th>Avg Dist</th><th>Shortest</th><th>Spread</th></>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {crossEvent.rows.map(row => (
+                      <tr key={row.name}>
+                        <td style={{ fontWeight: 600 }}>{row.name}</td>
+                        <td>{row.maleFinishers > 0 ? fmtPct(row.malePercent) : '—'}</td>
+                        <td>{row.femaleFinishers > 0 ? fmtPct(row.femalePercent) : '—'}</td>
+                        <td>{row.nonBinaryFinishers > 0 ? fmtPct(row.nonBinaryPercent) : '—'}</td>
+                        <td>{row.avgAge != null ? row.avgAge.toFixed(1) : '—'}</td>
+                        {hasFixedDist && hasTimePerfData && (
+                          <>
+                            <td>{row.fastestSeconds != null ? fmtTime(row.fastestSeconds) : '—'}</td>
+                            <td>{row.medianSeconds  != null ? fmtTime(row.medianSeconds)  : '—'}</td>
+                            <td>{row.lastSeconds    != null ? fmtTime(row.lastSeconds)    : '—'}</td>
+                          </>
+                        )}
+                        {hasFixedDist && hasPacePerfData && (
+                          <>
+                            <td>{row.avgPaceSecsPerMile    != null ? fmtPace(row.avgPaceSecsPerMile)    : '—'}</td>
+                            <td>{row.medianPaceSecsPerMile != null ? fmtPace(row.medianPaceSecsPerMile) : '—'}</td>
+                          </>
+                        )}
+                        {hasFixedTime && hasDistPerfData && (
+                          <>
+                            <td>{row.farthestMiles != null ? fmtDist(row.farthestMiles) : '—'}</td>
+                            <td>{row.medianMiles   != null ? fmtDist(row.medianMiles)   : '—'}</td>
+                            <td>{row.meanMiles     != null ? fmtDist(row.meanMiles)     : '—'}</td>
+                            <td>{row.shortestMiles != null ? fmtDist(row.shortestMiles) : '—'}</td>
+                            <td>{row.spreadMiles   != null ? fmtDist(row.spreadMiles)   : '—'}</td>
+                          </>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+      </div>
+    </section>
+  );
+}
+
+function AgeGroupPerformanceSection({
+  agp,
+  ageGroupPerformanceByEvent,
+  selectedEventName,
+  showSelectedEventContext = true,
+}: {
+  agp: AgeGroupPerformanceStats;
+  ageGroupPerformanceByEvent?: AgeGroupPerformanceByEvent[];
+  selectedEventName: string | null;
+  showSelectedEventContext?: boolean;
+}) {
+  const [agpTab, setAgpTab]       = useState<'charts' | 'table'>('charts');
+  const [agpMetric, setAgpMetric] = useState<'finishers' | 'performance'>('finishers');
+  const { theme } = useTheme();
+  const gc = genderColors(theme);
+  const overallColor = theme.primary;
+  const perfGenderColors = {
+    M: '#2563eb',
+    F: '#15803d',
+    NB: '#7c3aed',
+  };
+
+  const byEvent = ageGroupPerformanceByEvent ?? [];
+  const activeEventIdx = activeByEventIdx(byEvent, selectedEventName);
+  const activeEvent = byEvent[activeEventIdx];
+  const rows = activeEvent?.rows ?? agp.rows;
+  const eventType = activeEvent?.eventType ?? agp.eventType;
+  const isFixedDist = eventType === 'fixed-distance';
+  const hasPerfData = rows.some(r => isFixedDist ? r.medianPaceSecsPerMile !== null : r.medianMiles !== null);
+  const hasSmallGroup = rows.some(r => r.total < 5);
+
+  const eligible = rows.filter(r => r.total >= 5);
+  const best  = eligible.length > 0 ? eligible.reduce((a, b) => b.finishRate > a.finishRate ? b : a) : null;
+  const worst = eligible.length > 0 ? eligible.reduce((a, b) => b.finishRate < a.finishRate ? b : a) : null;
+  const insights: string[] = [];
+  if (best && worst && best.ageGroup !== worst.ageGroup) {
+    insights.push(
+      `${best.ageGroup} had the highest finish rate at ${fmtPct(best.finishRate)} (${best.finishers} finishers), ` +
+      `while ${worst.ageGroup} had the lowest at ${fmtPct(worst.finishRate)} (${worst.finishers} finishers).`
+    );
+  }
+  if (hasSmallGroup) {
+    insights.push('Small age groups can swing sharply; review counts alongside rates.');
+  }
+
+  const metricLabel: Record<'finishers' | 'performance', string> = {
+    finishers:   'Finishers',
+    performance: isFixedDist ? 'Pace' : 'Distance',
+  };
+
+  const activeMetric = agpMetric === 'performance' && !hasPerfData ? 'finishers' : agpMetric;
+
+  // Gender series visibility for Finishers chart — driven by finisher counts
+  const showMale   = rows.some(r => r.maleFinishers > 0);
+  const showFemale = rows.some(r => r.femaleFinishers > 0);
+  const showNb     = rows.some(r => r.nonBinaryFinishers > 0);
+
+  // NB visibility for Pace/Distance chart — show if NB finishers exist anywhere, or if any NB
+  // pace/distance value is non-null. Null values produce no bar for that row; they don't
+  // suppress the whole series. A gender may appear in Finishers but have no pace bars.
+  const showNbPerf = rows.some(r =>
+    r.nonBinaryFinishers > 0 ||
+    (isFixedDist ? r.nonBinaryPaceSecsPerMile !== null : r.nonBinaryMiles !== null),
+  );
+  // Whether any NB pace/distance value is non-null — used to decide whether to show a quiet note.
+  const nbHasPerfData = rows.some(r => isFixedDist ? r.nonBinaryPaceSecsPerMile !== null : r.nonBinaryMiles !== null);
+
+  // Stacked finisher count data — Total key is used for the end label on the outermost bar
+  const finisherData = rows.map(r => ({
+    ageGroup:     r.ageGroup,
+    Male:         r.maleFinishers,
+    Female:       r.femaleFinishers,
+    'Non-Binary': r.nonBinaryFinishers,
+    Total:        r.maleFinishers + r.femaleFinishers + r.nonBinaryFinishers,
+  }));
+  // Determines which bar is outermost in the stack (drives the Total label position)
+  const finisherLastKey = showNb ? 'Non-Binary' : showFemale ? 'Female' : 'Male';
+
+  // Grouped pace/distance data (null values mean no finishers — Recharts skips null bars)
+  const perfGroupedData = isFixedDist
+    ? rows.map(r => ({
+        ageGroup:     r.ageGroup,
+        Overall:      r.medianPaceSecsPerMile,
+        Male:         r.malePaceSecsPerMile,
+        Female:       r.femalePaceSecsPerMile,
+        'Non-Binary': r.nonBinaryPaceSecsPerMile,
+      }))
+    : rows.map(r => ({
+        ageGroup:     r.ageGroup,
+        Overall:      r.medianMiles,
+        Male:         r.maleMiles,
+        Female:       r.femaleMiles,
+        'Non-Binary': r.nonBinaryMiles,
+      }));
+
+  const perfFmt = isFixedDist ? fmtPace : fmtDist;
+
+  const finisherSeries = (showMale ? 1 : 0) + (showFemale ? 1 : 0) + (showNb ? 1 : 0);
+  const perfSeries = 1 + (showMale ? 1 : 0) + (showFemale ? 1 : 0) + (showNbPerf ? 1 : 0);
+
+  // Finisher chart: stacked — one bar slot per category regardless of gender count
+  const finisherChartHeight = Math.max(240, rows.length * 44) + 40;
+  // Performance chart: grouped — drive height from explicit bar size so bars are visibly thick.
+  // barCategoryGap={12} (px, set on BarChart) controls the fixed gap between age-group clusters.
+  // perfCluster is the height of one cluster (bars + barGap gaps); adding barCategoryGap gives the
+  // full band height per row, so the computed chart height always accommodates the desired barSize.
+  const PERF_BAR_SIZE = 16;
+  const perfCluster = perfSeries * (PERF_BAR_SIZE + 4) - 4; // bars + barGap(4) between each
+  const perfChartHeight = Math.max(280, rows.length * (perfCluster + 12)) + 64;
+  const chartHeight = activeMetric === 'finishers' ? finisherChartHeight : perfChartHeight;
+
+  return (
+    <section className="chart-section" aria-labelledby="rr-agp-heading">
+      <SectionHeader
+        title="Age Group Performance"
+        contextStrip={showSelectedEventContext ? <SelectedEventContext eventName={activeEvent?.eventName ?? selectedEventName} /> : undefined}
+      />
+
+      <div className="rd-tab-strip" role="tablist" aria-label="Age group performance views">
+        {(['charts', 'table'] as const).map(id => (
+          <button key={id} type="button" role="tab"
+            aria-selected={agpTab === id}
+            className={`rd-tab${agpTab === id ? ' rd-tab--active' : ''}`}
+            onClick={() => setAgpTab(id)}
+          >
+            {id.charAt(0).toUpperCase() + id.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {agpTab === 'charts' && (
+        <div role="tabpanel" className="rd-tab-panel">
+          <div className="metric-pills" role="group" aria-label="Select chart metric">
+            {(['finishers', 'performance'] as const).map(m => (
+              <button key={m} type="button"
+                className={`metric-pill${agpMetric === m ? ' metric-pill--active' : ''}${m === 'performance' && !hasPerfData ? ' metric-pill--disabled' : ''}`}
+                onClick={() => { if (m !== 'performance' || hasPerfData) setAgpMetric(m); }}
+                aria-pressed={agpMetric === m}
+                disabled={m === 'performance' && !hasPerfData}
+              >
+                {metricLabel[m]}
+              </button>
+            ))}
+          </div>
+
+          {activeMetric === 'finishers' && (
+            <ResponsiveContainer width="100%" height={chartHeight}>
+              <BarChart data={finisherData} layout="vertical" margin={{ top: 8, right: 56, bottom: 8, left: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={false} />
+                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="ageGroup" tick={{ fontSize: 12 }} width={68} />
+                <Tooltip formatter={(v: number) => v.toLocaleString()} contentStyle={{ fontSize: '0.8rem' }} />
+                <Legend verticalAlign="top" iconType="square" wrapperStyle={{ fontSize: '0.8rem', paddingBottom: '0.25rem' }} />
+                {showMale && (
+                  <Bar dataKey="Male" stackId="f" fill={gc.M} radius={finisherLastKey === 'Male' ? [0, 3, 3, 0] : [0, 0, 0, 0]}>
+                    {finisherLastKey === 'Male' && (
+                      <LabelList dataKey="Total" position="right" formatter={(v: unknown) => typeof v === 'number' && v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 11 }} />
+                    )}
+                  </Bar>
+                )}
+                {showFemale && (
+                  <Bar dataKey="Female" stackId="f" fill={gc.F} radius={finisherLastKey === 'Female' ? [0, 3, 3, 0] : [0, 0, 0, 0]}>
+                    {finisherLastKey === 'Female' && (
+                      <LabelList dataKey="Total" position="right" formatter={(v: unknown) => typeof v === 'number' && v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 11 }} />
+                    )}
+                  </Bar>
+                )}
+                {showNb && (
+                  <Bar dataKey="Non-Binary" stackId="f" fill={gc.NB} radius={[0, 3, 3, 0]}>
+                    <LabelList dataKey="Total" position="right" formatter={(v: unknown) => typeof v === 'number' && v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 11 }} />
+                  </Bar>
+                )}
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+
+          {activeMetric === 'performance' && (
+            <>
+              <ResponsiveContainer width="100%" height={chartHeight}>
+                <BarChart data={perfGroupedData} layout="vertical" barCategoryGap={12} margin={{ top: 8, right: 96, bottom: 8, left: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={false} />
+                  <XAxis type="number" tickFormatter={perfFmt} tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="ageGroup" tick={{ fontSize: 12 }} width={68} />
+                  <Tooltip formatter={(v: number) => perfFmt(v)} contentStyle={{ fontSize: '0.8rem' }} />
+                  <Legend verticalAlign="top" iconType="square" wrapperStyle={{ fontSize: '0.8rem', paddingBottom: '0.25rem' }} />
+                  <Bar dataKey="Overall" barSize={PERF_BAR_SIZE} fill={overallColor} radius={[0, 3, 3, 0]}>
+                    <LabelList dataKey="Overall" position="right" formatter={(v: unknown) => typeof v === 'number' ? perfFmt(v) : ''} style={{ fontSize: 11 }} />
+                  </Bar>
+                  {showMale   && <Bar dataKey="Male"       barSize={PERF_BAR_SIZE} fill={perfGenderColors.M}  />}
+                  {showFemale && <Bar dataKey="Female"     barSize={PERF_BAR_SIZE} fill={perfGenderColors.F}  />}
+                  {showNbPerf && <Bar dataKey="Non-Binary" barSize={PERF_BAR_SIZE} fill={perfGenderColors.NB} />}
+                </BarChart>
+              </ResponsiveContainer>
+              {showNbPerf && !nbHasPerfData && (
+                <p className="rr-field-depth-gender-note">Non-Binary pace/distance bars appear where valid finisher data is available.</p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {agpTab === 'table' && (
+        <div role="tabpanel" className="rd-tab-panel">
+          <div className="rr-agp-table-wrap">
+            <table className="stats-table rr-gender-time-table">
+              <caption className="sr-only">Age group performance breakdown</caption>
+              <thead>
+                <tr>
+                  <th>Age Group</th>
+                  <th>Total</th>
+                  <th>Finishers</th>
+                  <th>Finish %</th>
+                  <th>DNF</th>
+                  <th>DNF %</th>
+                  <th>DNS</th>
+                  <th>DNS %</th>
+                  {isFixedDist
+                    ? <><th>Median Pace</th><th>Fastest</th><th>Last finisher</th></>
+                    : <><th>Median Distance</th><th>Longest</th><th>Shortest</th></>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (
+                  <tr key={r.ageGroup}>
+                    <td>{r.ageGroup}</td>
+                    <td>{r.total}</td>
+                    <td>{r.finishers}</td>
+                    <td>{fmtPct(r.finishRate)}</td>
+                    <td>{r.dnf}</td>
+                    <td>{fmtPct(r.dnfRate)}</td>
+                    <td>{r.dns}</td>
+                    <td>{fmtPct(r.dnsRate)}</td>
+                    {isFixedDist ? (
+                      <>
+                        <td>{r.medianPaceSecsPerMile !== null ? fmtPace(r.medianPaceSecsPerMile) : '—'}</td>
+                        <td>{r.fastestPaceSecsPerMile !== null ? fmtPace(r.fastestPaceSecsPerMile) : '—'}</td>
+                        <td>{r.slowestPaceSecsPerMile !== null ? fmtPace(r.slowestPaceSecsPerMile) : '—'}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td>{r.medianMiles !== null ? fmtDist(r.medianMiles) : '—'}</td>
+                        <td>{r.maxMiles !== null ? fmtDist(r.maxMiles) : '—'}</td>
+                        <td>{r.minMiles !== null ? fmtDist(r.minMiles) : '—'}</td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {insights.length > 0 && <InsightCallout insights={insights} />}
+    </section>
+  );
+}
+
+function FieldDepthSection({
+  pb,
+  selectedEventName,
+  showSelectedEventContext = true,
+}: {
+  pb: PerformanceBandStats;
+  selectedEventName: string | null;
+  showSelectedEventContext?: boolean;
+}) {
+  const [fdTab, setFdTab]       = useState<'charts' | 'table'>('charts');
+  const [fdMetric, setFdMetric] = useState<string>('medianTime');
+  const { theme } = useTheme();
+
+  const fieldDepthEvents = pb.events.length > 0
+    ? pb.events
+    : [{ eventName: 'Event', rows: pb.rows, eventType: pb.eventType, totalFinishers: pb.totalFinishers }];
+  const matchedEventIdx = selectedEventName
+    ? fieldDepthEvents.findIndex(ev => ev.eventName === selectedEventName)
+    : -1;
+  const selectedEventMissingBands = !!selectedEventName && matchedEventIdx < 0 && pb.events.length > 0;
+  const activeEventIdx = selectedEventMissingBands ? 0 : activeByEventIdx(fieldDepthEvents, selectedEventName);
+  const activeEvent = fieldDepthEvents[activeEventIdx];
+
+  if (selectedEventMissingBands) {
+    return (
+      <section className="chart-section" aria-labelledby="rr-field-depth-heading">
+        <SectionHeader
+          title="Advanced Field Analysis"
+          contextStrip={showSelectedEventContext ? <SelectedEventContext eventName={selectedEventName} /> : undefined}
+        />
+        <p className="rr-perf-intro">Advanced field analysis is not available for the selected event.</p>
+      </section>
+    );
+  }
+
+  const rows = activeEvent.rows;
+  const isFixedDist = activeEvent.eventType === 'fixed-distance';
+  const smallField = activeEvent.totalFinishers < 20;
+  const activeEventName = activeEvent.eventName;
+
+  const front25 = rows.find(r => r.label === 'Front 25%');
+  const back25  = rows.find(r => r.label === 'Back 25%');
+  const insights: string[] = [];
+
+  if (front25 && back25) {
+    if (isFixedDist && front25.medianSeconds !== null && back25.medianSeconds !== null) {
+      const diffSecs = back25.medianSeconds - front25.medianSeconds;
+      insights.push(
+        `For ${activeEventName}, median finish time differs by ${fmtTime(diffSecs)} between the Front 25% (${fmtTime(front25.medianSeconds)}) and Back 25% (${fmtTime(back25.medianSeconds)}).`
+      );
+    } else if (!isFixedDist && front25.medianMiles !== null && back25.medianMiles !== null) {
+      const diffMi = front25.medianMiles - back25.medianMiles;
+      insights.push(
+        `For ${activeEventName}, median distance differs by ${fmtDist(diffMi)} between the Front 25% (${fmtDist(front25.medianMiles)}) and Back 25% (${fmtDist(back25.medianMiles)}).`
+      );
+    }
+  }
+  if (smallField) {
+    insights.push('Field is small (fewer than 20 finishers); band percentages may shift noticeably with a few results.');
+  }
+
+  const overlapNote = isFixedDist
+    ? 'Advanced Field Analysis compares front, middle, and back-of-pack finisher groups. Use this section to understand field spread and performance depth within the selected event. Front/Back 10% are included within Front/Back 25%, giving both a narrow and broader view of each end of the field.'
+    : 'Advanced Field Analysis compares front, middle, and back-of-pack finisher groups by distance achieved. Use this section to understand field spread and performance depth within the selected event. Front/Back 10% are included within Front/Back 25%, giving both a narrow and broader view of each end of the field.';
+
+  // Metric pill definitions
+  type FdMetric = 'medianTime' | 'medianPace' | 'medianDistance';
+  const allPills: Array<{ key: FdMetric; label: string; show: boolean }> = [
+    { key: 'medianTime',     label: 'Median Time',     show: isFixedDist },
+    { key: 'medianPace',     label: 'Median Pace',     show: isFixedDist && rows.some(r => r.medianPaceSecsPerMile !== null) },
+    { key: 'medianDistance', label: 'Median Distance', show: !isFixedDist },
+  ];
+  const pills = allPills.filter(p => p.show);
+
+  // Ensure active metric is valid for this event type
+  const validKeys = pills.map(p => p.key);
+  const defaultMetric: FdMetric = isFixedDist ? 'medianTime' : 'medianDistance';
+  const activeMetric: FdMetric = validKeys.includes(fdMetric as FdMetric) ? (fdMetric as FdMetric) : defaultMetric;
+
+  // Single-bar chart config
+  let singleBarKey = '';
+  let singleFmt: (v: number) => string = v => String(v);
+  let singleData: Array<{ label: string; [k: string]: number | string | null }> = [];
+
+  if (activeMetric === 'medianTime') {
+    singleBarKey = 'Median Time';
+    singleFmt = v => fmtTime(v);
+    singleData = rows.filter(r => r.medianSeconds !== null).map(r => ({ label: r.label, [singleBarKey]: r.medianSeconds! }));
+  } else if (activeMetric === 'medianPace') {
+    singleBarKey = 'Median Pace';
+    singleFmt = v => fmtPace(v);
+    singleData = rows.filter(r => r.medianPaceSecsPerMile !== null).map(r => ({ label: r.label, [singleBarKey]: r.medianPaceSecsPerMile! }));
+  } else if (activeMetric === 'medianDistance') {
+    singleBarKey = 'Median Distance';
+    singleFmt = v => fmtDist(v);
+    singleData = rows.filter(r => r.medianMiles !== null).map(r => ({ label: r.label, [singleBarKey]: r.medianMiles! }));
+  }
+
+  const chartHeight = Math.max(200, rows.length * 48) + 40;
+
+  return (
+    <section className="chart-section" aria-labelledby="rr-field-depth-heading">
+      <SectionHeader
+        title="Advanced Field Analysis"
+        contextStrip={showSelectedEventContext ? <SelectedEventContext eventName={activeEventName} /> : undefined}
+      />
+      <p className="rr-perf-intro">{overlapNote}</p>
+      {insights.length > 0 && <InsightCallout insights={insights} />}
+
+      <div className="rd-tab-strip" role="tablist" aria-label="Field depth views">
+        {(['charts', 'table'] as const).map(id => (
+          <button key={id} type="button" role="tab"
+            aria-selected={fdTab === id}
+            className={`rd-tab${fdTab === id ? ' rd-tab--active' : ''}`}
+            onClick={() => setFdTab(id)}
+          >
+            {id.charAt(0).toUpperCase() + id.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {fdTab === 'charts' && (
+        <div role="tabpanel" className="rd-tab-panel">
+          <div className="rr-field-depth-metric-row">
+            <span className="rr-field-depth-metric-label">Chart metric:</span>
+            <div className="metric-pills" role="group" aria-label="Select chart metric">
+              {pills.map(p => (
+                <button key={p.key} type="button"
+                  className={`metric-pill${activeMetric === p.key ? ' metric-pill--active' : ''}`}
+                  onClick={() => setFdMetric(p.key)}
+                  aria-pressed={activeMetric === p.key}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <ResponsiveContainer width="100%" height={chartHeight}>
+            <BarChart data={singleData} layout="vertical" margin={{ top: 8, right: 96, bottom: 8, left: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={false} />
+              <XAxis type="number" tickFormatter={singleFmt} tick={{ fontSize: 11 }} />
+              <YAxis type="category" dataKey="label" tick={{ fontSize: 12 }} width={72} />
+              <Tooltip formatter={(v: number) => singleFmt(v)} />
+              <Bar dataKey={singleBarKey} fill={chartPalette(theme, 1)[0]} radius={[0, 3, 3, 0]}>
+                <LabelList dataKey={singleBarKey} position="right"
+                  formatter={(v: unknown) => typeof v === 'number' ? singleFmt(v) : ''}
+                  style={{ fontSize: 11 }} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      )}
+
+      {fdTab === 'table' && (
+        <div role="tabpanel" className="rd-tab-panel">
+          <div className="rr-agp-table-wrap">
+            <table className="stats-table rr-gender-time-table">
+              <caption className="sr-only">Field depth performance bands</caption>
+              <thead>
+                <tr>
+                  <th>Band</th>
+                  <th>Finishers</th>
+                  <th>% of Field</th>
+	                  {isFixedDist ? (
+	                    <>
+	                      <th>Fastest Time</th>
+	                      <th>Median Time</th>
+	                      <th>Median Pace</th>
+	                      <th>Last Finisher</th>
+	                    </>
+	                  ) : (
+	                    <>
+	                      <th>Farthest Distance</th>
+	                      <th>Median Distance</th>
+	                      <th>Shortest Distance</th>
+	                    </>
+	                  )}
+	                  <th>Median Age</th>
+	                  <th>Gender Mix (M/F/NB)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (
+                  <tr key={r.label}>
+                    <td>{r.label}</td>
+                    <td>{r.finishers}</td>
+                    <td>{r.percentOfFinishers.toFixed(1)}%</td>
+                    {isFixedDist ? (
+                      <>
+                        <td>{r.fastestSeconds !== null ? fmtTime(r.fastestSeconds) : '—'}</td>
+                        <td>{r.medianSeconds !== null ? fmtTime(r.medianSeconds) : '—'}</td>
+                        <td>{r.medianPaceSecsPerMile !== null ? fmtPace(r.medianPaceSecsPerMile) : '—'}</td>
+                        <td>{r.slowestSeconds !== null ? fmtTime(r.slowestSeconds) : '—'}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td>{r.farthestMiles !== null ? fmtDist(r.farthestMiles) : '—'}</td>
+                        <td>{r.medianMiles !== null ? fmtDist(r.medianMiles) : '—'}</td>
+                        <td>{r.shortestMiles !== null ? fmtDist(r.shortestMiles) : '—'}</td>
+                      </>
+                    )}
+                    <td>{r.medianAge !== null ? r.medianAge.toFixed(0) : '—'}</td>
+                    <td>{r.maleFinishers} / {r.femaleFinishers} / {r.nonBinaryFinishers}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+          </div>
         </div>
       )}
     </section>
   );
 }
 
-function CrossEventSection({ crossEvent, attrition }: { crossEvent: ResultsCrossEventStats; attrition: AttritionStats }) {
-  if (crossEvent.rows.length === 0) return null;
+function DivisionPerformanceSection({
+  dp,
+  divisionPerformanceByEvent,
+  selectedEventName,
+  showSelectedEventContext = true,
+}: {
+  dp: DivisionPerformanceStats;
+  divisionPerformanceByEvent?: DivisionPerformanceByEvent[];
+  selectedEventName: string | null;
+  showSelectedEventContext?: boolean;
+}) {
+  const [dpTab, setDpTab]       = useState<'charts' | 'table'>('charts');
+  const [dpMetric, setDpMetric] = useState<'finishRate' | 'performance'>('finishRate');
+  const { theme } = useTheme();
 
-  // Build a lookup of DNF/DNS counts from attrition.byEvent, keyed by event name
-  const attritionByEvent = new Map(attrition.byEvent.map(r => [r.name, r]));
+  const byEvent = divisionPerformanceByEvent ?? [];
+  const activeEventIdx = activeByEventIdx(byEvent, selectedEventName);
+  const activeEvent = byEvent[activeEventIdx];
+  const rawRows = activeEvent?.rows ?? dp.rows;
+  const divisionSortKey = (division: string): [number, number, string] => {
+    const normalized = division.toLowerCase();
+    const genderRank = normalized.startsWith('male ')
+      ? 0
+      : normalized.startsWith('female ')
+        ? 1
+        : normalized.startsWith('non-binary ')
+          ? 2
+          : 3;
+    const ageRank =
+      /under\s*20|0[–-]19/.test(normalized) ? 0 :
+      /20[–-]29/.test(normalized) ? 1 :
+      /30[–-]39/.test(normalized) ? 2 :
+      /40[–-]49/.test(normalized) ? 3 :
+      /50[–-]59/.test(normalized) ? 4 :
+      /60[–-]69/.test(normalized) ? 5 :
+      /70\+/.test(normalized) ? 6 :
+      7;
+    return [genderRank, ageRank, division];
+  };
+  const rows = [...rawRows].sort((a, b) => {
+    const aKey = divisionSortKey(a.division);
+    const bKey = divisionSortKey(b.division);
+    return aKey[0] - bKey[0] || aKey[1] - bKey[1] || aKey[2].localeCompare(bKey[2]);
+  });
+  const eventType = activeEvent?.eventType ?? dp.eventType;
+  const isFixedDist = eventType === 'fixed-distance';
+  const hasPerfData = rows.some(r => isFixedDist ? r.medianPaceSecsPerMile !== null : r.medianMiles !== null);
+  const hasSmallGroup = rows.some(r => r.total < 5);
+
+  const eligible = rows.filter(r => r.total >= 5);
+  const best  = eligible.length > 0 ? eligible.reduce((a, b) => b.finishRate > a.finishRate ? b : a) : null;
+  const worst = eligible.length > 0 ? eligible.reduce((a, b) => b.finishRate < a.finishRate ? b : a) : null;
+  const insights: string[] = [];
+  if (best && worst && best.division !== worst.division) {
+    insights.push(
+      `${best.division} had the highest finish rate at ${fmtPct(best.finishRate)} (${best.finishers} finishers), ` +
+      `while ${worst.division} had the lowest at ${fmtPct(worst.finishRate)} (${worst.finishers} finishers).`
+    );
+  }
+  if (hasSmallGroup) {
+    insights.push('Small divisions (fewer than 5 participants) can swing sharply; review counts alongside rates.');
+  }
+
+  type MetricKey = 'finishRate' | 'performance';
+  const metricLabel: Record<MetricKey, string> = {
+    finishRate:  'Finish Rate',
+    performance: isFixedDist ? 'Pace' : 'Distance',
+  };
+
+  const activeMetric = dpMetric === 'performance' && !hasPerfData ? 'finishRate' : dpMetric;
+
+  type ChartRow = { division: string; value: number | null };
+  let singleData: ChartRow[] = [];
+  let singleFmt: (v: number) => string = v => String(v);
+  let singleBarKey = '';
+
+  if (activeMetric === 'finishRate') {
+    singleData   = rows.map(r => ({ division: r.division, value: r.finishRate }));
+    singleFmt    = v => `${v.toFixed(1)}%`;
+    singleBarKey = 'Finish Rate';
+  } else if (activeMetric === 'performance') {
+    if (isFixedDist) {
+      singleData   = rows.map(r => ({ division: r.division, value: r.medianPaceSecsPerMile }));
+      singleFmt    = v => fmtPace(v);
+      singleBarKey = 'Median Pace';
+    } else {
+      singleData   = rows.map(r => ({ division: r.division, value: r.medianMiles }));
+      singleFmt    = v => fmtDist(v);
+      singleBarKey = 'Median Distance';
+    }
+  }
+
+  const singleBarData = singleData
+    .filter(d => d.value !== null)
+    .map(d => ({ division: d.division, [singleBarKey]: d.value }));
+
+  const chartHeight = Math.max(180, rows.length * 34) + 36;
 
   return (
-    <section className="chart-section" aria-labelledby="rr-cross-heading">
-      <SectionHeader title="Event Comparison" />
-      <div className="cmp-table-scroll">
-        <table className="stats-table cmp-table">
-          <caption className="sr-only">Side-by-side comparison across events</caption>
-          <thead>
-            <tr>
-              <th>Event</th><th>Entrants</th><th>Finishers</th><th>Finish %</th>
-              <th>DNF</th><th>DNF %</th><th>DNS</th>
-              <th>Male %</th><th>Female %</th><th>Non-Binary %</th><th>Avg Age</th>
-            </tr>
-          </thead>
-          <tbody>
-            {crossEvent.rows.map(row => {
-              const atr = attritionByEvent.get(row.name);
-              return (
-                <tr key={row.name}>
-                  <td style={{ fontWeight: 600 }}>{row.name}</td>
-                  <td>{row.totalEntrants}</td>
-                  <td>{row.finishers}</td>
-                  <td>{fmtPct(row.finishRate)}</td>
-                  <td>{atr && atr.dnf > 0 ? atr.dnf : '—'}</td>
-                  <td>{atr && atr.dnfRate > 0 ? fmtPct(atr.dnfRate) : '—'}</td>
-                  <td>{atr && atr.dns > 0 ? atr.dns : '—'}</td>
-                  <td>{row.maleFinishers > 0 ? fmtPct(row.malePercent) : '—'}</td>
-                  <td>{row.femaleFinishers > 0 ? fmtPct(row.femalePercent) : '—'}</td>
-                  <td>{row.nonBinaryFinishers > 0 ? fmtPct(row.nonBinaryPercent) : '—'}</td>
-                  <td>{row.avgAge != null ? row.avgAge.toFixed(1) : '—'}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+    <section className="chart-section rr-division-performance-section" aria-labelledby="rr-div-perf-heading">
+      <SectionHeader
+        title="Division Performance"
+        contextStrip={showSelectedEventContext ? <SelectedEventContext eventName={activeEvent?.eventName ?? selectedEventName} /> : undefined}
+      />
+      <p className="rr-section-helper">Award-style divisions combine gender and age group for a closer look at category-level performance.</p>
+
+      <div className="rd-tab-strip" role="tablist" aria-label="Division performance views">
+        {(['charts', 'table'] as const).map(id => (
+          <button key={id} type="button" role="tab"
+            aria-selected={dpTab === id}
+            className={`rd-tab${dpTab === id ? ' rd-tab--active' : ''}`}
+            onClick={() => setDpTab(id)}
+          >
+            {id.charAt(0).toUpperCase() + id.slice(1)}
+          </button>
+        ))}
       </div>
+
+      {dpTab === 'charts' && (
+        <div role="tabpanel" className="rd-tab-panel">
+          <div className="metric-pills" role="group" aria-label="Select chart metric">
+            {(['finishRate', 'performance'] as const).map(m => (
+              <button key={m} type="button"
+                className={`metric-pill${dpMetric === m ? ' metric-pill--active' : ''}${m === 'performance' && !hasPerfData ? ' metric-pill--disabled' : ''}`}
+                onClick={() => { if (m !== 'performance' || hasPerfData) setDpMetric(m); }}
+                aria-pressed={dpMetric === m}
+                disabled={m === 'performance' && !hasPerfData}
+              >
+                {metricLabel[m]}
+              </button>
+            ))}
+          </div>
+
+          <ResponsiveContainer width="100%" height={chartHeight}>
+            <BarChart data={singleBarData} layout="vertical" margin={{ top: 4, right: 88, bottom: 4, left: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={false} />
+              <XAxis type="number" tickFormatter={singleFmt} tick={{ fontSize: 11 }} />
+              <YAxis type="category" dataKey="division" tick={{ fontSize: 12 }} width={90} />
+              <Tooltip formatter={(v: number) => singleFmt(v)} />
+              <Bar dataKey={singleBarKey} fill={chartPalette(theme, 1)[0]} radius={[0, 3, 3, 0]}>
+                <LabelList dataKey={singleBarKey} position="right" formatter={(v: unknown) => typeof v === 'number' ? singleFmt(v) : ''} style={{ fontSize: 11 }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {dpTab === 'table' && (
+        <div role="tabpanel" className="rd-tab-panel">
+          <div className="rr-agp-table-wrap">
+            <table className="stats-table rr-gender-time-table">
+              <caption className="sr-only">Division performance breakdown</caption>
+              <thead>
+                <tr>
+                  <th>Division</th>
+                  <th>Total</th>
+                  <th>Finishers</th>
+                  <th>Finish %</th>
+                  <th>DNF</th>
+                  <th>DNF %</th>
+                  <th>DNS</th>
+                  <th>DNS %</th>
+                  {isFixedDist
+                    ? <><th>Median Pace</th><th>Fastest</th><th>Last finisher</th></>
+                    : <><th>Median Distance</th><th>Longest</th><th>Shortest</th></>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (
+                  <tr key={r.division}>
+                    <td>{r.division}</td>
+                    <td>{r.total}</td>
+                    <td>{r.finishers}</td>
+                    <td>{fmtPct(r.finishRate)}</td>
+                    <td>{r.dnf}</td>
+                    <td>{fmtPct(r.dnfRate)}</td>
+                    <td>{r.dns}</td>
+                    <td>{fmtPct(r.dnsRate)}</td>
+                    {isFixedDist ? (
+                      <>
+                        <td>{r.medianPaceSecsPerMile !== null ? fmtPace(r.medianPaceSecsPerMile) : '—'}</td>
+                        <td>{r.fastestPaceSecsPerMile !== null ? fmtPace(r.fastestPaceSecsPerMile) : '—'}</td>
+                        <td>{r.slowestPaceSecsPerMile !== null ? fmtPace(r.slowestPaceSecsPerMile) : '—'}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td>{r.medianMiles !== null ? fmtDist(r.medianMiles) : '—'}</td>
+                        <td>{r.maxMiles !== null ? fmtDist(r.maxMiles) : '—'}</td>
+                        <td>{r.minMiles !== null ? fmtDist(r.minMiles) : '—'}</td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {insights.length > 0 && <InsightCallout insights={insights} />}
     </section>
   );
 }
 
-function FullStatsSections({ stats, weather, raceName }: { stats: ResultsStats; weather?: WeatherData; raceName?: string }) {
+function FullStatsSections({
+  stats,
+  weather,
+  selectedEventName,
+  onSelectedEventChange,
+}: {
+  stats: ResultsStats;
+  weather?: WeatherData;
+  selectedEventName: string | null;
+  onSelectedEventChange: (eventName: string) => void;
+}) {
   const demoInsights = demographicsInsights(stats.demographics);
+  const isSingleEventReport = stats.performance.events.length <= 1;
+  const hasEventBreakdown = stats.crossEvent.rows.length > 1;
+  const hasEventPerformanceComparison = hasEventBreakdown && hasCrossEventPerformance(stats.crossEvent);
+  const hasAgeGroupPerformance = !!stats.ageGroupPerformance || stats.ageGroupPerformanceByEvent.length > 0;
+  const hasDivisionPerformance = !!stats.divisionPerformance || stats.divisionPerformanceByEvent.length > 0;
+  // selectedEventName comes from the report-level Selected Event selector.
+  // Event-specific sections match by eventName and fall back to the first event
+  // when the name is missing or stale. Overall and cross-event sections should
+  // not blindly follow this selected-event scope.
+  const ageDistributionByEvent = stats.ageDistributionByEvent ?? [];
+  const activeAgeEventIdx = activeByEventIdx(ageDistributionByEvent, selectedEventName);
+  const activeAgeEvent = ageDistributionByEvent[activeAgeEventIdx];
+  const ageDistributionStats = activeAgeEvent?.finisherAge ?? stats.demographics.finisherAge;
+  const ageDistributionInsights = activeAgeEvent ? undefined : demoInsights;
+  const hasAgeDistribution = ageDistributionStats.mean !== null;
+  const geographicDistributionByEvent = stats.geographicDistributionByEvent ?? [];
+  const activeGeoEventIdx = activeByEventIdx(geographicDistributionByEvent, selectedEventName);
+  const activeGeoEvent = geographicDistributionByEvent[activeGeoEventIdx];
+  const geographicStats = activeGeoEvent?.geographic ?? stats.geographic;
+  const activePerformanceEvent = stats.performance.events[activeByEventIdx(stats.performance.events, selectedEventName)];
+  const performanceLinkLabel = activePerformanceEvent?.eventType === 'fixed-time' ? 'Distance Performance' : 'Finish Performance';
   return (
     <>
-      <div id="rr-summary"><SummarySection summary={stats.summary} weather={weather} performance={stats.performance} raceName={raceName} /></div>
-      {weather && <div id="rr-weather"><WeatherSection weather={weather} /></div>}
-      <div id="rr-performance"><PerformanceSection events={stats.performance.events} /></div>
-      <div id="rr-cross-event"><CrossEventSection crossEvent={stats.crossEvent} attrition={stats.attrition} /></div>
-      <div id="rr-attrition"><AttritionSection attrition={stats.attrition} multiEvent={stats.crossEvent.rows.length > 0} /></div>
-      <div id="rr-gender"><GenderSection stats={stats.demographics.finisherGender} /></div>
-      <div id="rr-age"><AgeSection stats={stats.demographics.finisherAge} additionalInsights={demoInsights} /></div>
-      <div id="rr-geography"><GeographicSection stats={stats.geographic} /></div>
+      <div id="rr-summary">
+        <SummarySection
+          summary={stats.summary}
+          entrantGender={stats.demographics.gender}
+          participantAge={stats.demographics.age}
+          attrition={stats.attrition}
+        />
+      </div>
+      {weather && <div id="rr-weather"><WeatherSection weather={weather} variant="summary" /></div>}
+      {hasEventBreakdown && (
+        <div id="rr-event-breakdown"><EventBreakdownSection attrition={stats.attrition} /></div>
+      )}
+      <div id="rr-overall-geography">
+        <GeographicSection
+          stats={stats.geographic}
+          title="Overall Geography"
+          showUnknownLocation
+          basisNote="Geography reflects all race participants."
+          insightsPosition="bottom"
+          summaryMode="race-results"
+        />
+      </div>
+      {!isSingleEventReport && (
+        <div
+          id="rr-report-controls"
+          className="rr-report-controls no-print"
+          aria-label="Report controls"
+        >
+          <div className="rr-selected-analysis-intro">
+            <h2>Selected Event Analysis</h2>
+            <p>Choose an event below to control the detailed sections that follow.</p>
+          </div>
+          <SelectedEventSelector
+            events={stats.performance.events}
+            selectedEventName={selectedEventName}
+            onSelect={onSelectedEventChange}
+          />
+          <nav className="report-nav rr-report-nav" aria-label="Jump to section">
+            <span className="rr-report-nav-label">Jump to:</span>
+            <div className="rr-report-nav-links">
+              <a href="#rr-event-snapshot" className="report-nav-link">Event Snapshot</a>
+              {hasAgeDistribution && <a href="#rr-age" className="report-nav-link">Finisher Age Distribution</a>}
+              <a href="#rr-performance" className="report-nav-link">{performanceLinkLabel}</a>
+              {hasEventPerformanceComparison && <a href="#rr-cross-event" className="report-nav-link">Cross-Event Performance</a>}
+              {hasAgeGroupPerformance && <a href="#rr-age-group-perf" className="report-nav-link">Age Group Performance</a>}
+              {hasDivisionPerformance && <a href="#rr-div-perf" className="report-nav-link">Division Performance</a>}
+              <a href="#rr-geography" className="report-nav-link">Selected Event Geography</a>
+              {stats.performanceBands && <a href="#rr-field-depth" className="report-nav-link">Advanced Field Analysis</a>}
+              {weather && <a href="#rr-weather-details" className="report-nav-link">Weather Details</a>}
+            </div>
+          </nav>
+        </div>
+      )}
+      <div id="rr-event-snapshot">
+        <EventSnapshotSection
+          summary={stats.summary}
+          selectedEventName={selectedEventName}
+          showSelectedEventContext={!isSingleEventReport}
+        />
+      </div>
+      {hasAgeDistribution && (
+        <div id="rr-age">
+          <AgeSection
+            stats={ageDistributionStats}
+            additionalInsights={ageDistributionInsights}
+            title="Finisher Age Distribution"
+            contextStrip={!isSingleEventReport ? <SelectedEventContext eventName={activeAgeEvent?.eventName ?? selectedEventName} /> : undefined}
+            countLabel="Finishers"
+            compact
+            compactHighlights
+          />
+        </div>
+      )}
+      <div id="rr-performance">
+        <PerformanceSection
+          events={stats.performance.events}
+          selectedEventName={selectedEventName}
+          showSelectedEventContext={!isSingleEventReport}
+        />
+      </div>
+      {hasEventPerformanceComparison && (
+        <div id="rr-cross-event"><CrossEventSection crossEvent={stats.crossEvent} /></div>
+      )}
+      {(stats.ageGroupPerformance || stats.ageGroupPerformanceByEvent.length > 0) && (
+        <div id="rr-age-group-perf">
+          <AgeGroupPerformanceSection
+            agp={stats.ageGroupPerformance ?? {
+              rows: stats.ageGroupPerformanceByEvent[0]?.rows ?? [],
+              eventType: stats.ageGroupPerformanceByEvent[0]?.eventType ?? 'fixed-distance',
+            }}
+            ageGroupPerformanceByEvent={stats.ageGroupPerformanceByEvent}
+            selectedEventName={selectedEventName}
+            showSelectedEventContext={!isSingleEventReport}
+          />
+        </div>
+      )}
+      {(stats.divisionPerformance || stats.divisionPerformanceByEvent.length > 0) && (
+        <div id="rr-div-perf">
+          <DivisionPerformanceSection
+            dp={stats.divisionPerformance ?? {
+              rows: stats.divisionPerformanceByEvent[0]?.rows ?? [],
+              eventType: stats.divisionPerformanceByEvent[0]?.eventType ?? 'fixed-distance',
+            }}
+            divisionPerformanceByEvent={stats.divisionPerformanceByEvent}
+            selectedEventName={selectedEventName}
+            showSelectedEventContext={!isSingleEventReport}
+          />
+        </div>
+      )}
+      {!isSingleEventReport && (
+        <div id="rr-geography">
+          <GeographicSection
+            stats={geographicStats}
+            title="Selected Event Geography"
+            showUnknownLocation
+            basisNote="Geography reflects participants in the selected event."
+            contextStrip={<SelectedEventContext eventName={activeGeoEvent?.eventName ?? selectedEventName} />}
+            insightsPosition="bottom"
+            summaryMode="race-results"
+          />
+        </div>
+      )}
+      {stats.performanceBands && (
+        <div id="rr-field-depth">
+          <FieldDepthSection
+            pb={stats.performanceBands}
+            selectedEventName={selectedEventName}
+            showSelectedEventContext={!isSingleEventReport}
+          />
+        </div>
+      )}
+      {weather && <div id="rr-weather-details"><WeatherSection weather={weather} variant="details" /></div>}
     </>
   );
 }
@@ -918,6 +2462,7 @@ function SingleDashboard({ upload, label, onBack }: SingleDashboardProps) {
   const [data, setData] = useState<ResultsStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedEventName, setSelectedEventName] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -925,7 +2470,9 @@ function SingleDashboard({ upload, label, onBack }: SingleDashboardProps) {
         const res = await fetch(apiUrl(`/api/results/stats/${upload.sessionId}`));
         const json = await res.json();
         if (!res.ok) { setError(json.error ?? 'Failed to load statistics.'); return; }
-        setData(json as ResultsStatsResponse);
+        const response = json as ResultsStatsResponse;
+        setData(response);
+        setSelectedEventName(response.stats.performance.events[0]?.eventName ?? null);
       } catch {
         setError('Could not reach the server.');
       } finally {
@@ -936,50 +2483,80 @@ function SingleDashboard({ upload, label, onBack }: SingleDashboardProps) {
 
   useEffect(() => { headingRef.current?.focus(); }, []);
 
+  const weatherData = data?.weatherData as WeatherData | undefined;
+  const reportYear = reportYearFromWeatherOrLabel(weatherData, label);
+  const reportTitle = reportTitleWithYear(upload.raceName, reportYear);
+  const eventCount = data?.stats.performance.events.length ?? 0;
+  const eventType = data?.stats.performance.events[0]?.eventType ?? null;
+  const eventTypeSummary = eventType
+    ? `${eventType === 'fixed-time' ? 'Fixed-time event' : 'Fixed-distance event'}${eventCount > 1 ? ` · ${eventCount} events` : ''}`
+    : null;
+  const raceDateSummary = weatherData ? (() => {
+    const start = formatRaceDatetime(weatherData.raceStartIso);
+    const end = formatRaceDatetime(weatherData.raceEndIso);
+    const sameDay = start.date === end.date;
+    return `${start.date}${!sameDay ? ` – ${end.date}` : ''} · ${start.time}`;
+  })() : null;
+  const venueSummary = weatherData?.venueAddress?.trim() || null;
+
   return (
     <div className="rr-dashboard">
-      <div className="dashboard-header">
-        <div className="dashboard-header-left">
+      <header className="rr-report-header">
+        <div className="rr-report-header-main">
           <button type="button" className="btn-ghost dashboard-back no-print" onClick={onBack}>
             ← New analysis
           </button>
-          <h1 ref={headingRef} tabIndex={-1} className="dashboard-title">
-            {upload.raceName} — Results Analysis{/^\d{4}$/.test(label) && ` ${label}`}
+          <h1 ref={headingRef} tabIndex={-1} className="rr-report-title">
+            {reportTitle}
           </h1>
-          <dl className="dashboard-meta">
-            <div className="dashboard-meta-row">
+          <p className="rr-report-subtitle">Race Results Analysis</p>
+          <dl className="rr-report-meta">
+            <div className="rr-report-meta-item">
               <dt>Results</dt>
               <dd>{upload.resultCount.toLocaleString()} records</dd>
             </div>
-            <div className="dashboard-meta-row">
+            <div className="rr-report-meta-item">
               <dt>Format</dt>
               <dd>{upload.adapterName}</dd>
             </div>
+            {eventTypeSummary && (
+              <div className="rr-report-meta-item">
+                <dt>Event type</dt>
+                <dd>{eventTypeSummary}</dd>
+              </div>
+            )}
+            {raceDateSummary && (
+              <div className="rr-report-meta-item rr-report-meta-item--wide">
+                <dt>Race date</dt>
+                <dd>{raceDateSummary}</dd>
+              </div>
+            )}
+            {venueSummary && (
+              <div className="rr-report-meta-item rr-report-meta-item--wide">
+                <dt>Venue</dt>
+                <dd>{venueSummary}</dd>
+              </div>
+            )}
           </dl>
         </div>
         <button type="button" className="btn btn-primary no-print"
           onClick={() => window.print()} aria-label="Save analysis as PDF">
           Save as PDF
         </button>
-      </div>
+      </header>
 
       {loading && <div className="dashboard-loading" role="status" aria-live="polite" aria-busy="true">Loading statistics…</div>}
       {error && <div className="dashboard-error" role="alert">{error}</div>}
 
       {data?.stats && !loading && (
         <>
-          <nav className="report-nav no-print" aria-label="Jump to section">
-            <a href="#rr-summary" className="report-nav-link">Summary</a>
-            {data.weatherData && <a href="#rr-weather" className="report-nav-link">Weather</a>}
-            <a href="#rr-performance" className="report-nav-link">Finish Time Distribution</a>
-            <a href="#rr-cross-event" className="report-nav-link">Event Comparison</a>
-            <a href="#rr-attrition" className="report-nav-link">Completion Rates</a>
-            <a href="#rr-gender" className="report-nav-link">Gender Distribution</a>
-            <a href="#rr-age" className="report-nav-link">Age Distribution</a>
-            <a href="#rr-geography" className="report-nav-link">Geographic Distribution</a>
-          </nav>
           <div className="rr-dashboard-sections">
-            <FullStatsSections stats={data.stats} weather={data.weatherData as WeatherData | undefined} />
+            <FullStatsSections
+              stats={data.stats}
+              weather={data.weatherData as WeatherData | undefined}
+              selectedEventName={selectedEventName}
+              onSelectedEventChange={setSelectedEventName}
+            />
           </div>
         </>
       )}
@@ -2016,7 +3593,7 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
                           ))}
                         </tr>
                         <tr>
-                          <td>Mean Age</td>
+                          <td>Average Age</td>
                           {intervals.map(iv => (
                             <td key={iv.label}>{iv.stats.demographics.finisherAge.mean != null ? iv.stats.demographics.finisherAge.mean.toFixed(1) : '—'}</td>
                           ))}

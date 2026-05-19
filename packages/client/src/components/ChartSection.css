@@ -28,6 +28,85 @@
   width: 100%;
 }
 
+.chart-section-note {
+  margin: -0.65rem 0 0;
+  color: #6b7280;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.geo-unknown-note {
+  margin-top: -0.85rem;
+  font-size: 0.78rem;
+}
+
+.age-section--compact {
+  gap: 0.8rem;
+  padding: 1.15rem 1.25rem;
+}
+
+.age-section--compact .chart-section-note {
+  margin-top: -0.45rem;
+  font-size: 0.8rem;
+}
+
+.age-section--compact .stat-cards-row {
+  gap: 0.5rem;
+}
+
+.age-section--compact .stat-cards-row .stat-card {
+  flex-basis: 110px;
+  min-width: 96px;
+  padding: 0.62rem 0.75rem;
+}
+
+.age-highlight-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 0.5rem 0.85rem;
+}
+
+.age-highlight-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.age-highlight-label {
+  color: #6b7280;
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.age-highlight-value {
+  color: var(--color-primary);
+  font-size: 1.22rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.age-section--compact .insight-callout {
+  margin: 0;
+  padding: 0.48rem 0.8rem 0.52rem;
+}
+
+.age-section--compact .insight-callout-list {
+  gap: 0.2rem;
+}
+
+.age-section--compact .insight-callout-item {
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.age-section--compact .chart-wrap {
+  margin-top: 0;
+}
+
 .two-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -239,6 +318,16 @@
   background: var(--color-primary-light);
   color: var(--color-primary);
   border-color: var(--color-primary);
+}
+
+.metric-pill--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.metric-pill--disabled:hover {
+  border-color: #d1d5db;
+  color: #555;
 }
 
 /* ── Event Comparison empty state ─────────────────────────────────────────── */

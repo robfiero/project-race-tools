@@ -52,9 +52,11 @@ async function fetchSample(sampleId: string): Promise<UploadResponse> {
 // ─── Race Analytics demo data ─────────────────────────────────────────────────
 
 const RESULTS_SINGLE_DEMOS = [
-  { id: 'ghost-train-2024',                label: 'Ridgeline Trail Races — single 50K, ~90 starters',   year: '2024' },
+  { id: 'harbor-park-5k-results-2024',      label: 'Harbor Park 5K — single event, ~450 participants', year: '2024' },
+  { id: 'ghost-train-2024',                label: 'Ridgeline Trail Races — 25K + 50K, ~150 starters',   year: '2024' },
   { id: 'white-mountains-results-2024',    label: 'White Mountains Challenge — HM + 50K, ~240 starters',  year: '2024' },
   { id: 'mountain-endurance-results-2024', label: 'Mountain Endurance Challenge — 4 events, ~650 starters', year: '2024' },
+  { id: 'coyote-ridge-24hr-2024',          label: 'Coyote Ridge 24-Hour Endurance Run — fixed-time, ~88 starters', year: '2024' },
 ];
 
 const RESULTS_MULTI_DEMOS = [

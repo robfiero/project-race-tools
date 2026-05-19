@@ -210,7 +210,7 @@ const GENDER_ROWS: MetricRow[] = [
 
 const AGE_ROWS: MetricRow[] = [
   { label: 'Median Age', key: 'medianAge', precision: 0, neutral: true },
-  { label: 'Mean Age',   key: 'meanAge',               neutral: true },
+  { label: 'Average Age', key: 'meanAge',              neutral: true },
   { label: 'Youngest',   key: 'minAge',   precision: 0, neutral: true },
   { label: 'Oldest',     key: 'maxAge',   precision: 0, neutral: true },
 ];
@@ -1159,7 +1159,7 @@ function AgeRangeBandChart({ trends }: { trends: ComparisonStats['trends'] }) {
                 <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, padding: '8px 12px', fontSize: '0.8rem' }}>
                   <div style={{ fontWeight: 600, marginBottom: 4 }}>{label}</div>
                   {median != null && <div style={{ color: AGE_MEDIAN_COLOR }}>Median: {Math.round(median)} yrs</div>}
-                  {mean   != null && <div style={{ color: AGE_MEAN_COLOR }}>Mean: {Math.round(mean)} yrs</div>}
+                  {mean   != null && <div style={{ color: AGE_MEAN_COLOR }}>Average: {Math.round(mean)} yrs</div>}
                   {youngest != null && oldest != null && (
                     <div style={{ color: '#6b7280', marginTop: 2 }}>Range: {Math.round(youngest)}–{Math.round(oldest)} yrs</div>
                   )}
@@ -1171,7 +1171,7 @@ function AgeRangeBandChart({ trends }: { trends: ComparisonStats['trends'] }) {
             wrapperStyle={{ fontSize: '0.8rem' }}
             payload={[
               { value: 'Median Age', type: 'line', color: AGE_MEDIAN_COLOR, id: 'median' },
-              { value: 'Mean Age',   type: 'line', color: AGE_MEAN_COLOR,   id: 'mean' },
+              { value: 'Average Age', type: 'line', color: AGE_MEAN_COLOR,   id: 'mean' },
               { value: 'Min–Max Age Range', type: 'square', color: AGE_MEDIAN_COLOR, id: 'range' },
             ]}
           />
@@ -1557,7 +1557,7 @@ export default function ComparisonPage({ sessions, onBack }: Props) {
               <SectionHeader title="Age Trends" />
               <div className="trend-cards-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
                 <CmpSummaryCard title="Median Age" value={fmt(latestValue(t.medianAge), '', 0)} delta={deltaSubtitle(t.medianAge, 'yrs')} />
-                <CmpSummaryCard title="Mean Age"   value={fmt(latestValue(t.meanAge),   '', 1)} delta={deltaSubtitle(t.meanAge,   'yrs')} />
+                <CmpSummaryCard title="Average Age" value={fmt(latestValue(t.meanAge),   '', 1)} delta={deltaSubtitle(t.meanAge,   'yrs')} />
                 <CmpSummaryCard title="Youngest"   value={fmt(latestValue(t.minAge),    '', 0)} delta={deltaSubtitle(t.minAge,    'yrs')} />
                 <CmpSummaryCard title="Oldest"     value={fmt(latestValue(t.maxAge),    '', 0)} delta={deltaSubtitle(t.maxAge,    'yrs')} />
               </div>
@@ -1571,7 +1571,7 @@ export default function ComparisonPage({ sessions, onBack }: Props) {
                 keyChangesContent={
                   <CategoryKeyChanges trends={t} rows={[
                     kc('Median Age', t.medianAge, 'yrs', { neutral: true }),
-                    kc('Mean Age',   t.meanAge,   'yrs', { neutral: true }),
+                    kc('Average Age', t.meanAge,   'yrs', { neutral: true }),
                     kc('Youngest',   t.minAge,    'yrs', { neutral: true }),
                     kc('Oldest',     t.maxAge,    'yrs', { neutral: true }),
                   ]} />
