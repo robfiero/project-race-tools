@@ -1667,21 +1667,22 @@ input[type="datetime-local"].datetime-empty {
   border-top: 0;
 }
 
-/* Subsection heading — clearly important, close to section heading in weight */
 .rr-snap-subheading {
-  font-size: 1.12rem;
-  font-weight: 800;
-  color: #111827;
+  display: inline-block;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #1a1a1a;
   margin: 0;
-  letter-spacing: -0.01em;
 }
 
 .rr-snap-divider {
-  width: 44px;
+  width: 3rem;
   height: 3px;
-  margin-top: 0.45rem;
+  margin-top: 0.3rem;
   margin-bottom: 0.95rem;
-  background: #f0a15a;
+  background: var(--color-primary);
   border-radius: 999px;
 }
 

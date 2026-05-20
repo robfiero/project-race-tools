@@ -57,10 +57,16 @@ const CITIES_BY_STATE: Record<string, string[]> = {
   FL: ['Miami', 'Orlando', 'Tampa', 'Jacksonville'],
   CO: ['Denver', 'Boulder', 'Fort Collins', 'Colorado Springs'],
   CA: ['Los Angeles', 'San Francisco', 'San Diego', 'Sacramento'],
+  AZ: ['Phoenix', 'Flagstaff', 'Tucson', 'Sedona'],
+  UT: ['Salt Lake City', 'Park City', 'Provo', 'Moab'],
+  WY: ['Cheyenne', 'Laramie', 'Jackson', 'Casper'],
+  NM: ['Albuquerque', 'Santa Fe', 'Taos', 'Las Cruces'],
   TX: ['Austin', 'Dallas', 'Houston', 'San Antonio'],
   WA: ['Seattle', 'Spokane', 'Olympia', 'Bellevue'],
   OR: ['Portland', 'Eugene', 'Salem', 'Bend'],
+  IL: ['Chicago', 'Naperville', 'Evanston', 'Springfield'],
   MI: ['Detroit', 'Grand Rapids', 'Lansing', 'Ann Arbor'],
+  MN: ['Minneapolis', 'St Paul', 'Duluth', 'Rochester'],
   NC: ['Charlotte', 'Raleigh', 'Asheville', 'Durham'],
   GA: ['Atlanta', 'Savannah', 'Athens', 'Columbus'],
   CAN: ['Toronto', 'Montreal', 'Vancouver', 'Ottawa', 'Calgary'],
@@ -131,6 +137,19 @@ const COMMUNITY_5K_STATES: StateWeight[] = [
   { state: 'NY', weight: 4 },  { state: 'NJ', weight: 2 },
 ];
 
+const RIVERSIDE_5K_STATES: StateWeight[] = [
+  { state: 'MA', weight: 50 }, { state: 'NH', weight: 16 }, { state: 'RI', weight: 11 },
+  { state: 'CT', weight: 9 },  { state: 'ME', weight: 5 },  { state: 'VT', weight: 4 },
+  { state: 'NY', weight: 3 },  { state: 'NJ', weight: 2 },
+];
+
+const FOOTHILL_6HR_STATES: StateWeight[] = [
+  { state: 'CO', weight: 38 }, { state: 'UT', weight: 11 }, { state: 'WY', weight: 8 },
+  { state: 'NM', weight: 7 },  { state: 'AZ', weight: 7 },  { state: 'CA', weight: 6 },
+  { state: 'TX', weight: 5 },  { state: 'WA', weight: 4 },  { state: 'OR', weight: 4 },
+  { state: 'NY', weight: 3 },  { state: 'MA', weight: 2 },  { state: 'CAN', weight: 1 },
+];
+
 function maSpring5kWeather(startIso: string, endIso: string): SampleWeather {
   const d = startIso.slice(0, 11);
   return {
@@ -157,6 +176,104 @@ function maSpring5kWeather(startIso: string, endIso: string): SampleWeather {
         precipInch: 0, precipType: '', precipIntensity: '',
       },
     ],
+  };
+}
+
+type ShortRaceWeatherProfile = 'cool-clear' | 'overcast' | 'drizzle' | 'warm-sunny' | 'breezy';
+
+function maShortRaceWeather(startIso: string, endIso: string, profile: ShortRaceWeatherProfile): SampleWeather {
+  const d = startIso.slice(0, 11);
+  const profiles: Record<ShortRaceWeatherProfile, {
+    temps: [number, number, number];
+    feels: [number, number, number];
+    winds: [number, number, number];
+    gusts: [number, number, number];
+    dirs: [string, string, string];
+    weather: Array<Pick<WeatherSnapshot, 'weatherCode' | 'weatherDesc' | 'cloudCoverPct' | 'precipInch' | 'precipType' | 'precipIntensity'>>;
+  }> = {
+    'cool-clear': {
+      temps: [49, 55, 59],
+      feels: [47, 54, 58],
+      winds: [5.1, 5.8, 6.4],
+      gusts: [9.8, 11.0, 12.2],
+      dirs: ['NW', 'NW', 'WNW'],
+      weather: [
+        { weatherCode: 1, weatherDesc: 'Mainly clear', cloudCoverPct: 14, precipInch: 0, precipType: '', precipIntensity: '' },
+        { weatherCode: 1, weatherDesc: 'Mainly clear', cloudCoverPct: 18, precipInch: 0, precipType: '', precipIntensity: '' },
+        { weatherCode: 2, weatherDesc: 'Partly cloudy', cloudCoverPct: 28, precipInch: 0, precipType: '', precipIntensity: '' },
+      ],
+    },
+    overcast: {
+      temps: [53, 56, 58],
+      feels: [51, 54, 56],
+      winds: [7.2, 8.4, 9.0],
+      gusts: [14.2, 15.8, 16.6],
+      dirs: ['NE', 'ENE', 'E'],
+      weather: [
+        { weatherCode: 3, weatherDesc: 'Overcast', cloudCoverPct: 92, precipInch: 0, precipType: '', precipIntensity: '' },
+        { weatherCode: 3, weatherDesc: 'Overcast', cloudCoverPct: 88, precipInch: 0, precipType: '', precipIntensity: '' },
+        { weatherCode: 3, weatherDesc: 'Overcast', cloudCoverPct: 84, precipInch: 0, precipType: '', precipIntensity: '' },
+      ],
+    },
+    drizzle: {
+      temps: [57, 58, 60],
+      feels: [56, 57, 59],
+      winds: [6.6, 7.0, 6.2],
+      gusts: [13.0, 14.4, 12.8],
+      dirs: ['SE', 'SE', 'SSE'],
+      weather: [
+        { weatherCode: 51, weatherDesc: 'Light drizzle', cloudCoverPct: 94, precipInch: 0.02, precipType: 'rain', precipIntensity: 'light' },
+        { weatherCode: 61, weatherDesc: 'Light rain', cloudCoverPct: 96, precipInch: 0.05, precipType: 'rain', precipIntensity: 'light' },
+        { weatherCode: 51, weatherDesc: 'Light drizzle', cloudCoverPct: 90, precipInch: 0.02, precipType: 'rain', precipIntensity: 'light' },
+      ],
+    },
+    'warm-sunny': {
+      temps: [62, 70, 76],
+      feels: [62, 71, 77],
+      winds: [4.4, 5.2, 6.1],
+      gusts: [8.8, 10.2, 11.7],
+      dirs: ['SW', 'SSW', 'S'],
+      weather: [
+        { weatherCode: 1, weatherDesc: 'Mainly clear', cloudCoverPct: 12, precipInch: 0, precipType: '', precipIntensity: '' },
+        { weatherCode: 0, weatherDesc: 'Clear sky', cloudCoverPct: 6, precipInch: 0, precipType: '', precipIntensity: '' },
+        { weatherCode: 1, weatherDesc: 'Mainly clear', cloudCoverPct: 16, precipInch: 0, precipType: '', precipIntensity: '' },
+      ],
+    },
+    breezy: {
+      temps: [51, 58, 62],
+      feels: [48, 55, 59],
+      winds: [9.8, 11.6, 12.4],
+      gusts: [18.2, 21.5, 23.1],
+      dirs: ['W', 'WNW', 'NW'],
+      weather: [
+        { weatherCode: 2, weatherDesc: 'Partly cloudy', cloudCoverPct: 40, precipInch: 0, precipType: '', precipIntensity: '' },
+        { weatherCode: 2, weatherDesc: 'Mostly cloudy', cloudCoverPct: 62, precipInch: 0, precipType: '', precipIntensity: '' },
+        { weatherCode: 2, weatherDesc: 'Partly cloudy', cloudCoverPct: 48, precipInch: 0, precipType: '', precipIntensity: '' },
+      ],
+    },
+  };
+  const current = profiles[profile];
+  const times = [startIso, `${d}09:00`, endIso];
+  const labels = ['Race Start', '+1h', 'Race End'];
+  return {
+    venueAddress: '85 Riverway, Cambridge, MA 02138',
+    raceStart: startIso,
+    raceEnd: endIso,
+    snapshots: times.map((timeIso, i) => ({
+      timeIso,
+      label: labels[i],
+      tempF: current.temps[i],
+      feelsLikeF: current.feels[i],
+      weatherCode: current.weather[i].weatherCode,
+      weatherDesc: current.weather[i].weatherDesc,
+      cloudCoverPct: current.weather[i].cloudCoverPct,
+      windMph: current.winds[i],
+      windGustMph: current.gusts[i],
+      windDir: current.dirs[i],
+      precipInch: current.weather[i].precipInch,
+      precipType: current.weather[i].precipType,
+      precipIntensity: current.weather[i].precipIntensity,
+    })),
   };
 }
 
@@ -257,6 +374,70 @@ function nhSeptemberWeather(startIso: string, endIso: string): SampleWeather {
         precipInch: 0, precipType: '', precipIntensity: '',
       },
     ],
+  };
+}
+
+type SixHourWeatherProfile = 'cool-dry' | 'warm-storm-risk';
+
+function coSixHourWeather(startIso: string, endIso: string, profile: SixHourWeatherProfile): SampleWeather {
+  const d = startIso.slice(0, 11);
+  const profiles: Record<SixHourWeatherProfile, {
+    temps: [number, number, number, number];
+    feels: [number, number, number, number];
+    winds: [number, number, number, number];
+    gusts: [number, number, number, number];
+    dirs: [string, string, string, string];
+    weather: Array<Pick<WeatherSnapshot, 'weatherCode' | 'weatherDesc' | 'cloudCoverPct' | 'precipInch' | 'precipType' | 'precipIntensity'>>;
+  }> = {
+    'cool-dry': {
+      temps: [48, 58, 66, 70],
+      feels: [46, 56, 64, 68],
+      winds: [4.8, 6.2, 7.1, 7.8],
+      gusts: [9.4, 12.8, 14.6, 15.2],
+      dirs: ['W', 'WSW', 'SW', 'SSW'],
+      weather: [
+        { weatherCode: 1, weatherDesc: 'Mainly clear', cloudCoverPct: 12, precipInch: 0, precipType: '', precipIntensity: '' },
+        { weatherCode: 1, weatherDesc: 'Mainly clear', cloudCoverPct: 18, precipInch: 0, precipType: '', precipIntensity: '' },
+        { weatherCode: 2, weatherDesc: 'Partly cloudy', cloudCoverPct: 30, precipInch: 0, precipType: '', precipIntensity: '' },
+        { weatherCode: 2, weatherDesc: 'Partly cloudy', cloudCoverPct: 38, precipInch: 0, precipType: '', precipIntensity: '' },
+      ],
+    },
+    'warm-storm-risk': {
+      temps: [55, 67, 76, 73],
+      feels: [54, 66, 75, 72],
+      winds: [6.4, 8.9, 12.6, 10.8],
+      gusts: [13.2, 18.5, 27.4, 23.0],
+      dirs: ['S', 'SSW', 'W', 'NW'],
+      weather: [
+        { weatherCode: 2, weatherDesc: 'Partly cloudy', cloudCoverPct: 36, precipInch: 0, precipType: '', precipIntensity: '' },
+        { weatherCode: 2, weatherDesc: 'Mostly cloudy', cloudCoverPct: 58, precipInch: 0, precipType: '', precipIntensity: '' },
+        { weatherCode: 95, weatherDesc: 'Thunderstorm nearby', cloudCoverPct: 78, precipInch: 0.08, precipType: 'rain', precipIntensity: 'moderate' },
+        { weatherCode: 61, weatherDesc: 'Light rain', cloudCoverPct: 70, precipInch: 0.03, precipType: 'rain', precipIntensity: 'light' },
+      ],
+    },
+  };
+  const current = profiles[profile];
+  const times = [startIso, `${d}09:00`, `${d}11:00`, endIso];
+  const labels = ['Race Start', '+2h', '+4h', 'Race End'];
+  return {
+    venueAddress: '220 Foothill Loop, Golden, CO 80401',
+    raceStart: startIso,
+    raceEnd: endIso,
+    snapshots: times.map((timeIso, i) => ({
+      timeIso,
+      label: labels[i],
+      tempF: current.temps[i],
+      feelsLikeF: current.feels[i],
+      weatherCode: current.weather[i].weatherCode,
+      weatherDesc: current.weather[i].weatherDesc,
+      cloudCoverPct: current.weather[i].cloudCoverPct,
+      windMph: current.winds[i],
+      windGustMph: current.gusts[i],
+      windDir: current.dirs[i],
+      precipInch: current.weather[i].precipInch,
+      precipType: current.weather[i].precipType,
+      precipIntensity: current.weather[i].precipIntensity,
+    })),
   };
 }
 
@@ -426,6 +607,78 @@ export const RESULTS_SAMPLE_CONFIGS: Record<string, ResultsSampleConfig> = {
     stateWeights: COMMUNITY_5K_STATES,
     genderM: 0.46, ageMean: 36, ageStd: 13,
     weather: maSpring5kWeather('2024-05-18T08:00', '2024-05-18T09:30'),
+  },
+
+  // ── Riverside Community 5K — five-year road race trend demo ────────────────
+
+  'riverside-5k-results-2020': {
+    raceName: 'Riverside Community 5K',
+    events: [
+      {
+        distanceMiles: 3.11, count: 286,
+        dnfRate: 0.004, dnsRate: 0.08,
+        medianSecs: 30.5 * 60, timeStdSecs: 7.5 * 60,
+      },
+    ],
+    stateWeights: RIVERSIDE_5K_STATES,
+    genderM: 0.49, ageMean: 35, ageStd: 13,
+    weather: maShortRaceWeather('2020-05-16T08:00', '2020-05-16T10:00', 'cool-clear'),
+  },
+
+  'riverside-5k-results-2021': {
+    raceName: 'Riverside Community 5K',
+    events: [
+      {
+        distanceMiles: 3.11, count: 302,
+        dnfRate: 0.003, dnsRate: 0.07,
+        medianSecs: 29.8 * 60, timeStdSecs: 7.1 * 60,
+      },
+    ],
+    stateWeights: RIVERSIDE_5K_STATES,
+    genderM: 0.47, ageMean: 36, ageStd: 13,
+    weather: maShortRaceWeather('2021-05-15T08:00', '2021-05-15T10:00', 'overcast'),
+  },
+
+  'riverside-5k-results-2022': {
+    raceName: 'Riverside Community 5K',
+    events: [
+      {
+        distanceMiles: 3.11, count: 318,
+        dnfRate: 0.006, dnsRate: 0.09,
+        medianSecs: 31.4 * 60, timeStdSecs: 8.0 * 60,
+      },
+    ],
+    stateWeights: RIVERSIDE_5K_STATES,
+    genderM: 0.46, ageMean: 37, ageStd: 14,
+    weather: maShortRaceWeather('2022-05-21T08:00', '2022-05-21T10:00', 'drizzle'),
+  },
+
+  'riverside-5k-results-2023': {
+    raceName: 'Riverside Community 5K',
+    events: [
+      {
+        distanceMiles: 3.11, count: 296,
+        dnfRate: 0.002, dnsRate: 0.05,
+        medianSecs: 28.9 * 60, timeStdSecs: 6.8 * 60,
+      },
+    ],
+    stateWeights: RIVERSIDE_5K_STATES,
+    genderM: 0.45, ageMean: 36, ageStd: 13,
+    weather: maShortRaceWeather('2023-05-20T08:00', '2023-05-20T10:00', 'warm-sunny'),
+  },
+
+  'riverside-5k-results-2024': {
+    raceName: 'Riverside Community 5K',
+    events: [
+      {
+        distanceMiles: 3.11, count: 332,
+        dnfRate: 0.004, dnsRate: 0.06,
+        medianSecs: 29.4 * 60, timeStdSecs: 7.0 * 60,
+      },
+    ],
+    stateWeights: RIVERSIDE_5K_STATES,
+    genderM: 0.44, ageMean: 38, ageStd: 14,
+    weather: maShortRaceWeather('2024-05-18T08:00', '2024-05-18T10:00', 'breezy'),
   },
 
   // ── Ridgeline Trail Races — 25K + 50K ────────────────────────────────────
@@ -617,6 +870,46 @@ export const RESULTS_SAMPLE_CONFIGS: Record<string, ResultsSampleConfig> = {
     genderM: 0.60, ageMean: 40, ageStd: 10,
     weather: coWeather24hr('2024-06-22T06:00', '2024-06-23T06:00'),
   },
+
+  // ── Foothill 6-Hour Challenge — two-year fixed-time trend demo ─────────────
+
+  'foothill-6hr-results-2023': {
+    raceName: 'Foothill 6-Hour Challenge',
+    events: [{
+      distanceMiles: 0,
+      count: 118,
+      dnfRate: 0.22,
+      dnsRate: 0.08,
+      medianSecs: 0,
+      timeStdSecs: 0,
+      fixedTime: true,
+      durationSecs: 6 * 3600,
+      medianMiles: 32,
+      distanceStdMiles: 11,
+    }],
+    stateWeights: FOOTHILL_6HR_STATES,
+    genderM: 0.55, ageMean: 39, ageStd: 10,
+    weather: coSixHourWeather('2023-06-17T07:00', '2023-06-17T13:00', 'cool-dry'),
+  },
+
+  'foothill-6hr-results-2024': {
+    raceName: 'Foothill 6-Hour Challenge',
+    events: [{
+      distanceMiles: 0,
+      count: 124,
+      dnfRate: 0.26,
+      dnsRate: 0.07,
+      medianSecs: 0,
+      timeStdSecs: 0,
+      fixedTime: true,
+      durationSecs: 6 * 3600,
+      medianMiles: 29,
+      distanceStdMiles: 12,
+    }],
+    stateWeights: FOOTHILL_6HR_STATES,
+    genderM: 0.52, ageMean: 40, ageStd: 11,
+    weather: coSixHourWeather('2024-06-15T07:00', '2024-06-15T13:00', 'warm-storm-risk'),
+  },
 };
 
 // ─── CSV generation ───────────────────────────────────────────────────────────
@@ -671,26 +964,28 @@ export function generateResultsCSV(sampleId: string): string {
   const allByEvent: Participant[][] = config.events.map((ev, evIdx) => {
     const isFixedTime = ev.fixedTime === true && ev.durationSecs != null && ev.medianMiles != null;
 
-    // For fixed-time events: pre-generate a pool of unique integer distance buckets sampled
-    // without replacement so no 3+ finishers share a rounded mile (which would cause the
-    // event-type detector to classify it as fixed-distance instead of fixed-time).
+    // For fixed-time events: pre-generate rounded-mile distance buckets with at most two
+    // finishers per bucket. The detector treats 3+ finishers in one rounded-mile bucket as a
+    // fixed-distance event, while two per bucket gives short fixed-time demos enough capacity.
     const fixedTimeBuckets: number[] = [];
     if (isFixedTime) {
       const medMi = ev.medianMiles!;
       const stdMi = ev.distanceStdMiles ?? medMi * 0.25;
       const minB = Math.max(3, Math.floor(medMi * 0.20));
       const maxB = Math.ceil(medMi * 1.95);
-      const available = new Set(Array.from({ length: maxB - minB + 1 }, (_, i) => minB + i));
+      const available = new Map<number, number>(Array.from({ length: maxB - minB + 1 }, (_, i) => [minB + i, 2]));
       const needed = Math.ceil(ev.count * (1 - ev.dnsRate - ev.dnfRate)) + 10;
       for (let k = 0; k < needed && available.size > 0; k++) {
-        const candidates = [...available];
+        const candidates = [...available.keys()];
         const wts = candidates.map(d => {
           const z = (d - medMi) / stdMi;
           return Math.exp(-0.5 * z * z) + 0.02;
         });
         const chosen = rng.pickWeighted(candidates.map((d, j) => ({ value: d, weight: wts[j] })));
         fixedTimeBuckets.push(chosen);
-        available.delete(chosen);
+        const remaining = (available.get(chosen) ?? 1) - 1;
+        if (remaining <= 0) available.delete(chosen);
+        else available.set(chosen, remaining);
       }
       // Sort descending: highest mileage gets place 1
       fixedTimeBuckets.sort((a, b) => b - a);

@@ -33,6 +33,7 @@ import {
   directionOf,
   type KeyChangeRow,
 } from '../components/IntervalComparisonPanel.tsx';
+import { deriveParticipationEventNames, sortEventNames } from '../utils/deriveParticipationEventNames.ts';
 import './RaceResultsPage.css';
 
 // ─── Shared formatting helpers ────────────────────────────────────────────────
@@ -64,26 +65,6 @@ function fmtPace(secsPerMile: number): string {
   const s = totalSecs % 60;
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}/mi`;
   return `${m}:${String(s).padStart(2, '0')}/mi`;
-}
-
-function eventDistanceMiles(name: string): number {
-  const lower = name.toLowerCase();
-  if (/\bhalf[\s-]marathon\b/.test(lower)) return 13.1;
-  if (/\bmarathon\b/.test(lower)) return 26.2;
-  const km = name.match(/(\d+(?:\.\d+)?)\s*k(?:m\b|\b)/i);
-  if (km) return parseFloat(km[1]) * 0.621371;
-  const mi = name.match(/(\d+(?:\.\d+)?)\s*(?:mile[rs]?|mi)\b/i);
-  if (mi) return parseFloat(mi[1]);
-  return Infinity;
-}
-
-function sortEventNames(events: string[]): string[] {
-  return [...events].sort((a, b) => {
-    const da = eventDistanceMiles(a);
-    const db = eventDistanceMiles(b);
-    if (da !== db) return da - db;
-    return a.localeCompare(b);
-  });
 }
 
 const US_STATE_CODES = new Set([
@@ -634,7 +615,7 @@ function ParticipantAgeRange({ stats }: { stats?: AgeStats }) {
 function SelectedEventContext({ eventName }: { eventName?: string | null }) {
   if (!eventName) return null;
   return (
-    <p className="rr-selected-event-context">
+    <p className="rr-selected-event-context rr-selected-event-context--section-header">
       <span>Selected event: <strong>{eventName}</strong></span>
       <span className="rr-selected-event-context-separator" aria-hidden="true">·</span>
       <a href="#rr-report-controls">Change event ↑</a>
@@ -1235,7 +1216,7 @@ function PerformanceSection({
   return (
     <section className="chart-section rr-finish-distribution-section" aria-labelledby="rr-perf-heading">
       <SectionHeader
-        title={isFixedDist ? 'Finish Performance' : 'Distance Performance'}
+        title={isFixedDist ? 'Finish Times' : 'Distance Performance'}
         contextStrip={showSelectedEventContext ? <SelectedEventContext eventName={activeEvent?.eventName} /> : undefined}
       />
       <p className="rr-perf-intro">
@@ -2339,7 +2320,7 @@ function FullStatsSections({
   const activeGeoEvent = geographicDistributionByEvent[activeGeoEventIdx];
   const geographicStats = activeGeoEvent?.geographic ?? stats.geographic;
   const activePerformanceEvent = stats.performance.events[activeByEventIdx(stats.performance.events, selectedEventName)];
-  const performanceLinkLabel = activePerformanceEvent?.eventType === 'fixed-time' ? 'Distance Performance' : 'Finish Performance';
+  const performanceLinkLabel = activePerformanceEvent?.eventType === 'fixed-time' ? 'Distance Performance' : 'Finish Times';
   return (
     <>
       <div id="rr-summary">
@@ -2371,7 +2352,7 @@ function FullStatsSections({
           aria-label="Report controls"
         >
           <div className="rr-selected-analysis-intro">
-            <h2>Selected Event Analysis</h2>
+            <h2>Selected Event</h2>
             <p>Choose an event below to control the detailed sections that follow.</p>
           </div>
           <SelectedEventSelector
@@ -3042,7 +3023,7 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
   const dnsCountTrend    = intervals.map(iv => ({ label: iv.label, value: iv.stats.summary.dns }));
   const startersTrend    = intervals.map(iv => ({ label: iv.label, value: iv.stats.attrition.overall.starters }));
   const dnfTrend        = intervals.map(iv => ({ label: iv.label, value: iv.stats.summary.dnf }));
-  const participationEventNames = sortEventNames(Array.from(new Set(intervals.flatMap(iv => iv.stats.attrition.byEvent.map(r => r.name)))));
+  const participationEventNames = deriveParticipationEventNames(intervals);
   const hasEventPerformanceTrends = participationEventNames.length > 0;
   // Stable year-indexed colors shared by all bar charts and year pills in this report.
   const colorCount      = Math.max(intervals.length, sessions.length);
@@ -3096,9 +3077,20 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
   const selectedTrendEventRows = intervals.map((iv, index) => ({
     interval: iv,
     yearColor: yearColors[index],
-    row: activeTrendEventName
-      ? iv.stats.attrition.byEvent.find(event => event.name === activeTrendEventName) ?? null
-      : null,
+    row: (() => {
+      if (!activeTrendEventName) return null;
+      const eventRow = iv.stats.attrition.byEvent.find(event => event.name === activeTrendEventName);
+      if (eventRow) return eventRow;
+
+      const intervalEventNames = new Set([
+        ...iv.stats.performance.events.map(event => event.eventName),
+        ...iv.stats.ageDistributionByEvent.map(event => event.eventName),
+        ...iv.stats.geographicDistributionByEvent.map(event => event.eventName),
+      ]);
+      return intervalEventNames.size === 1 && intervalEventNames.has(activeTrendEventName)
+        ? { ...iv.stats.attrition.overall, name: activeTrendEventName }
+        : null;
+    })(),
   }));
   const hasSelectedTrendEventRows = selectedTrendEventRows.some(item => item.row != null);
   const demographicInsights = firstInterval && lastInterval ? (() => {

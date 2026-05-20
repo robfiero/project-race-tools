@@ -61,6 +61,23 @@ const RESULTS_SINGLE_DEMOS = [
 
 const RESULTS_MULTI_DEMOS = [
   {
+    label: 'Riverside Community 5K — 2020–2024',
+    years: [
+      { id: 'riverside-5k-results-2020', year: '2020' },
+      { id: 'riverside-5k-results-2021', year: '2021' },
+      { id: 'riverside-5k-results-2022', year: '2022' },
+      { id: 'riverside-5k-results-2023', year: '2023' },
+      { id: 'riverside-5k-results-2024', year: '2024' },
+    ],
+  },
+  {
+    label: 'Foothill 6-Hour Challenge — 2023, 2024',
+    years: [
+      { id: 'foothill-6hr-results-2023', year: '2023' },
+      { id: 'foothill-6hr-results-2024', year: '2024' },
+    ],
+  },
+  {
     label: 'Ridgeline Trail Races — 2022, 2023, 2024',
     years: [
       { id: 'ghost-train-2022', year: '2022' },
