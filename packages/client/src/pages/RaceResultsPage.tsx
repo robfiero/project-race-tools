@@ -3,7 +3,7 @@ import {
   type ChangeEvent, type DragEvent, type FormEvent, type ReactNode,
 } from 'react';
 import {
-  BarChart, Bar, Cell, LabelList, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  BarChart, Bar, Cell, LabelList, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer,
 } from 'recharts';
 import { apiUrl } from '../api.ts';
@@ -65,6 +65,35 @@ function fmtPace(secsPerMile: number): string {
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}/mi`;
   return `${m}:${String(s).padStart(2, '0')}/mi`;
 }
+
+function eventDistanceMiles(name: string): number {
+  const lower = name.toLowerCase();
+  if (/\bhalf[\s-]marathon\b/.test(lower)) return 13.1;
+  if (/\bmarathon\b/.test(lower)) return 26.2;
+  const km = name.match(/(\d+(?:\.\d+)?)\s*k(?:m\b|\b)/i);
+  if (km) return parseFloat(km[1]) * 0.621371;
+  const mi = name.match(/(\d+(?:\.\d+)?)\s*(?:mile[rs]?|mi)\b/i);
+  if (mi) return parseFloat(mi[1]);
+  return Infinity;
+}
+
+function sortEventNames(events: string[]): string[] {
+  return [...events].sort((a, b) => {
+    const da = eventDistanceMiles(a);
+    const db = eventDistanceMiles(b);
+    if (da !== db) return da - db;
+    return a.localeCompare(b);
+  });
+}
+
+const US_STATE_CODES = new Set([
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+  'DC',
+]);
 
 function displayGenderLabel(gender: string): string {
   const trimmed = gender.trim();
@@ -2573,16 +2602,23 @@ interface ResultsTrendCardProps {
   precision?: number;
   formatValue?: (v: number) => string;
   deltaInvert?: boolean;
+  barColors?: string[];
+  showBarLabels?: boolean;
+  formatDelta?: (delta: number, firstLabel?: string) => string;
+  featuredValue?: number | null;
+  featuredSub?: string;
 }
 
 function ResultsTrendCard({
-  title, data, unit = '', precision = 1, formatValue, deltaInvert = false,
+  title, data, unit = '', precision = 1, formatValue, deltaInvert = false, barColors, showBarLabels = false, formatDelta,
+  featuredValue, featuredSub,
 }: ResultsTrendCardProps) {
   if (data.length === 0) return null;
 
   const current = data[data.length - 1].value;
   const first = data[0].value;
   const delta = current !== null && first !== null ? current - first : null;
+  const primaryValue = featuredValue !== undefined ? featuredValue : current;
 
   let deltaClass = 'trend-card-delta--neutral';
   let deltaSign = '';
@@ -2601,27 +2637,35 @@ function ResultsTrendCard({
 
   const chartData = data.map(d => ({ label: d.label, value: d.value ?? 0 }));
   // Each bar = one year — use the shared year palette so bars match year pills.
-  const colors = comparisonPalette(chartData.length);
+  const colors = barColors ?? comparisonPalette(chartData.length);
+  const firstLabel = data[0]?.label;
+  const deltaUnit = unit === '%' ? ' pts' : unit;
 
   return (
-    <div className="trend-card card">
+    <div className={`trend-card card${showBarLabels ? ' trend-card--labeled' : ''}`}>
       <div className="trend-card-header">
         <span className="trend-card-title">{title}</span>
-        {delta !== null && (
+        {featuredSub ? (
+          <span className="trend-card-delta trend-card-delta--neutral">{featuredSub}</span>
+        ) : delta !== null && (
           <span className={`trend-card-delta ${deltaClass}`}>
-            {deltaSign}{display(delta)}{unit} overall
+            {formatDelta ? formatDelta(delta, firstLabel) : `${deltaSign}${display(delta)}${deltaUnit}${firstLabel ? ` since ${firstLabel}` : ''}`}
           </span>
         )}
       </div>
-      <div className="trend-card-value">{display(current)}{unit}</div>
+      <div className="trend-card-value">{display(primaryValue)}{unit}</div>
       <div className="trend-card-chart" role="img" aria-label={`${title} trend`}>
-        <ResponsiveContainer width="100%" height={70}>
-          <BarChart data={chartData} margin={{ top: 2, right: 4, bottom: 0, left: 4 }}>
-            <XAxis dataKey="label" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+        <ResponsiveContainer width="100%" height={showBarLabels ? 96 : 70}>
+          <BarChart data={chartData} margin={{ top: showBarLabels ? 16 : 2, right: 4, bottom: 0, left: 4 }}>
+            <XAxis dataKey="label" tick={{ fontSize: showBarLabels ? 10 : 9 }} axisLine={false} tickLine={false} />
             <YAxis hide domain={[0, 'auto']} />
             <Tooltip formatter={(v: number) => [display(v), title]} contentStyle={{ fontSize: '0.8rem' }} />
             <Bar dataKey="value" radius={[3, 3, 0, 0]}>
               {chartData.map((_, i) => <Cell key={i} fill={colors[i]} />)}
+              {showBarLabels && (
+                <LabelList dataKey="value" position="top" formatter={(v: number) => `${display(v)}${unit}`}
+                  style={{ fontSize: '0.62rem', fill: '#4b5563', fontWeight: 700 }} />
+              )}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -2665,10 +2709,9 @@ interface ICGroup {
 interface RaceKeyChangesProps {
   trends: ResultsComparisonTrends;
   intervals: ResultsIntervalStats[];
-  isFixedDist: boolean;
 }
 
-function RaceKeyChanges({ trends, intervals, isFixedDist }: RaceKeyChangesProps) {
+function RaceKeyChanges({ trends, intervals }: RaceKeyChangesProps) {
   if (intervals.length < 2) return <p className="trend-line-empty">Need at least two intervals to show key changes.</p>;
 
   const firstLabel = intervals[0].label;
@@ -2679,11 +2722,13 @@ function RaceKeyChanges({ trends, intervals, isFixedDist }: RaceKeyChangesProps)
   }
 
   const dnsRateData   = derived(iv => iv.stats.attrition.overall.dnsRate);
-  const maleFinPctData = derived(iv => iv.stats.demographics.finisherGender.malePercent);
+  const femaleParticipantPctData = derived(iv => iv.stats.demographics.gender.femalePercent);
+  const maleParticipantPctData = derived(iv => iv.stats.demographics.gender.malePercent);
+  const nbParticipantPctData = derived(iv => iv.stats.demographics.gender.nonBinaryPercent);
 
   const rows: KeyChangeRow[] = [
     {
-      label: 'Total Entrants',
+      label: 'Total Participants',
       formattedDelta: fmtCountDelta(seriesDelta(trends.totalEntrants)),
       direction: directionOf(seriesDelta(trends.totalEntrants), 0.5),
       neutral: false,
@@ -2712,32 +2757,22 @@ function RaceKeyChanges({ trends, intervals, isFixedDist }: RaceKeyChangesProps)
       direction: directionOf(seriesDelta(dnsRateData), 0.05, true),
       neutral: false,
     },
-    ...(isFixedDist ? [{
-      label: 'Median Finish Time',
-      formattedDelta: fmtTimeDelta(seriesDelta(trends.medianFinishTimeSeconds)),
-      direction: directionOf(seriesDelta(trends.medianFinishTimeSeconds), 30, true) as KeyChangeRow['direction'],
-      neutral: false,
-    }] : []),
     {
-      label: 'Female Finishers %',
-      formattedDelta: fmtPtsDelta(seriesDelta(trends.femaleFinisherPercent)),
-      direction: directionOf(seriesDelta(trends.femaleFinisherPercent), 0.05),
+      label: 'Female Participants %',
+      formattedDelta: fmtPtsDelta(seriesDelta(femaleParticipantPctData)),
+      direction: directionOf(seriesDelta(femaleParticipantPctData), 0.05),
       neutral: true,
     },
     {
-      label: 'Male Finishers %',
-      formattedDelta: fmtPtsDelta(seriesDelta(maleFinPctData)),
-      direction: directionOf(seriesDelta(maleFinPctData), 0.05),
+      label: 'Male Participants %',
+      formattedDelta: fmtPtsDelta(seriesDelta(maleParticipantPctData)),
+      direction: directionOf(seriesDelta(maleParticipantPctData), 0.05),
       neutral: true,
     },
     {
-      label: 'Median Finisher Age',
-      formattedDelta: (() => {
-        const d = seriesDelta(trends.medianFinisherAge);
-        if (d === null || Math.abs(d) < 0.05) return 'unchanged';
-        return `${d > 0 ? '+' : ''}${d.toFixed(1)} yrs`;
-      })(),
-      direction: directionOf(seriesDelta(trends.medianFinisherAge), 0.05),
+      label: 'Non-Binary Participants %',
+      formattedDelta: fmtPtsDelta(seriesDelta(nbParticipantPctData)),
+      direction: directionOf(seriesDelta(nbParticipantPctData), 0.05),
       neutral: true,
     },
   ];
@@ -2797,8 +2832,8 @@ function ResultsIntervalComparisonTable({
   }
 
   const rows: ICRow[] = [
-    // ── Total Entrants ──────────────────────────────────────────────────────────
-    { label: 'Total Entrants',      values: intervals.map(iv => iv.stats.summary.totalEntrants), fmt: fmtN0 },
+    // ── Total Participants ──────────────────────────────────────────────────────
+    { label: 'Total Participants',  values: intervals.map(iv => iv.stats.summary.totalEntrants), fmt: fmtN0 },
     { label: 'Male',                values: intervals.map(iv => atr(iv, 'Male', 'total')), fmt: fmtN0, sub: true },
     { label: 'Female',              values: intervals.map(iv => atr(iv, 'Female', 'total')), fmt: fmtN0, sub: true },
     { label: 'Non-Binary',          values: intervals.map(iv => atr(iv, 'Non-Binary', 'total')), fmt: fmtN0, sub: true },
@@ -2942,19 +2977,22 @@ interface ComparisonDashboardProps {
 
 function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const { theme } = useTheme();
   const [data, setData] = useState<ResultsComparisonStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [trendsTab, setTrendsTab] = useState<'summary' | 'changes'>('summary');
-  const [poTab, setPoTab] = useState<'charts' | 'table'>('charts');
-  const [poMetric, setPoMetric] = useState<'counts' | 'rates'>('counts');
-  const [eventTab, setEventTab] = useState<'charts' | 'table'>('charts');
-  const [eventMetric, setEventMetric] = useState<'finishers' | 'finishRate'>('finishers');
+  const [selectedTrendEventName, setSelectedTrendEventName] = useState<string | null>(null);
+  const [eventPerfTab, setEventPerfTab] = useState<'charts' | 'table'>('charts');
+  const [eventPerfMetric, setEventPerfMetric] = useState<'fastestPace' | 'averagePace' | 'medianPace' | 'lastPace' | 'paceSpread' | 'shortestDistance' | 'averageDistance' | 'medianDistance' | 'farthestDistance' | 'distanceSpread'>('medianPace');
   const [genderTab, setGenderTab] = useState<'charts' | 'table'>('charts');
-  const [ageTrendsTab, setAgeTrendsTab] = useState<'charts' | 'table'>('charts');
+  const [ageTrendsTab, setAgeTrendsTab] = useState<'summary' | 'table'>('summary');
   const [ageDistTab, setAgeDistTab] = useState<'charts' | 'table'>('charts');
+  const [ageDistGender, setAgeDistGender] = useState<'overall' | 'male' | 'female' | 'nonBinary'>('overall');
   const [timesTab, setTimesTab] = useState<'charts' | 'table'>('charts');
-  const [geoTab, setGeoTab] = useState<'charts' | 'table'>('charts');
+  const [finishTrendMetric, setFinishTrendMetric] = useState<'fastest' | 'average' | 'median' | 'last' | 'spread'>('median');
+  const [geoTab, setGeoTab] = useState<'summary' | 'table'>('summary');
+  const [selectedGeoTab, setSelectedGeoTab] = useState<'summary' | 'table'>('summary');
   const [weatherTab, setWeatherTab] = useState<'charts' | 'table'>('charts');
 
   useEffect(() => { headingRef.current?.focus(); }, []);
@@ -2985,42 +3023,246 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
   const isFixedDist = data?.primaryEventType === 'fixed-distance';
   const intervals = data?.intervals ?? [];
   const lastInterval = intervals[intervals.length - 1];
-  const hasMultiEvent = intervals.some(iv => iv.stats.crossEvent.rows.length > 0);
   const weatherIntervals = intervals.filter(iv => iv.weatherData);
   const hasWeather = weatherIntervals.length > 0;
   const dnsRateTrend    = intervals.map(iv => ({ label: iv.label, value: iv.stats.attrition.overall.dnsRate }));
   const maleFinPctTrend = intervals.map(iv => ({ label: iv.label, value: iv.stats.demographics.finisherGender.malePercent }));
   const nbFinPctTrend   = intervals.map(iv => ({ label: iv.label, value: iv.stats.demographics.finisherGender.nonBinaryPercent }));
-  const statesTrend     = intervals.map(iv => ({ label: iv.label, value: Object.keys(iv.stats.geographic.byState).length }));
-  const countriesTrend  = intervals.map(iv => ({ label: iv.label, value: Object.keys(iv.stats.geographic.byCountry).length }));
   const usTrend         = intervals.map(iv => ({ label: iv.label, value: iv.stats.geographic.usParticipants }));
   const intlTrend       = intervals.map(iv => ({ label: iv.label, value: iv.stats.geographic.internationalParticipants }));
+  const usStatesTrend   = intervals.map(iv => ({
+    label: iv.label,
+    value: Object.keys(iv.stats.geographic.byState).filter(state => US_STATE_CODES.has(state.toUpperCase())).length,
+  }));
+  const nonUsStateProvinceTrend = intervals.map(iv => ({
+    label: iv.label,
+    value: Object.keys(iv.stats.geographic.byState).filter(state => !US_STATE_CODES.has(state.toUpperCase())).length,
+  }));
+  const totalParticipantsTrend = intervals.map(iv => ({ label: iv.label, value: iv.stats.summary.totalEntrants }));
+  const dnsCountTrend    = intervals.map(iv => ({ label: iv.label, value: iv.stats.summary.dns }));
+  const startersTrend    = intervals.map(iv => ({ label: iv.label, value: iv.stats.attrition.overall.starters }));
   const dnfTrend        = intervals.map(iv => ({ label: iv.label, value: iv.stats.summary.dnf }));
-  const allEventNames   = Array.from(new Set(intervals.flatMap(iv => iv.stats.crossEvent.rows.map(r => r.name))));
+  const participationEventNames = sortEventNames(Array.from(new Set(intervals.flatMap(iv => iv.stats.attrition.byEvent.map(r => r.name)))));
+  const hasEventPerformanceTrends = participationEventNames.length > 0;
   // Stable year-indexed colors shared by all bar charts and year pills in this report.
-  const yearColors      = comparisonPalette(intervals.length);
+  const colorCount      = Math.max(intervals.length, sessions.length);
+  const baseYearColors  = comparisonPalette(colorCount);
+  const trendYearPalette = [theme.primary, '#2563EB', '#16A34A', '#7C3AED', '#0891B2'];
+  const trendYearColorNames = ['orange', 'blue', 'green', 'purple', 'teal'];
+  const yearColors      = Array.from({ length: colorCount }, (_, i) => trendYearPalette[i] ?? baseYearColors[i]);
+  const yearColorName   = (index: number) => trendYearColorNames[index] ?? comparisonPaletteName(index);
+  const totalRecords    = intervals.reduce((sum, iv) => sum + iv.resultCount, 0);
+  const eventCount      = lastInterval?.stats.performance.events.length ?? 0;
+  const eventTypeSummary = data
+    ? `${data.primaryEventType === 'fixed-time' ? 'Fixed-time event' : 'Fixed-distance event'}${eventCount > 1 ? ` · ${eventCount} events` : ''}`
+    : null;
+  const raceDateItems = intervals
+    .map(iv => iv.weatherData ? {
+      label: iv.label,
+      date: formatRaceDatetime(iv.weatherData.raceStartIso).date,
+    } : null)
+    .filter((value): value is { label: string; date: string } => value != null)
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  const venueSummary = intervals
+    .map(iv => iv.weatherData?.venueAddress?.trim())
+    .find((value): value is string => !!value) ?? null;
   // Age trend flat-line check: spread < 1 year across all intervals.
   const ageFlat = intervals.length > 1 && (() => {
     const vals = (trends?.medianFinisherAge ?? []).map(d => d.value).filter((v): v is number => v != null);
     return vals.length >= 2 && Math.max(...vals) - Math.min(...vals) < 1.0;
   })();
+  const firstInterval = intervals[0];
+  const participationEventKey = participationEventNames.join('|');
+  useEffect(() => {
+    if (participationEventNames.length === 0) return;
+    if (!selectedTrendEventName || !participationEventNames.includes(selectedTrendEventName)) {
+      setSelectedTrendEventName(participationEventNames[0]);
+    }
+  }, [participationEventKey, selectedTrendEventName]);
+  const activeTrendEventName = selectedTrendEventName && participationEventNames.includes(selectedTrendEventName)
+    ? selectedTrendEventName
+    : participationEventNames[0] ?? null;
+  const selectedTrendContextStrip = activeTrendEventName ? (
+    <p className="rr-selected-event-context rr-selected-event-context--section-header">
+      <span>Selected event: <strong>{activeTrendEventName}</strong></span>
+      {participationEventNames.length > 1 && (
+        <>
+          <span className="rr-selected-event-context-separator" aria-hidden="true">·</span>
+          <a href="#rr-selected-event-trends">Change event ↑</a>
+        </>
+      )}
+    </p>
+  ) : undefined;
+  const selectedTrendEventRows = intervals.map((iv, index) => ({
+    interval: iv,
+    yearColor: yearColors[index],
+    row: activeTrendEventName
+      ? iv.stats.attrition.byEvent.find(event => event.name === activeTrendEventName) ?? null
+      : null,
+  }));
+  const hasSelectedTrendEventRows = selectedTrendEventRows.some(item => item.row != null);
+  const demographicInsights = firstInterval && lastInterval ? (() => {
+    const firstLabel = firstInterval.label;
+    const lastLabel = lastInterval.label;
+    const gender = {
+      female: lastInterval.stats.demographics.finisherGender.femalePercent - firstInterval.stats.demographics.finisherGender.femalePercent,
+      male: lastInterval.stats.demographics.finisherGender.malePercent - firstInterval.stats.demographics.finisherGender.malePercent,
+      nonBinary: lastInterval.stats.demographics.finisherGender.nonBinaryPercent - firstInterval.stats.demographics.finisherGender.nonBinaryPercent,
+    };
+    const genderInsights = [
+      Math.abs(gender.female) < 0.5
+        ? `Female finishers remained relatively stable from ${firstLabel} to ${lastLabel}.`
+        : `Female finishers ${gender.female > 0 ? 'increased' : 'decreased'} by ${Math.abs(gender.female).toFixed(1)} pts from ${firstLabel} to ${lastLabel}.`,
+      Math.abs(gender.male) < 0.5
+        ? `Male finishers remained relatively stable from ${firstLabel} to ${lastLabel}.`
+        : `Male finishers ${gender.male > 0 ? 'increased' : 'decreased'} by ${Math.abs(gender.male).toFixed(1)} pts from ${firstLabel} to ${lastLabel}.`,
+      Math.abs(gender.nonBinary) < 0.5
+        ? `Non-Binary finishers remained relatively stable across the comparison period.`
+        : `Non-Binary finishers ${gender.nonBinary > 0 ? 'increased' : 'decreased'} by ${Math.abs(gender.nonBinary).toFixed(1)} pts from ${firstLabel} to ${lastLabel}.`,
+    ].slice(0, 3);
+
+    const firstAge = firstInterval.stats.demographics.finisherAge;
+    const lastAge = lastInterval.stats.demographics.finisherAge;
+    const medianDelta = firstAge.median != null && lastAge.median != null ? lastAge.median - firstAge.median : null;
+    const averageDelta = firstAge.mean != null && lastAge.mean != null ? lastAge.mean - firstAge.mean : null;
+    const ageInsights: string[] = [];
+    if (medianDelta != null) {
+      ageInsights.push(Math.abs(medianDelta) < 1
+        ? `Median finisher age remained stable from ${firstLabel} to ${lastLabel}.`
+        : `Median finisher age ${medianDelta > 0 ? 'increased' : 'decreased'} by ${Math.abs(medianDelta).toFixed(1)} years from ${firstLabel} to ${lastLabel}.`);
+    }
+    if (averageDelta != null) {
+      ageInsights.push(Math.abs(averageDelta) < 1
+        ? `Average age changed by less than 1 year across the comparison period.`
+        : `Average age ${averageDelta > 0 ? 'increased' : 'decreased'} by ${Math.abs(averageDelta).toFixed(1)} years from ${firstLabel} to ${lastLabel}.`);
+    }
+    if (firstAge.max != null && lastAge.max != null && firstAge.max !== lastAge.max) {
+      ageInsights.push(`The oldest finisher changed from ${firstAge.max} to ${lastAge.max}.`);
+    }
+
+    const latestBuckets = lastAge.buckets;
+    const firstBuckets = firstAge.buckets;
+    const bucketChanges = latestBuckets.map(bucket => {
+      const firstBucket = firstBuckets.find(item => item.label === bucket.label);
+      return {
+        label: bucket.label,
+        first: firstBucket?.count ?? 0,
+        latest: bucket.count,
+        delta: bucket.count - (firstBucket?.count ?? 0),
+      };
+    });
+    const largestBucketIncrease = bucketChanges.reduce<typeof bucketChanges[number] | null>((best, bucket) => {
+      if (bucket.delta <= 0) return best;
+      return !best || bucket.delta > best.delta ? bucket : best;
+    }, null);
+    const largestLatestBucket = latestBuckets.reduce<typeof latestBuckets[number] | null>((best, bucket) => {
+      return !best || bucket.count > best.count ? bucket : best;
+    }, null);
+    const stableBucket = bucketChanges.find(bucket => bucket.latest > 0 && Math.abs(bucket.delta) < 3);
+    const ageDistributionInsights: string[] = [];
+    if (largestBucketIncrease) {
+      ageDistributionInsights.push(`${largestBucketIncrease.label} finishers increased from ${largestBucketIncrease.first.toLocaleString()} to ${largestBucketIncrease.latest.toLocaleString()}.`);
+    }
+    if (largestLatestBucket) {
+      ageDistributionInsights.push(`${largestLatestBucket.label} was the largest finisher age group in ${lastLabel}.`);
+    }
+    if (stableBucket) {
+      ageDistributionInsights.push(`${stableBucket.label} finishers were relatively stable across the comparison period.`);
+    }
+
+    return {
+      gender: genderInsights,
+      age: ageInsights.slice(0, 3),
+      ageDistribution: ageDistributionInsights.slice(0, 3),
+    };
+  })() : { gender: [], age: [], ageDistribution: [] };
+  const latestGender = lastInterval?.stats.demographics.gender;
+  const firstGender = firstInterval?.stats.demographics.gender;
+  const trendGenderColors = genderColors(theme);
+  const genderTrendSummary = latestGender && firstGender ? [
+    {
+      label: 'Male',
+      count: latestGender.male,
+      firstCount: firstGender.male,
+      value: latestGender.malePercent,
+      delta: latestGender.malePercent - firstGender.malePercent,
+      color: trendGenderColors.M,
+    },
+    {
+      label: 'Female',
+      count: latestGender.female,
+      firstCount: firstGender.female,
+      value: latestGender.femalePercent,
+      delta: latestGender.femalePercent - firstGender.femalePercent,
+      color: trendGenderColors.F,
+    },
+    {
+      label: 'Non-Binary',
+      count: latestGender.nonBinary,
+      firstCount: firstGender.nonBinary,
+      value: latestGender.nonBinaryPercent,
+      delta: latestGender.nonBinaryPercent - firstGender.nonBinaryPercent,
+      color: trendGenderColors.NB,
+    },
+  ].filter(item => item.count > 0 || item.firstCount > 0 || Math.abs(item.delta) >= 0.05) : [];
 
   return (
     <div className="rr-dashboard">
-      <div className="dashboard-header">
-        <div className="dashboard-header-left">
+      <header className="rr-report-header">
+        <div className="rr-report-header-main">
           <button type="button" className="btn-ghost dashboard-back no-print" onClick={onBack}>
             ← New analysis
           </button>
-          <h1 ref={headingRef} tabIndex={-1} className="dashboard-title">
-            {raceName} — {sessions.length}-Year Comparison
+          <h1 ref={headingRef} tabIndex={-1} className="rr-report-title">
+            <span className="rr-report-title-main">{raceName}</span>
+            <span className="rr-report-title-subline">{sessions.length}-Year Comparison</span>
           </h1>
+          <p className="rr-report-subtitle">Race Results Trend Analysis</p>
+          <dl className="rr-report-meta">
+            {totalRecords > 0 && (
+              <div className="rr-report-meta-item">
+                <dt>Results</dt>
+                <dd>{totalRecords.toLocaleString()} records</dd>
+              </div>
+            )}
+            <div className="rr-report-meta-item">
+              <dt>Format</dt>
+              <dd>Race Results</dd>
+            </div>
+            {eventTypeSummary && (
+              <div className="rr-report-meta-item">
+                <dt>Event type</dt>
+                <dd>{eventTypeSummary}</dd>
+              </div>
+            )}
+            {raceDateItems.length > 0 && (
+              <div className="rr-report-meta-item rr-report-meta-item--wide">
+                <dt>Race dates</dt>
+                <dd>
+                  <span className="rr-report-date-list">
+                    {raceDateItems.map(item => (
+                      <span key={item.label} className="rr-report-date-row">
+                        <span className="rr-report-date-year">{item.label}:</span>
+                        <span>{item.date}</span>
+                      </span>
+                    ))}
+                  </span>
+                </dd>
+              </div>
+            )}
+            {venueSummary && (
+              <div className="rr-report-meta-item rr-report-meta-item--wide">
+                <dt>Venue</dt>
+                <dd>{venueSummary}</dd>
+              </div>
+            )}
+          </dl>
           <div className="comparison-intervals" aria-label="Years being compared">
             {sessions.map((s, i) => (
               <span
                 key={s.sessionId}
                 className="comparison-interval-pill"
-                aria-label={`${s.label}, shown in ${comparisonPaletteName(i)} throughout report`}
+                aria-label={`${s.label}, shown in ${yearColorName(i)} throughout report`}
               >
                 <span
                   className="comparison-interval-pill-swatch"
@@ -3036,31 +3278,19 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
           onClick={() => window.print()} aria-label="Save as PDF">
           Save as PDF
         </button>
-      </div>
+      </header>
 
       {loading && <div className="dashboard-loading" role="status" aria-live="polite" aria-busy="true">Loading comparison…</div>}
       {error && <div className="dashboard-error" role="alert">{error}</div>}
 
       {data && trends && !loading && lastInterval && (
         <>
-          <nav className="report-nav no-print" aria-label="Jump to section">
-            <a href="#rr-trends" className="report-nav-link">Key Trends</a>
-            <a href="#rr-participation" className="report-nav-link">Participation & Outcomes</a>
-            <a href="#rr-times" className="report-nav-link">Finish Times</a>
-            {hasMultiEvent && <a href="#rr-events" className="report-nav-link">Event Comparison</a>}
-            <a href="#rr-gender" className="report-nav-link">Gender</a>
-            <a href="#rr-age-trends" className="report-nav-link">Age Trends</a>
-            <a href="#rr-age-dist" className="report-nav-link">Age Distribution</a>
-            <a href="#rr-geography" className="report-nav-link">Geography</a>
-            <a href="#rr-weather" className="report-nav-link">Race Weather</a>
-          </nav>
-
           <div className="rr-dashboard-sections">
 
-            {/* ── 1. Key Trends ── */}
+            {/* ── 1. Overall Trends ── */}
             <section id="rr-trends" className="chart-section">
-              <SectionHeader title="Key Trends" />
-              <div className="rd-tab-strip" role="tablist" aria-label="Key trends views">
+              <SectionHeader title="Overall Trends" />
+              <div className="rd-tab-strip" role="tablist" aria-label="Overall trends views">
                 {(['summary', 'changes'] as const).map(id => (
                   <button key={id} type="button" role="tab"
                     aria-selected={trendsTab === id}
@@ -3073,170 +3303,540 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
               </div>
               {trendsTab === 'summary' && (
                 <div role="tabpanel" className="rd-tab-panel">
-                  <div className="trend-cards-grid">
-                    <ResultsTrendCard title="Finishers" data={trends.finishers} precision={0} />
-                    <ResultsTrendCard title="DNF" data={dnfTrend} precision={0} deltaInvert />
-                    {isFixedDist && trends.medianFinishTimeSeconds.length > 0 && (
-                      <ResultsTrendCard
-                        title="Median Finish Time"
-                        data={trends.medianFinishTimeSeconds}
-                        formatValue={v => fmtTime(Math.round(v))}
-                        deltaInvert
-                      />
-                    )}
-                    {!isFixedDist && trends.medianDistanceMiles.length > 0 && (
-                      <ResultsTrendCard title="Median Distance" data={trends.medianDistanceMiles} unit=" mi" />
-                    )}
-                    <ResultsTrendCard title="Median Finisher Age" data={trends.medianFinisherAge} precision={1} />
-                    <ResultsTrendCard title="Female Finishers %" data={trends.femaleFinisherPercent} unit="%" />
-                    <ResultsTrendCard title="Male Finishers %" data={maleFinPctTrend} unit="%" />
-                    <ResultsTrendCard title="Non-Binary Finishers %" data={trends.nbFinisherPercent} unit="%" />
+                  <div className="trend-card-group">
+                    <div className="trend-cards-grid trend-cards-grid--primary">
+                      <ResultsTrendCard title="Total Participants" data={totalParticipantsTrend} precision={0} barColors={yearColors} showBarLabels />
+                      <ResultsTrendCard title="DNS" data={dnsCountTrend} precision={0} deltaInvert barColors={yearColors} showBarLabels />
+                      <ResultsTrendCard title="Starters" data={startersTrend} precision={0} barColors={yearColors} showBarLabels />
+                      <ResultsTrendCard title="Finishers" data={trends.finishers} precision={0} barColors={yearColors} showBarLabels />
+                      <ResultsTrendCard title="DNF" data={dnfTrend} precision={0} deltaInvert barColors={yearColors} showBarLabels />
+                      <ResultsTrendCard title="Finish Rate" data={trends.finishRate} unit="%" barColors={yearColors} showBarLabels />
+                    </div>
+                    <div className="trend-card-secondary">
+                      <div className="trend-gender-mix" aria-label="Participant gender mix trend">
+                        <span className="trend-card-secondary-label trend-gender-mix-label">Participant Gender Mix:</span>
+                        <div className="trend-gender-row rr-gender-summary" role="list">
+                          {genderTrendSummary.map(item => (
+                            <div key={item.label} className="trend-gender-item rr-gender-summary-item" role="listitem">
+                              <span className="trend-gender-name">
+                                <span className="rr-gender-summary-chip" style={{ background: item.color }} aria-hidden="true" />
+                                <span className="rr-gender-summary-label">{item.label}</span>
+                              </span>
+                              <span className="trend-gender-latest">{item.count.toLocaleString()} · {fmtPct(item.value)}</span>
+                              <span className="trend-gender-delta">
+                                {Math.abs(item.delta) < 0.05 ? 'stable' : `${item.delta > 0 ? '+' : ''}${item.delta.toFixed(1)} pts since ${firstInterval?.label}`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
               {trendsTab === 'changes' && (
                 <div role="tabpanel" className="rd-tab-panel">
-                  <RaceKeyChanges trends={data.trends} intervals={intervals} isFixedDist={isFixedDist} />
+                  <div className="rr-trend-key-changes">
+                    <RaceKeyChanges trends={data.trends} intervals={intervals} />
+                  </div>
                 </div>
               )}
             </section>
 
-            {/* ── 2. Participation & Outcomes ── */}
-            <section id="rr-participation" className="chart-section">
-              <SectionHeader title="Participation & Outcomes" />
-              <div className="rd-tab-strip" role="tablist" aria-label="Participation and outcomes views">
-                {(['charts', 'table'] as const).map(id => (
-                  <button key={id} type="button" role="tab"
-                    aria-selected={poTab === id}
-                    className={`rd-tab${poTab === id ? ' rd-tab--active' : ''}`}
-                    onClick={() => setPoTab(id)}
-                  >
-                    {id === 'charts' ? 'Charts' : 'Table'}
-                  </button>
-                ))}
-              </div>
-              {poTab === 'charts' && (
-                <div role="tabpanel" className="rd-tab-panel">
-                  <div className="metric-pills" role="group" aria-label="Select metric view">
-                    {([['counts', 'Counts'], ['rates', 'Rates']] as const).map(([id, label]) => (
-                      <button key={id} type="button"
-                        className={`metric-pill${poMetric === id ? ' metric-pill--active' : ''}`}
-                        aria-pressed={poMetric === id}
-                        onClick={() => setPoMetric(id)}
+            {/* ── 2. Race Weather ── */}
+            {(() => {
+              if (!hasWeather) {
+                return (
+                  <section id="rr-weather" className="chart-section">
+                    <SectionHeader title="Race Weather" />
+                    <p className="rd-empty-group">Race weather trends will appear here when comparable weather data is available across years.</p>
+                  </section>
+                );
+              }
+              const weatherRows = weatherIntervals.map(iv => {
+                const snaps = (iv.weatherData as WeatherData).snapshots;
+                const first = snaps[0];
+                const last = snaps[snaps.length - 1];
+                const peakTemp = snaps.length > 0 ? Math.max(...snaps.map(s => s.tempF)) : null;
+                const peakWind = snaps.length > 0 ? Math.max(...snaps.map(s => s.windMph)) : null;
+                const startDate = new Date((iv.weatherData as WeatherData).raceStartIso)
+                  .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const raceStartMs = new Date((iv.weatherData as WeatherData).raceStartIso).getTime();
+                const raceEndMs = new Date((iv.weatherData as WeatherData).raceEndIso).getTime();
+                const colorIndex = intervals.findIndex(interval => interval.label === iv.label);
+                return {
+                  label: iv.label,
+                  colorIndex,
+                  startDate,
+                  startTemp: first?.tempF ?? null,
+                  endTemp: last?.tempF ?? null,
+                  startFeelsLike: first?.feelsLikeF ?? null,
+                  startCondition: first?.weatherDesc ?? '—',
+                  peakTemp,
+                  peakWind,
+                  peakGust: snaps.length > 0 ? Math.max(...snaps.map(s => s.windGustMph)) : null,
+                  cloudCover: snaps.length > 0 ? Math.round(snaps.reduce((sum, s) => sum + s.cloudCoverPct, 0) / snaps.length) : null,
+                  tempPoints: snaps.map((snapshot, index) => {
+                    const snapshotMs = new Date(snapshot.timeIso).getTime();
+                    const offsetHours = Math.max(0, Math.round((snapshotMs - raceStartMs) / 3600000));
+                    const isEnd = index === snaps.length - 1 || Math.abs(snapshotMs - raceEndMs) <= 30 * 60000;
+                    return {
+                      key: isEnd && offsetHours > 0 ? 'end' : String(offsetHours),
+                      sort: isEnd && offsetHours > 0 ? offsetHours + 0.01 : offsetHours,
+                      label: isEnd && offsetHours > 0
+                        ? 'Race End'
+                        : offsetHours === 0
+                          ? 'Race Start'
+                          : `+${offsetHours}h`,
+                      value: snapshot.tempF,
+                      condition: snapshot.weatherDesc || 'Unknown',
+                    };
+                  }),
+                };
+              });
+              const fmtTemp = (value: number): string => Math.abs(value - Math.round(value)) < 0.05 ? `${Math.round(value)}°F` : `${value.toFixed(1)}°F`;
+              const conditionIcon = (condition: string): string => {
+                const lower = condition.toLowerCase();
+                if (/storm|thunder|lightning/.test(lower)) return '⛈️';
+                if (/hail|sleet|ice/.test(lower)) return '🌨️';
+                if (/fog|mist|haze/.test(lower)) return '🌫️';
+                if (/snow|flurr/.test(lower)) return '❄️';
+                if (/rain|drizzle|shower/.test(lower)) return '🌧️';
+                if (/overcast|cloudy/.test(lower)) return '☁️';
+                if (/partly|mostly clear|mainly clear/.test(lower)) return '⛅';
+                if (/clear|sunny/.test(lower)) return '☀️';
+                if (!condition || condition === '—' || /unknown/i.test(condition)) return '—';
+                return '🌤️';
+              };
+              const tempPointDefs = Array.from(
+                new Map(weatherRows.flatMap(row => row.tempPoints.map(point => [point.key, { key: point.key, label: point.label, sort: point.sort }]))).values(),
+              ).sort((a, b) => a.sort - b.sort);
+              const tempChartData = tempPointDefs.map(pointDef => {
+                const row: Record<string, string | number | null> = { label: pointDef.label };
+                weatherRows.forEach(weatherRow => {
+                  row[weatherRow.label] = weatherRow.tempPoints.find(point => point.key === pointDef.key)?.value ?? null;
+                });
+                return row;
+              });
+              const numericRange = (values: Array<number | null>) => {
+                const nums = values.filter((v): v is number => v != null);
+                return nums.length > 0 ? { min: Math.min(...nums), max: Math.max(...nums) } : null;
+              };
+              const startTempRange = numericRange(weatherRows.map(row => row.startTemp));
+              const windRangeValues = numericRange(weatherRows.map(row => row.peakWind));
+              const gusts = weatherRows.map(row => row.peakGust).filter((v): v is number => v != null);
+              const peakGust = gusts.length > 0 ? Math.max(...gusts) : null;
+              const peakGustYear = peakGust != null ? weatherRows.find(row => row.peakGust === peakGust)?.label : null;
+              const weatherInsights = (() => {
+                const insights: string[] = [];
+                if (startTempRange) {
+                  const spread = startTempRange.max - startTempRange.min;
+                  insights.push(spread <= 3
+                    ? `Race-start temperature stayed within a ${Math.round(spread)}°F band across the comparison period.`
+                    : `Race-start temperature ranged from ${fmtTemp(startTempRange.min)} to ${fmtTemp(startTempRange.max)}.`);
+                }
+                if (peakGust != null) {
+                  insights.push(`Gusts peaked at ${peakGust.toFixed(1)} mph${peakGustYear ? ` in ${peakGustYear}` : ''}.`);
+                } else if (windRangeValues) {
+                  insights.push(`Peak wind ranged from ${windRangeValues.min.toFixed(1)} mph to ${windRangeValues.max.toFixed(1)} mph.`);
+                }
+                return insights.slice(0, 2);
+              })();
+              return (
+                <section id="rr-weather" className="chart-section">
+                  <SectionHeader title="Race Weather" />
+                  <div className="trend-weather-summary" aria-label="Weather by compared year">
+                    {weatherRows.map(row => (
+                      <div
+                        key={row.label}
+                        className="trend-weather-card trend-weather-card--year"
+                        style={{ borderLeftColor: yearColors[row.colorIndex] ?? yearColors[0] }}
                       >
-                        {label}
+                        <div className="trend-weather-year-row">
+                          <span
+                            className="trend-weather-year-dot"
+                            style={{ background: yearColors[row.colorIndex] ?? yearColors[0] }}
+                            aria-hidden="true"
+                          />
+                          <span className="trend-weather-year">{row.label}</span>
+                        </div>
+                        <div className="trend-weather-condition">
+                          <span className="trend-weather-icon" aria-hidden="true">{conditionIcon(row.startCondition)}</span>
+                          <span>{row.startCondition}</span>
+                        </div>
+                        <p className="trend-weather-line">
+                          {row.startTemp != null ? `${fmtTemp(row.startTemp)} start` : 'Start —'}
+                          {row.peakTemp != null ? ` · ${fmtTemp(row.peakTemp)} peak` : ''}
+                          {row.endTemp != null ? ` · ${fmtTemp(row.endTemp)} end` : ''}
+                        </p>
+                        <p className="trend-weather-line">
+                          {row.peakWind != null ? `Wind ${row.peakWind.toFixed(1)} mph` : 'Wind —'}
+                          {row.peakGust != null ? ` · Gust ${row.peakGust.toFixed(1)} mph` : ''}
+                        </p>
+                      </div>
+                    ))}
+                    {weatherRows.length === 0 && (
+                      <div className="trend-weather-card-body">
+                        <span className="trend-weather-sub">No weather rows are available for the compared years.</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="rd-tab-strip" role="tablist" aria-label="Weather trends views">
+                    {(['charts', 'table'] as const).map(id => (
+                      <button key={id} type="button" role="tab"
+                        aria-selected={weatherTab === id}
+                        className={`rd-tab${weatherTab === id ? ' rd-tab--active' : ''}`}
+                        onClick={() => setWeatherTab(id)}
+                      >
+                        {id === 'charts' ? 'Charts' : 'Table'}
                       </button>
                     ))}
                   </div>
-                  {poMetric === 'counts' && (() => {
-                    const poCountData = [
-                      { metric: 'Finishers', ...Object.fromEntries(intervals.map(iv => [iv.label, iv.stats.summary.finishers])) },
-                      { metric: 'DNF', ...Object.fromEntries(intervals.map(iv => [iv.label, iv.stats.summary.dnf])) },
-                      { metric: 'DNS', ...Object.fromEntries(intervals.map(iv => [iv.label, iv.stats.summary.dns])) },
-                    ] as Array<Record<string, string | number>>;
-                    return (
-                      <div className="chart-wrap chart-wrap--full" aria-hidden="true">
-                        <ResponsiveContainer width="100%" height={280}>
-                          <BarChart data={poCountData} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="metric" tick={{ fontSize: 12 }} />
-                            <YAxis tick={{ fontSize: 11 }} width={48}
-                              tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))} />
-                            <Tooltip contentStyle={{ fontSize: '0.8rem' }}
-                              formatter={(v: number) => v.toLocaleString()} />
-                            <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
-                            {intervals.map((iv, i) => (
-                              <Bar key={iv.label} dataKey={iv.label} fill={yearColors[i]} maxBarSize={36} radius={[3, 3, 0, 0]}>
-                                <LabelList dataKey={iv.label} position="top"
-                                  formatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))}
-                                  style={{ fontSize: '0.65rem', fill: '#555' }} />
-                              </Bar>
-                            ))}
-                          </BarChart>
-                        </ResponsiveContainer>
+                  {weatherTab === 'charts' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      <div className="chart-subsection chart-subsection--compact">
+                        <p className="chart-subsection-title">Race-Window Temperature</p>
+                        {tempChartData.length > 0 ? (
+                          <div className="trend-weather-chart" aria-hidden="true">
+                            <ResponsiveContainer width="100%" height={190}>
+                              <LineChart data={tempChartData} margin={{ top: 8, right: 24, bottom: 4, left: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                                <YAxis
+                                  tick={{ fontSize: 11 }}
+                                  tickFormatter={(value: number) => `${Math.round(value)}°F`}
+                                  width={52}
+                                />
+                                <Tooltip
+                                  formatter={(value: number, name: string) => [`${value.toFixed(1)}°F`, name]}
+                                  labelFormatter={(label: string) => label}
+                                />
+                                <Legend verticalAlign="top" iconType="plainline" wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
+                                {weatherRows.map(row => (
+                                  <Line
+                                    key={row.label}
+                                    type="monotone"
+                                    dataKey={row.label}
+                                    stroke={yearColors[row.colorIndex] ?? yearColors[0]}
+                                    strokeWidth={2.5}
+                                    dot={{ r: 3.5, strokeWidth: 0 }}
+                                    activeDot={{ r: 5 }}
+                                    connectNulls={false}
+                                  />
+                                ))}
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        ) : (
+                          <p className="trend-line-empty">No chartable race-window temperature data is available for this comparison.</p>
+                        )}
+                        {tempPointDefs.length > 0 && (
+                          <div className="trend-weather-condition-timeline" aria-label="Race-window conditions by year">
+                            <p className="trend-weather-condition-title">Race-window conditions</p>
+                            <div
+                              className="trend-weather-condition-grid"
+                              style={{ gridTemplateColumns: `minmax(3.4rem, max-content) repeat(${tempPointDefs.length}, minmax(0, 1fr))` }}
+                            >
+                              <span className="trend-weather-condition-cell trend-weather-condition-cell--empty" aria-hidden="true" />
+                              {tempPointDefs.map(pointDef => (
+                                <span key={pointDef.key} className="trend-weather-condition-cell trend-weather-condition-heading">
+                                  {pointDef.label}
+                                </span>
+                              ))}
+                              {weatherRows.map(row => (
+                                <Fragment key={row.label}>
+                                  <span className="trend-weather-condition-cell trend-weather-condition-year">
+                                    <span
+                                      className="trend-weather-year-dot"
+                                      style={{ background: yearColors[row.colorIndex] ?? yearColors[0] }}
+                                      aria-hidden="true"
+                                    />
+                                    {row.label}
+                                  </span>
+                                  {tempPointDefs.map(pointDef => {
+                                    const point = row.tempPoints.find(item => item.key === pointDef.key);
+                                    const condition = point?.condition ?? 'Unknown';
+                                    return (
+                                      <span
+                                        key={`${row.label}-${pointDef.key}`}
+                                        className="trend-weather-condition-cell trend-weather-condition-icon"
+                                        title={condition}
+                                        aria-label={`${row.label} ${pointDef.label}: ${condition}`}
+                                      >
+                                        {point ? conditionIcon(condition) : '—'}
+                                      </span>
+                                    );
+                                  })}
+                                </Fragment>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    );
-                  })()}
-                  {poMetric === 'rates' && (
-                    <TrendLineChart
-                      series={[
-                        { name: 'Finish Rate %', data: trends.finishRate },
-                        { name: 'DNF Rate %', data: trends.dnfRate },
-                        { name: 'DNS Rate %', data: dnsRateTrend },
-                      ]}
-                      yUnit="%"
-                      formatTooltipValue={(v: number) => `${v.toFixed(1)}%`}
-                    />
+                    </div>
+                  )}
+                  {weatherTab === 'table' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      <div className="cmp-table-scroll">
+                        <table className="stats-table cmp-table">
+                          <caption className="sr-only">Race weather trends by year</caption>
+                          <thead>
+                            <tr>
+                              <th scope="col">Year</th>
+                              <th scope="col">Race Date</th>
+                              <th scope="col">Start Condition</th>
+                              <th scope="col">Start Temp</th>
+                              <th scope="col">Peak Temp</th>
+                              <th scope="col">End Temp</th>
+                              <th scope="col">Feels Like</th>
+                              <th scope="col">Cloud Cover</th>
+                              <th scope="col">Peak Wind</th>
+                              <th scope="col">Peak Gusts</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {weatherRows.map(row => (
+                              <tr key={row.label}>
+                                <td>{row.label}</td>
+                                <td>{row.startDate}</td>
+                                <td>{row.startCondition}</td>
+                                <td>{row.startTemp != null ? fmtTemp(row.startTemp) : '—'}</td>
+                                <td>{row.peakTemp != null ? fmtTemp(row.peakTemp) : '—'}</td>
+                                <td>{row.endTemp != null ? fmtTemp(row.endTemp) : '—'}</td>
+                                <td>{row.startFeelsLike != null ? fmtTemp(row.startFeelsLike) : '—'}</td>
+                                <td>{row.cloudCover != null ? `${row.cloudCover}%` : '—'}</td>
+                                <td>{row.peakWind != null ? `${row.peakWind.toFixed(1)} mph` : '—'}</td>
+                                <td>{row.peakGust != null ? `${row.peakGust.toFixed(1)} mph` : '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                  {weatherInsights.length > 0 && (
+                    <div className="insight-callout">
+                      <ul className="insight-callout-list">
+                        {weatherInsights.map(item => (
+                          <li key={item} className="insight-callout-item">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
+
+            {participationEventNames.length > 0 && (
+              <section id="rr-selected-event-trends" className="chart-section" style={{ order: 5 }}>
+                <div className="rr-selected-analysis-intro">
+                  <h2>Select Event</h2>
+                  {participationEventNames.length > 1 && (
+                    <p>Choose an event to view event-specific year-over-year details.</p>
                   )}
                 </div>
-              )}
-              {poTab === 'table' && (
-                <div role="tabpanel" className="rd-tab-panel">
-                  <div className="cmp-table-scroll">
-                    <table className="stats-table cmp-table">
-                      <caption className="sr-only">Participation and outcomes by year</caption>
-                      <thead>
-                        <tr>
-                          <th scope="col">Metric</th>
-                          {intervals.map(iv => <th scope="col" key={iv.label}>{iv.label}</th>)}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr><td>Total Entrants</td>{intervals.map(iv => <td key={iv.label}>{iv.stats.summary.totalEntrants.toLocaleString()}</td>)}</tr>
-                        <tr><td>Finishers</td>{intervals.map(iv => <td key={iv.label}>{iv.stats.summary.finishers.toLocaleString()}</td>)}</tr>
-                        <tr><td>Finish Rate</td>{intervals.map(iv => <td key={iv.label}>{fmtPct(iv.stats.summary.finishRate)}</td>)}</tr>
-                        <tr><td>DNF</td>{intervals.map(iv => <td key={iv.label}>{iv.stats.summary.dnf.toLocaleString()}</td>)}</tr>
-                        <tr><td>DNF Rate</td>{intervals.map(iv => <td key={iv.label}>{fmtPct(iv.stats.summary.dnfRate)}</td>)}</tr>
-                        <tr><td>DNS</td>{intervals.map(iv => <td key={iv.label}>{iv.stats.summary.dns.toLocaleString()}</td>)}</tr>
-                        <tr><td>DNS Rate</td>{intervals.map(iv => <td key={iv.label}>{fmtPct(iv.stats.attrition.overall.dnsRate)}</td>)}</tr>
-                      </tbody>
-                    </table>
+                {participationEventNames.length > 1 ? (
+                  <div className="rr-selected-event-control rr-trend-event-control no-print" aria-label="Selected event trend selector">
+                    <div className="rr-selected-event-copy">
+                      <span className="rr-selected-event-label">Selected Event</span>
+                    </div>
+                    <div className="rr-perf-tabs rr-selected-event-tabs" role="tablist" aria-label="Selected event trend">
+                      {participationEventNames.map(eventName => (
+                        <button
+                          key={eventName}
+                          type="button"
+                          role="tab"
+                          aria-selected={activeTrendEventName === eventName}
+                          className={`rr-perf-tab${activeTrendEventName === eventName ? ' rr-perf-tab--active' : ''}`}
+                          onClick={() => setSelectedTrendEventName(eventName)}
+                        >
+                          {eventName}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </section>
+                ) : (
+                  <p className="rr-selected-event-context">
+                    <span>Selected event: <strong>{activeTrendEventName}</strong></span>
+                  </p>
+                )}
+                <nav className="report-nav rr-report-nav no-print" aria-label="Selected event trend sections">
+                  <span className="rr-report-nav-label">Jump To:</span>
+                  <div className="rr-report-nav-links">
+                    <a href="#rr-event-snapshot-trends" className="report-nav-link">Event Snapshot</a>
+                    <a href="#rr-age-trends" className="report-nav-link">Finisher Age</a>
+                    <a href="#rr-age-dist" className="report-nav-link">Finisher Age Distribution</a>
+                    <a href="#rr-gender" className="report-nav-link">Finisher Gender</a>
+                    <a href="#rr-times" className="report-nav-link">Finish Times</a>
+                    {hasEventPerformanceTrends && <a href="#rr-event-performance" className="report-nav-link">{isFixedDist ? 'Pace Trends' : 'Distance Trends'}</a>}
+                    <a href="#rr-selected-geography" className="report-nav-link">Selected Event Geography</a>
+                  </div>
+                </nav>
+              </section>
+            )}
 
-            {/* ── 4. Finish Times ── */}
             {(() => {
-              if (!isFixedDist) {
+              if (!activeTrendEventName || !hasSelectedTrendEventRows) return null;
+              const first = selectedTrendEventRows.find(item => item.row != null);
+              const latest = [...selectedTrendEventRows].reverse().find(item => item.row != null);
+              const trendFor = (value: (row: AttritionStats['overall']) => number) =>
+                selectedTrendEventRows.map(item => ({
+                  label: item.interval.label,
+                  value: item.row ? value(item.row) : null,
+                }));
+              const snapshotInsights = (() => {
+                if (!first?.row || !latest?.row) return [];
+                const finisherDelta = latest.row.finished - first.row.finished;
+                const participantDelta = latest.row.total - first.row.total;
+                const finishRateDelta = latest.row.finishRate - first.row.finishRate;
+                const insights = [
+                  Math.abs(participantDelta) < 3
+                    ? `${activeTrendEventName} participation was relatively stable from ${first.interval.label} to ${latest.interval.label}.`
+                    : `${activeTrendEventName} participants ${participantDelta > 0 ? 'increased' : 'decreased'} from ${first.row.total.toLocaleString()} in ${first.interval.label} to ${latest.row.total.toLocaleString()} in ${latest.interval.label}.`,
+                ];
+                if (Math.abs(finisherDelta) >= 3) {
+                  insights.push(`Finishers ${finisherDelta > 0 ? 'increased' : 'decreased'} from ${first.row.finished.toLocaleString()} to ${latest.row.finished.toLocaleString()} over the comparison period.`);
+                } else if (Math.abs(finishRateDelta) >= 0.5) {
+                  insights.push(`Finish rate changed by ${finishRateDelta > 0 ? '+' : ''}${finishRateDelta.toFixed(1)} pts from ${first.interval.label} to ${latest.interval.label}.`);
+                }
+                return insights.slice(0, 2);
+              })();
+
+              return (
+                <section id="rr-event-snapshot-trends" className="chart-section" style={{ order: 6 }}>
+                  <SectionHeader title="Event Snapshot" contextStrip={selectedTrendContextStrip} />
+                  <div className="trend-cards-grid trend-cards-grid--primary">
+                    <ResultsTrendCard title="Total Participants" data={trendFor(row => row.total)} precision={0} barColors={yearColors} showBarLabels />
+                    <ResultsTrendCard title="DNS" data={trendFor(row => row.dns)} precision={0} deltaInvert barColors={yearColors} showBarLabels />
+                    <ResultsTrendCard title="Starters" data={trendFor(row => row.starters)} precision={0} barColors={yearColors} showBarLabels />
+                    <ResultsTrendCard title="Finishers" data={trendFor(row => row.finished)} precision={0} barColors={yearColors} showBarLabels />
+                    <ResultsTrendCard title="DNF" data={trendFor(row => row.dnf)} precision={0} deltaInvert barColors={yearColors} showBarLabels />
+                    <ResultsTrendCard title="Finish Rate" data={trendFor(row => row.finishRate)} unit="%" barColors={yearColors} showBarLabels />
+                  </div>
+                  {snapshotInsights.length > 0 && (
+                    <div className="insight-callout">
+                      <ul className="insight-callout-list">
+                        {snapshotInsights.map(item => (
+                          <li key={item} className="insight-callout-item">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
+
+            {/* ── 9. Finish Times ── */}
+            {(() => {
+              if (!isFixedDist || !activeTrendEventName) {
                 return (
-                  <section id="rr-times" className="chart-section">
-                    <SectionHeader title="Finish Times" />
-                    <p className="rd-empty-group">Finish time trends are shown when comparable fixed-distance results are available across years.</p>
+                  <section id="rr-times" className="chart-section" style={{ order: 10 }}>
+                    <SectionHeader title="Finish Times" contextStrip={selectedTrendContextStrip} />
+                    <p className="rd-empty-group">Finish time trends are shown when a selected fixed-distance event has comparable results across years.</p>
                   </section>
                 );
               }
               const ftByYear = intervals.map(iv => {
-                const ft = iv.stats.performance.events[0]?.finishTime;
+                const ft = iv.stats.performance.events.find(event => event.eventName === activeTrendEventName)?.finishTime;
                 const fastest = ft?.fastestSeconds ?? null;
+                const average = ft?.meanSeconds ?? null;
+                const median = ft?.medianSeconds ?? null;
                 const last    = ft?.slowestSeconds ?? null;
                 return {
                   label:   iv.label,
                   fastest,
-                  median:  ft?.medianSeconds ?? null,
+                  average,
+                  median,
                   last,
                   spread:  fastest != null && last != null ? last - fastest : null,
                 };
               });
-              const latestFt = ftByYear[ftByYear.length - 1];
-              const allTimeSecs = ftByYear.flatMap(d => [d.fastest, d.median, d.last]).filter((v): v is number => v != null);
-              const yDomainMin = allTimeSecs.length > 0 ? Math.floor(Math.min(...allTimeSecs) * 0.9) : 0;
-
-              // x = metric label, one bar series per year (year colors match year pills)
-              const ftChartData: Array<Record<string, string | number | null>> = [
-                { metric: 'Fastest' },
-                { metric: 'Median' },
-                { metric: 'Last Finisher' },
+              const ftRowsWithData = ftByYear.filter(row => row.fastest != null || row.average != null || row.median != null || row.last != null || row.spread != null);
+              const formatTimeDelta = (delta: number, firstLabel?: string, spread = false): string => {
+                const since = firstLabel ? ` since ${firstLabel}` : '';
+                if (Math.abs(delta) < 30) return `stable${since}`;
+                if (spread) return `${delta < 0 ? 'narrower' : 'wider'}${since}`;
+                return `${delta < 0 ? 'faster' : 'slower'}${since}`;
+              };
+              const trendForTime = (field: 'fastest' | 'average' | 'median' | 'last' | 'spread') =>
+                ftByYear.map(row => ({ label: row.label, value: row[field] }));
+              const bestRowFor = (field: 'fastest' | 'median' | 'last' | 'spread', direction: 'min' | 'max') => {
+                const rows = ftByYear.filter((row): row is typeof row & Record<typeof field, number> => row[field] != null);
+                if (rows.length === 0) return null;
+                return rows.reduce((best, row) => direction === 'min'
+                  ? row[field] < best[field] ? row : best
+                  : row[field] > best[field] ? row : best, rows[0]);
+              };
+              const averageRows = ftByYear.filter((row): row is typeof row & { average: number } => row.average != null);
+              const averageRow = averageRows.length > 0
+                ? averageRows.reduce((best, row) => row.average < best.average ? row : best, averageRows[0])
+                : null;
+              const fastestRow = bestRowFor('fastest', 'min');
+              const medianRow = bestRowFor('median', 'min');
+              const lastRow = bestRowFor('last', 'max');
+              const spreadRow = bestRowFor('spread', 'max');
+              const finishMetricOptions = [
+                { id: 'fastest' as const, label: 'Fastest', field: 'fastest' as const },
+                { id: 'average' as const, label: 'Average', field: 'average' as const },
+                { id: 'median' as const, label: 'Median', field: 'median' as const },
+                { id: 'last' as const, label: 'Last Finisher', field: 'last' as const },
+                { id: 'spread' as const, label: 'Finish Spread', field: 'spread' as const },
               ];
-              ftByYear.forEach(d => {
-                ftChartData[0][d.label] = d.fastest;
-                ftChartData[1][d.label] = d.median;
-                ftChartData[2][d.label] = d.last;
-              });
+              const selectedFinishMetric = finishMetricOptions.find(option => option.id === finishTrendMetric) ?? finishMetricOptions[2];
+              const finishChartData = ftByYear.map((row, index) => ({
+                label: row.label,
+                value: row[selectedFinishMetric.field],
+                yearColor: yearColors[index],
+              }));
+              const selectedMetricValues = finishChartData.map(point => point.value).filter((value): value is number => value != null);
+              const selectedMetricMin = selectedMetricValues.length > 0 ? Math.min(...selectedMetricValues) : 0;
+              const selectedMetricMax = selectedMetricValues.length > 0 ? Math.max(...selectedMetricValues) : 0;
+              const selectedMetricRange = selectedMetricMax - selectedMetricMin;
+              const selectedMetricPadding = Math.max(60, selectedMetricRange * 0.2);
+              const selectedMetricDomain: [number, number] = [
+                Math.max(0, selectedMetricMin - selectedMetricPadding),
+                selectedMetricMax + selectedMetricPadding,
+              ];
+              const performanceInsights = (() => {
+                if (ftRowsWithData.length < 2) return [];
+                const first = ftRowsWithData[0];
+                const latest = ftRowsWithData[ftRowsWithData.length - 1];
+                const insights: string[] = [];
+                if (first.median != null && latest.median != null) {
+                  const delta = latest.median - first.median;
+                  insights.push(Math.abs(delta) < 60
+                    ? `${activeTrendEventName} median finish time was broadly stable from ${first.label} to ${latest.label}.`
+                    : `${activeTrendEventName} median finish time ${delta < 0 ? 'improved' : 'slowed'} from ${fmtTime(Math.round(first.median))} in ${first.label} to ${fmtTime(Math.round(latest.median))} in ${latest.label}.`);
+                }
+                if (first.spread != null && latest.spread != null) {
+                  const delta = latest.spread - first.spread;
+                  insights.push(Math.abs(delta) < 300
+                    ? `Finish spread was broadly similar across the comparison period.`
+                    : `Finish spread ${delta < 0 ? 'narrowed' : 'widened'} from ${fmtTime(Math.round(first.spread))} to ${fmtTime(Math.round(latest.spread))}.`);
+                }
+                if (first.last != null && latest.last != null) {
+                  const delta = latest.last - first.last;
+                  if (Math.abs(delta) >= 300) {
+                    insights.push(`Last finisher moved ${delta < 0 ? 'earlier' : 'later'} from ${fmtTime(Math.round(first.last))} to ${fmtTime(Math.round(latest.last))}.`);
+                  }
+                }
+                return insights.slice(0, 3);
+              })();
+
+              if (ftRowsWithData.length === 0) {
+                return (
+                  <section id="rr-times" className="chart-section" style={{ order: 10 }}>
+                    <SectionHeader title="Finish Times" contextStrip={selectedTrendContextStrip} />
+                    <p className="rd-empty-group">Finish time trends are not available for the selected event.</p>
+                  </section>
+                );
+              }
+
+              const timeDeltaFormatter = (spread = false) => (delta: number, firstLabel?: string) => formatTimeDelta(delta, firstLabel, spread);
 
               return (
-                <section id="rr-times" className="chart-section">
-                  <SectionHeader title="Finish Times" />
+                <section id="rr-times" className="chart-section rr-finish-performance-section" style={{ order: 10 }}>
+                  <SectionHeader title="Finish Times" contextStrip={selectedTrendContextStrip} />
                   <div className="rd-tab-strip" role="tablist" aria-label="Finish times views">
                     {(['charts', 'table'] as const).map(id => (
                       <button key={id} type="button" role="tab"
@@ -3250,60 +3850,74 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
                   </div>
                   {timesTab === 'charts' && (
                     <div role="tabpanel" className="rd-tab-panel">
-                      <div className="stat-cards-row">
-                        <StatCard
-                          label="Fastest Time"
-                          value={latestFt.fastest != null ? fmtTime(Math.round(latestFt.fastest)) : '—'}
-                          sub={latestFt.label}
-                        />
-                        <StatCard
-                          label="Last Finisher"
-                          value={latestFt.last != null ? fmtTime(Math.round(latestFt.last)) : '—'}
-                          sub={latestFt.label}
-                        />
-                        {latestFt.spread != null && (
-                          <StatCard
-                            label="Finish Spread"
-                            value={fmtTime(Math.round(latestFt.spread))}
-                            sub={latestFt.label}
-                          />
-                        )}
-                        <StatCard
-                          label="Median Finish Time"
-                          value={latestFt.median != null ? fmtTime(Math.round(latestFt.median)) : '—'}
-                          sub={latestFt.label}
-                        />
-                      </div>
-                      <div className="chart-wrap chart-wrap--full" aria-hidden="true">
-                        <ResponsiveContainer width="100%" height={300}>
-                          <BarChart data={ftChartData} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="metric" tick={{ fontSize: 12 }} />
-                            <YAxis
-                              tick={{ fontSize: 11 }}
-                              tickFormatter={(v: number) => fmtTime(Math.round(v))}
-                              width={64}
-                              domain={[yDomainMin, 'auto']}
-                            />
-                            <Tooltip
-                              formatter={(v: unknown) => {
-                                const n = typeof v === 'number' ? Math.round(v) : null;
-                                return n != null ? fmtTime(n) : '—';
-                              }}
-                              contentStyle={{ fontSize: '0.8rem' }}
-                            />
-                            <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
-                            {intervals.map((iv, i) => (
-                              <Bar key={iv.label} dataKey={iv.label} fill={yearColors[i]} maxBarSize={36}>
-                                <LabelList dataKey={iv.label} position="top"
-                                  formatter={(v: number) => fmtTime(Math.round(v))}
-                                  style={{ fontSize: '0.62rem', fill: '#555' }} />
-                              </Bar>
+                      <div className="rr-finish-performance-panel">
+                        <div className="rr-finish-panel-heading">
+                          <span aria-hidden="true">⏱</span>
+                          <span>Performance summary</span>
+                        </div>
+                        <div className="trend-cards-grid trend-cards-grid--five rr-finish-trend-cards">
+                          <ResultsTrendCard title="Fastest Time" data={trendForTime('fastest')} formatValue={(v) => fmtTime(Math.round(v))} deltaInvert barColors={yearColors} showBarLabels formatDelta={timeDeltaFormatter()} featuredValue={fastestRow?.fastest ?? null} featuredSub={fastestRow ? `Best year: ${fastestRow.label}` : undefined} />
+                          <ResultsTrendCard title="Average Time" data={trendForTime('average')} formatValue={(v) => fmtTime(Math.round(v))} deltaInvert barColors={yearColors} showBarLabels formatDelta={timeDeltaFormatter()} featuredValue={averageRow?.average ?? null} featuredSub={averageRow ? `Best year: ${averageRow.label}` : undefined} />
+                          <ResultsTrendCard title="Median Time" data={trendForTime('median')} formatValue={(v) => fmtTime(Math.round(v))} deltaInvert barColors={yearColors} showBarLabels formatDelta={timeDeltaFormatter()} featuredValue={medianRow?.median ?? null} featuredSub={medianRow ? `Best year: ${medianRow.label}` : undefined} />
+                          <ResultsTrendCard title="Last Finisher" data={trendForTime('last')} formatValue={(v) => fmtTime(Math.round(v))} deltaInvert barColors={yearColors} showBarLabels formatDelta={timeDeltaFormatter()} featuredValue={lastRow?.last ?? null} featuredSub={lastRow ? `Slowest year: ${lastRow.label}` : undefined} />
+                          <ResultsTrendCard title="Finish Spread" data={trendForTime('spread')} formatValue={(v) => fmtTime(Math.round(v))} deltaInvert barColors={yearColors} showBarLabels formatDelta={timeDeltaFormatter(true)} featuredValue={spreadRow?.spread ?? null} featuredSub={spreadRow ? `Largest spread: ${spreadRow.label}` : undefined} />
+                        </div>
+                        <div className="rr-finish-chart-toolbar">
+                          <div className="metric-pills" role="group" aria-label="Select finish times chart">
+                            {finishMetricOptions.map(option => (
+                              <button key={option.id} type="button"
+                                className={`metric-pill${selectedFinishMetric.id === option.id ? ' metric-pill--active' : ''}`}
+                                aria-pressed={selectedFinishMetric.id === option.id}
+                                onClick={() => setFinishTrendMetric(option.id)}
+                              >
+                                {option.label}
+                              </button>
                             ))}
-                          </BarChart>
-                        </ResponsiveContainer>
+                          </div>
+                        </div>
+                        <div className="rr-finish-line-chart" aria-hidden="true">
+                          <ResponsiveContainer width="100%" height={230}>
+                            <LineChart
+                              data={finishChartData}
+                              margin={{ top: 10, right: 24, bottom: 4, left: 0 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                              <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                              <YAxis
+                                tick={{ fontSize: 11 }}
+                                tickFormatter={(value: number) => fmtTime(Math.round(value))}
+                                width={70}
+                                domain={selectedMetricDomain}
+                              />
+                              <Tooltip
+                                formatter={(value: number) => [fmtTime(Math.round(value)), selectedFinishMetric.label]}
+                                labelFormatter={(label: string) => label}
+                                contentStyle={{ fontSize: '0.8rem' }}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="value"
+                                name={selectedFinishMetric.label}
+                                stroke={theme.primary}
+                                strokeWidth={2.75}
+                                dot={({ cx, cy, payload }) => (
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={4}
+                                    fill={payload.yearColor}
+                                    stroke="#fff"
+                                    strokeWidth={1.5}
+                                  />
+                                )}
+                                activeDot={{ r: 5.5, stroke: '#fff', strokeWidth: 1.5 }}
+                                connectNulls={false}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <p className="chart-note">Y-axis is scaled to highlight year-over-year change. Times are shown as race-clock values.</p>
                       </div>
-                      <p className="chart-note">Times are plotted in seconds; hover for formatted race times.</p>
                     </div>
                   )}
                   {timesTab === 'table' && (
@@ -3313,353 +3927,875 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
                           <caption className="sr-only">Finish time statistics by year</caption>
                           <thead>
                             <tr>
-                              <th scope="col">Metric</th>
-                              {intervals.map(iv => <th scope="col" key={iv.label}>{iv.label}</th>)}
+                              <th scope="col">Year</th>
+                              <th scope="col">Fastest Time</th>
+                              <th scope="col">Average Time</th>
+                              <th scope="col">Median Time</th>
+                              <th scope="col">Last Finisher</th>
+                              <th scope="col">Finish Spread</th>
                             </tr>
                           </thead>
                           <tbody>
-                            <tr>
-                              <td>Fastest Time</td>
-                              {ftByYear.map(d => <td key={d.label}>{d.fastest != null ? fmtTime(Math.round(d.fastest)) : '—'}</td>)}
-                            </tr>
-                            <tr>
-                              <td>Median Finish Time</td>
-                              {ftByYear.map(d => <td key={d.label}>{d.median != null ? fmtTime(Math.round(d.median)) : '—'}</td>)}
-                            </tr>
-                            <tr>
-                              <td>Last Finisher</td>
-                              {ftByYear.map(d => <td key={d.label}>{d.last != null ? fmtTime(Math.round(d.last)) : '—'}</td>)}
-                            </tr>
-                            <tr>
-                              <td>Finish Spread</td>
-                              {ftByYear.map(d => <td key={d.label}>{d.spread != null ? fmtTime(Math.round(d.spread)) : '—'}</td>)}
-                            </tr>
+                            {ftByYear.map(d => (
+                              <tr key={d.label}>
+                                <td>{d.label}</td>
+                                <td>{d.fastest != null ? fmtTime(Math.round(d.fastest)) : '—'}</td>
+                                <td>{d.average != null ? fmtTime(Math.round(d.average)) : '—'}</td>
+                                <td>{d.median != null ? fmtTime(Math.round(d.median)) : '—'}</td>
+                                <td>{d.last != null ? fmtTime(Math.round(d.last)) : '—'}</td>
+                                <td>{d.spread != null ? fmtTime(Math.round(d.spread)) : '—'}</td>
+                              </tr>
+                            ))}
                           </tbody>
                         </table>
                       </div>
+                    </div>
+                  )}
+                  {performanceInsights.length > 0 && (
+                    <div className="insight-callout">
+                      <ul className="insight-callout-list">
+                        {performanceInsights.map(item => (
+                          <li key={item} className="insight-callout-item">{item}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                 </section>
               );
             })()}
 
-            {/* ── 5. Event Comparison ── */}
-            {hasMultiEvent && (() => {
-              const evColors = yearColors;
-              const evChartData = allEventNames.map(evName => {
-                const entry: Record<string, number | string> = { name: evName };
-                intervals.forEach(iv => {
-                  const evRow = iv.stats.crossEvent.rows.find(r => r.name === evName);
-                  entry[iv.label] = eventMetric === 'finishers'
-                    ? (evRow?.finishers ?? 0)
-                    : (evRow != null ? parseFloat(evRow.finishRate.toFixed(1)) : 0);
-                });
-                return entry;
+            {/* ── 10. Pace / Distance Trends ── */}
+            {hasEventPerformanceTrends && (() => {
+              if (!activeTrendEventName) return null;
+              const fixedDistanceMetrics = [
+                { id: 'fastestPace' as const, label: 'Fastest Pace', field: 'fastestPace' as const },
+                { id: 'averagePace' as const, label: 'Average Pace', field: 'averagePace' as const },
+                { id: 'medianPace' as const, label: 'Median Pace', field: 'medianPace' as const },
+                { id: 'lastPace' as const, label: 'Last Finisher Pace', field: 'lastPace' as const },
+                { id: 'paceSpread' as const, label: 'Pace Spread', field: 'paceSpread' as const },
+              ];
+              const fixedTimeMetrics = [
+                { id: 'shortestDistance' as const, label: 'Shortest Distance', field: 'shortestDistance' as const },
+                { id: 'averageDistance' as const, label: 'Average Distance', field: 'averageDistance' as const },
+                { id: 'medianDistance' as const, label: 'Median Distance', field: 'medianDistance' as const },
+                { id: 'farthestDistance' as const, label: 'Farthest Distance', field: 'farthestDistance' as const },
+                { id: 'distanceSpread' as const, label: 'Distance Spread', field: 'distanceSpread' as const },
+              ];
+              const metricOptions = isFixedDist ? fixedDistanceMetrics : fixedTimeMetrics;
+              const selectedMetric = metricOptions.find(option => option.id === eventPerfMetric) ?? metricOptions[2];
+              const eventPerformanceRows = intervals.map((iv, index) => {
+                const event = iv.stats.performance.events.find(item => item.eventName === activeTrendEventName);
+                const pace = event?.paceStats ?? null;
+                const distance = event?.distanceAchieved ?? null;
+                return {
+                  label: iv.label,
+                  yearColor: yearColors[index],
+                  fastestPace: pace?.fastestSecsPerMile ?? null,
+                  averagePace: pace?.meanSecsPerMile ?? null,
+                  medianPace: pace?.medianSecsPerMile ?? null,
+                  lastPace: pace?.slowestSecsPerMile ?? null,
+                  paceSpread: pace?.spreadSecsPerMile ?? null,
+                  shortestDistance: distance?.minMiles ?? null,
+                  averageDistance: distance?.meanMiles ?? null,
+                  medianDistance: distance?.medianMiles ?? null,
+                  farthestDistance: distance?.maxMiles ?? null,
+                  distanceSpread: distance?.spreadMiles ?? null,
+                };
               });
-              const evBarSize = 44;
-              const evChartH = Math.max(300, allEventNames.length * (intervals.length * (evBarSize + 8) + 44));
+              const hasSelectedEventPerformanceData = eventPerformanceRows.some(row => metricOptions.some(option => row[option.field] != null));
+              const formatPerformanceValue = (value: number | null): string => {
+                if (value == null) return '—';
+                return isFixedDist ? fmtPace(value) : fmtDist(value);
+              };
+              const trendForPerformance = (field: typeof metricOptions[number]['field']) =>
+                eventPerformanceRows.map(row => ({ label: row.label, value: row[field] }));
+              const bestRowFor = (field: typeof metricOptions[number]['field'], direction: 'min' | 'max') => {
+                const rows = eventPerformanceRows.filter((row): row is typeof row & Record<typeof field, number> => row[field] != null);
+                if (rows.length === 0) return null;
+                return rows.reduce((best, row) => direction === 'min'
+                  ? row[field] < best[field] ? row : best
+                  : row[field] > best[field] ? row : best, rows[0]);
+              };
+              const selectedMetricChartData = eventPerformanceRows.map(row => ({
+                label: row.label,
+                value: row[selectedMetric.field],
+                yearColor: row.yearColor,
+              }));
+              const selectedMetricValues = selectedMetricChartData.map(point => point.value).filter((value): value is number => value != null);
+              const selectedMetricMin = selectedMetricValues.length > 0 ? Math.min(...selectedMetricValues) : 0;
+              const selectedMetricMax = selectedMetricValues.length > 0 ? Math.max(...selectedMetricValues) : 0;
+              const selectedMetricRange = selectedMetricMax - selectedMetricMin;
+              const selectedMetricPadding = Math.max(isFixedDist ? 5 : 0.25, selectedMetricRange * 0.2);
+              const selectedMetricDomain: [number, number] = [
+                Math.max(0, selectedMetricMin - selectedMetricPadding),
+                selectedMetricMax + selectedMetricPadding,
+              ];
+              const performanceDeltaFormatter = (lowerIsBetter = true, spread = false) => (delta: number, firstLabel?: string) => {
+                const since = firstLabel ? ` since ${firstLabel}` : '';
+                const stableThreshold = isFixedDist ? 5 : 0.25;
+                if (Math.abs(delta) < stableThreshold) return `stable${since}`;
+                if (spread) return `${delta < 0 ? 'narrower' : 'wider'}${since}`;
+                if (isFixedDist) return `${delta < 0 ? 'faster' : 'slower'}${since}`;
+                return `${delta > 0 ? 'farther' : 'shorter'}${since}`;
+              };
+              const firstPerf = eventPerformanceRows.find(row => metricOptions.some(option => row[option.field] != null));
+              const latestPerf = [...eventPerformanceRows].reverse().find(row => metricOptions.some(option => row[option.field] != null));
+              const eventPerformanceInsights = (() => {
+                if (!firstPerf || !latestPerf) return [];
+                const insights: string[] = [];
+                if (isFixedDist) {
+                  if (firstPerf.medianPace != null && latestPerf.medianPace != null) {
+                    const delta = latestPerf.medianPace - firstPerf.medianPace;
+                    insights.push(Math.abs(delta) < 5
+                      ? `${activeTrendEventName} median pace was broadly stable from ${firstPerf.label} to ${latestPerf.label}.`
+                      : `${activeTrendEventName} median pace ${delta < 0 ? 'improved' : 'slowed'} from ${fmtPace(firstPerf.medianPace)} in ${firstPerf.label} to ${fmtPace(latestPerf.medianPace)} in ${latestPerf.label}.`);
+                  }
+                  if (firstPerf.paceSpread != null && latestPerf.paceSpread != null) {
+                    const delta = latestPerf.paceSpread - firstPerf.paceSpread;
+                    if (Math.abs(delta) >= 5) {
+                      insights.push(`Pace spread ${delta < 0 ? 'narrowed' : 'widened'} from ${fmtPace(firstPerf.paceSpread)} to ${fmtPace(latestPerf.paceSpread)}.`);
+                    }
+                  }
+                } else {
+                  if (firstPerf.medianDistance != null && latestPerf.medianDistance != null) {
+                    const delta = latestPerf.medianDistance - firstPerf.medianDistance;
+                    insights.push(Math.abs(delta) < 0.25
+                      ? `${activeTrendEventName} median distance was broadly stable from ${firstPerf.label} to ${latestPerf.label}.`
+                      : `${activeTrendEventName} median distance ${delta > 0 ? 'increased' : 'decreased'} from ${fmtDist(firstPerf.medianDistance)} in ${firstPerf.label} to ${fmtDist(latestPerf.medianDistance)} in ${latestPerf.label}.`);
+                  }
+                  if (firstPerf.distanceSpread != null && latestPerf.distanceSpread != null) {
+                    const delta = latestPerf.distanceSpread - firstPerf.distanceSpread;
+                    if (Math.abs(delta) >= 0.25) {
+                      insights.push(`Distance spread ${delta > 0 ? 'widened' : 'narrowed'} from ${fmtDist(firstPerf.distanceSpread)} to ${fmtDist(latestPerf.distanceSpread)}.`);
+                    }
+                  }
+                }
+                return insights.slice(0, 3);
+              })();
 
               return (
-                <section id="rr-events" className="chart-section">
-                  <SectionHeader title="Event Comparison" />
-                  <div className="rd-tab-strip" role="tablist" aria-label="Event comparison views">
+                <section id="rr-event-performance" className="chart-section rr-event-performance-section" style={{ order: 11 }}>
+                  <SectionHeader title={isFixedDist ? 'Pace Trends' : 'Distance Trends'} contextStrip={selectedTrendContextStrip} />
+                  <p className="rr-event-performance-helper">
+                    {isFixedDist
+                      ? 'Pace normalizes finish times for the selected event, making year-over-year changes easier to compare.'
+                      : 'Distance achieved normalizes performance for the selected event, making year-over-year changes easier to compare.'}
+                  </p>
+                  <div className="rd-tab-strip" role="tablist" aria-label={isFixedDist ? 'Pace trends views' : 'Distance trends views'}>
                     {(['charts', 'table'] as const).map(id => (
                       <button key={id} type="button" role="tab"
-                        aria-selected={eventTab === id}
-                        className={`rd-tab${eventTab === id ? ' rd-tab--active' : ''}`}
-                        onClick={() => setEventTab(id)}
+                        aria-selected={eventPerfTab === id}
+                        className={`rd-tab${eventPerfTab === id ? ' rd-tab--active' : ''}`}
+                        onClick={() => setEventPerfTab(id)}
                       >
                         {id === 'charts' ? 'Charts' : 'Table'}
                       </button>
                     ))}
                   </div>
-
-                  {eventTab === 'charts' && (
+                  {eventPerfTab === 'charts' && (
                     <div role="tabpanel" className="rd-tab-panel">
-                      <div className="metric-pills" role="group" aria-label="Select metric">
-                        {([['finishers', 'Finishers'], ['finishRate', 'Finish Rate %']] as const).map(([id, label]) => (
-                          <button key={id} type="button"
-                            className={`metric-pill${eventMetric === id ? ' metric-pill--active' : ''}`}
-                            onClick={() => setEventMetric(id)}
-                            aria-pressed={eventMetric === id}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="chart-wrap chart-wrap--full" aria-hidden="true">
-                        <ResponsiveContainer width="100%" height={evChartH}>
-                          <BarChart data={evChartData} layout="vertical" barGap={6} barCategoryGap="28%"
-                            margin={{ top: 4, right: 100, bottom: 4, left: 8 }}>
-                            <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false}
-                              tickFormatter={eventMetric === 'finishRate' ? (v: number) => `${v}%` : (v: number) => v.toLocaleString()} />
-                            <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={180} />
-                            <Tooltip formatter={(v: number) => eventMetric === 'finishRate' ? `${v.toFixed(1)}%` : v.toLocaleString()} />
-                            <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
-                            {intervals.map((iv, i) => (
-                              <Bar key={iv.label} dataKey={iv.label} fill={evColors[i]} radius={[0, 3, 3, 0]} maxBarSize={evBarSize}>
-                                <LabelList dataKey={iv.label} position="right"
-                                  formatter={(v: number) => eventMetric === 'finishRate' ? fmtPct(v) : fmtBarCount(v)}
-                                  style={{ fontSize: '0.72rem', fill: '#555' }} />
-                              </Bar>
-                            ))}
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
+                      {!hasSelectedEventPerformanceData ? (
+                        <p className="rd-empty-group">Event performance trend data is not available for the selected event.</p>
+                      ) : (
+                        <div className="rr-finish-performance-panel">
+                          <div className="rr-finish-panel-heading">
+                            <span aria-hidden="true">{isFixedDist ? '↗' : '↔'}</span>
+                            <span>{isFixedDist ? 'Pace Trend Summary' : 'Distance Trend Summary'}</span>
+                          </div>
+                          <div className="trend-cards-grid trend-cards-grid--five rr-finish-trend-cards">
+                            {isFixedDist ? (
+                              <>
+                                <ResultsTrendCard title="Fastest Pace" data={trendForPerformance('fastestPace')} formatValue={formatPerformanceValue} deltaInvert barColors={yearColors} showBarLabels formatDelta={performanceDeltaFormatter(true)} featuredValue={bestRowFor('fastestPace', 'min')?.fastestPace ?? null} featuredSub={bestRowFor('fastestPace', 'min') ? `Best year: ${bestRowFor('fastestPace', 'min')!.label}` : undefined} />
+                                <ResultsTrendCard title="Average Pace" data={trendForPerformance('averagePace')} formatValue={formatPerformanceValue} deltaInvert barColors={yearColors} showBarLabels formatDelta={performanceDeltaFormatter(true)} featuredValue={bestRowFor('averagePace', 'min')?.averagePace ?? null} featuredSub={bestRowFor('averagePace', 'min') ? `Best year: ${bestRowFor('averagePace', 'min')!.label}` : undefined} />
+                                <ResultsTrendCard title="Median Pace" data={trendForPerformance('medianPace')} formatValue={formatPerformanceValue} deltaInvert barColors={yearColors} showBarLabels formatDelta={performanceDeltaFormatter(true)} featuredValue={bestRowFor('medianPace', 'min')?.medianPace ?? null} featuredSub={bestRowFor('medianPace', 'min') ? `Best year: ${bestRowFor('medianPace', 'min')!.label}` : undefined} />
+                                <ResultsTrendCard title="Last Finisher Pace" data={trendForPerformance('lastPace')} formatValue={formatPerformanceValue} deltaInvert barColors={yearColors} showBarLabels formatDelta={performanceDeltaFormatter(true)} featuredValue={bestRowFor('lastPace', 'max')?.lastPace ?? null} featuredSub={bestRowFor('lastPace', 'max') ? `Slowest year: ${bestRowFor('lastPace', 'max')!.label}` : undefined} />
+                                <ResultsTrendCard title="Pace Spread" data={trendForPerformance('paceSpread')} formatValue={formatPerformanceValue} deltaInvert barColors={yearColors} showBarLabels formatDelta={performanceDeltaFormatter(true, true)} featuredValue={bestRowFor('paceSpread', 'max')?.paceSpread ?? null} featuredSub={bestRowFor('paceSpread', 'max') ? `Largest spread: ${bestRowFor('paceSpread', 'max')!.label}` : undefined} />
+                              </>
+                            ) : (
+                              <>
+                                <ResultsTrendCard title="Shortest Distance" data={trendForPerformance('shortestDistance')} formatValue={formatPerformanceValue} barColors={yearColors} showBarLabels formatDelta={performanceDeltaFormatter(false)} featuredValue={bestRowFor('shortestDistance', 'min')?.shortestDistance ?? null} featuredSub={bestRowFor('shortestDistance', 'min') ? `Shortest year: ${bestRowFor('shortestDistance', 'min')!.label}` : undefined} />
+                                <ResultsTrendCard title="Average Distance" data={trendForPerformance('averageDistance')} formatValue={formatPerformanceValue} barColors={yearColors} showBarLabels formatDelta={performanceDeltaFormatter(false)} featuredValue={bestRowFor('averageDistance', 'max')?.averageDistance ?? null} featuredSub={bestRowFor('averageDistance', 'max') ? `Best year: ${bestRowFor('averageDistance', 'max')!.label}` : undefined} />
+                                <ResultsTrendCard title="Median Distance" data={trendForPerformance('medianDistance')} formatValue={formatPerformanceValue} barColors={yearColors} showBarLabels formatDelta={performanceDeltaFormatter(false)} featuredValue={bestRowFor('medianDistance', 'max')?.medianDistance ?? null} featuredSub={bestRowFor('medianDistance', 'max') ? `Best year: ${bestRowFor('medianDistance', 'max')!.label}` : undefined} />
+                                <ResultsTrendCard title="Farthest Distance" data={trendForPerformance('farthestDistance')} formatValue={formatPerformanceValue} barColors={yearColors} showBarLabels formatDelta={performanceDeltaFormatter(false)} featuredValue={bestRowFor('farthestDistance', 'max')?.farthestDistance ?? null} featuredSub={bestRowFor('farthestDistance', 'max') ? `Best year: ${bestRowFor('farthestDistance', 'max')!.label}` : undefined} />
+                                <ResultsTrendCard title="Distance Spread" data={trendForPerformance('distanceSpread')} formatValue={formatPerformanceValue} barColors={yearColors} showBarLabels formatDelta={performanceDeltaFormatter(false, true)} featuredValue={bestRowFor('distanceSpread', 'max')?.distanceSpread ?? null} featuredSub={bestRowFor('distanceSpread', 'max') ? `Largest spread: ${bestRowFor('distanceSpread', 'max')!.label}` : undefined} />
+                              </>
+                            )}
+                          </div>
+                          <div className="rr-finish-chart-toolbar">
+                            <div className="metric-pills" role="group" aria-label={isFixedDist ? 'Select pace metric' : 'Select distance metric'}>
+                              {metricOptions.map(option => (
+                                <button key={option.id} type="button"
+                                  className={`metric-pill${selectedMetric.id === option.id ? ' metric-pill--active' : ''}`}
+                                  aria-pressed={selectedMetric.id === option.id}
+                                  onClick={() => setEventPerfMetric(option.id)}
+                                >
+                                  {option.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <p className="rr-event-perf-chart-label">
+                            {isFixedDist ? 'Selected Pace Metric by Year' : 'Selected Distance Metric by Year'}
+                          </p>
+                          <div className="rr-finish-line-chart" aria-hidden="true">
+                            <ResponsiveContainer width="100%" height={230}>
+                              <LineChart data={selectedMetricChartData} margin={{ top: 10, right: 24, bottom: 4, left: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                                <YAxis
+                                  tick={{ fontSize: 11 }}
+                                  tickFormatter={(value: number) => formatPerformanceValue(value)}
+                                  width={isFixedDist ? 76 : 58}
+                                  domain={selectedMetricDomain}
+                                />
+                                <Tooltip
+                                  formatter={(value: number) => [formatPerformanceValue(value), selectedMetric.label]}
+                                  labelFormatter={(label: string) => label}
+                                  contentStyle={{ fontSize: '0.8rem' }}
+                                />
+                                <Line
+                                  type="monotone"
+                                  dataKey="value"
+                                  name={selectedMetric.label}
+                                  stroke="#3b82f6"
+                                  strokeWidth={2.75}
+                                  dot={({ cx, cy, payload }) => (
+                                    <circle cx={cx} cy={cy} r={4} fill={payload.yearColor} stroke="#fff" strokeWidth={1.5} />
+                                  )}
+                                  activeDot={{ r: 5.5, stroke: '#fff', strokeWidth: 1.5 }}
+                                  connectNulls={false}
+                                />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <p className="chart-note">Y-axis is scaled to highlight year-over-year change.</p>
+                        </div>
+                      )}
                     </div>
                   )}
-
-                  {eventTab === 'table' && (
+                  {eventPerfTab === 'table' && (
                     <div role="tabpanel" className="rd-tab-panel">
                       <div className="cmp-table-scroll">
                         <table className="stats-table cmp-table">
-                          <caption className="sr-only">Event comparison by year</caption>
+                          <caption className="sr-only">{isFixedDist ? 'Pace trends by year' : 'Distance trends by year'}</caption>
                           <thead>
                             <tr>
-                              <th scope="col">Event / Metric</th>
-                              {intervals.map(iv => <th scope="col" key={iv.label}>{iv.label}</th>)}
+                              <th scope="col">Year</th>
+                              {metricOptions.map(option => <th scope="col" key={option.id}>{option.label}</th>)}
                             </tr>
                           </thead>
                           <tbody>
-                            {allEventNames.map((evName, ei) => (
-                              <Fragment key={evName}>
-                                <tr className={`cmp-event-group-header${ei === 0 ? ' cmp-event-group-header--first' : ''}`}>
-                                  <td colSpan={intervals.length + 1}>{evName}</td>
-                                </tr>
-                                <tr>
-                                  <td className="cmp-metric-label--sub">Finishers</td>
-                                  {intervals.map(iv => {
-                                    const evRow = iv.stats.crossEvent.rows.find(r => r.name === evName);
-                                    return <td key={iv.label}>{evRow != null ? evRow.finishers.toLocaleString() : '—'}</td>;
-                                  })}
-                                </tr>
-                                <tr>
-                                  <td className="cmp-metric-label--sub">Finish Rate</td>
-                                  {intervals.map(iv => {
-                                    const evRow = iv.stats.crossEvent.rows.find(r => r.name === evName);
-                                    return <td key={iv.label}>{evRow != null ? fmtPct(evRow.finishRate) : '—'}</td>;
-                                  })}
-                                </tr>
-                              </Fragment>
+                            {eventPerformanceRows.map(row => (
+                              <tr key={row.label}>
+                                <td>{row.label}</td>
+                                {metricOptions.map(option => (
+                                  <td key={option.id}>{formatPerformanceValue(row[option.field])}</td>
+                                ))}
+                              </tr>
                             ))}
                           </tbody>
                         </table>
                       </div>
                     </div>
                   )}
+                  {eventPerformanceInsights.length > 0 && (
+                    <div className="insight-callout">
+                      <ul className="insight-callout-list">
+                        {eventPerformanceInsights.map(item => (
+                          <li key={item} className="insight-callout-item">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </section>
               );
             })()}
 
-            {/* ── 6. Gender ── */}
-            <section id="rr-gender" className="chart-section">
-              <SectionHeader title="Gender" />
-              <div className="rd-tab-strip" role="tablist" aria-label="Gender views">
-                {(['charts', 'table'] as const).map(id => (
-                  <button key={id} type="button" role="tab"
-                    aria-selected={genderTab === id}
-                    className={`rd-tab${genderTab === id ? ' rd-tab--active' : ''}`}
-                    onClick={() => setGenderTab(id)}
-                  >
-                    {id === 'charts' ? 'Charts' : 'Table'}
-                  </button>
-                ))}
-              </div>
-              {genderTab === 'charts' && (() => {
-                const hasNonBinary = intervals.some(iv => iv.stats.demographics.finisherGender.nonBinaryPercent > 0);
-                const genderRows = [
-                  { metric: 'Female Finishers %', ...Object.fromEntries(intervals.map(iv => [iv.label, parseFloat(iv.stats.demographics.finisherGender.femalePercent.toFixed(1))])) },
-                  { metric: 'Male Finishers %', ...Object.fromEntries(intervals.map(iv => [iv.label, parseFloat(iv.stats.demographics.finisherGender.malePercent.toFixed(1))])) },
-                  ...(hasNonBinary ? [{ metric: 'Non-Binary Finishers %', ...Object.fromEntries(intervals.map(iv => [iv.label, parseFloat(iv.stats.demographics.finisherGender.nonBinaryPercent.toFixed(1))])) }] : []),
-                ] as Array<Record<string, string | number>>;
-                const gBarSize = 44;
-                const genderChartH = Math.max(220, genderRows.length * (intervals.length * (gBarSize + 8) + 44));
-                return (
-                  <div role="tabpanel" className="rd-tab-panel">
-                    <div className="chart-wrap chart-wrap--full" aria-hidden="true">
-                      <ResponsiveContainer width="100%" height={genderChartH}>
-                        <BarChart layout="vertical" data={genderRows} barGap={6} barCategoryGap="28%"
-                          margin={{ top: 4, right: 90, bottom: 4, left: 8 }}>
-                          <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                          <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} domain={[0, 100]} />
-                          <YAxis type="category" dataKey="metric" tick={{ fontSize: 11 }} width={160} />
-                          <Tooltip contentStyle={{ fontSize: '0.8rem' }} formatter={(v: number) => fmtPct(v)} />
-                          <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
-                          {intervals.map((iv, i) => (
-                            <Bar key={iv.label} dataKey={iv.label} fill={yearColors[i]} radius={[0, 3, 3, 0]} maxBarSize={gBarSize}>
-                              <LabelList dataKey={iv.label} position="right"
-                                formatter={(v: number) => fmtPct(v)}
-                                style={{ fontSize: '0.72rem', fill: '#555' }} />
-                            </Bar>
-                          ))}
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                );
-              })()}
-              {genderTab === 'table' && (
-                <div role="tabpanel" className="rd-tab-panel">
-                  <div className="cmp-table-scroll">
-                    <table className="stats-table cmp-table">
-                      <caption className="sr-only">Gender breakdown by year</caption>
-                      <thead>
-                        <tr>
-                          <th scope="col">Metric</th>
-                          {intervals.map(iv => <th scope="col" key={iv.label}>{iv.label}</th>)}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td>Female Finishers %</td>
-                          {intervals.map(iv => <td key={iv.label}>{fmtPct(iv.stats.demographics.finisherGender.femalePercent)}</td>)}
-                        </tr>
-                        <tr>
-                          <td>Male Finishers %</td>
-                          {intervals.map(iv => <td key={iv.label}>{fmtPct(iv.stats.demographics.finisherGender.malePercent)}</td>)}
-                        </tr>
-                        <tr>
-                          <td>Non-Binary Finishers %</td>
-                          {intervals.map(iv => <td key={iv.label}>{fmtPct(iv.stats.demographics.finisherGender.nonBinaryPercent)}</td>)}
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </section>
+            {/* ── 6. Finisher Gender ── */}
+            {hasEventPerformanceTrends && (() => {
+              if (!activeTrendEventName) return null;
+              const gc = genderColors(theme);
 
-            {/* ── 7. Age Trends ── */}
-            <section id="rr-age-trends" className="chart-section">
-              <SectionHeader title="Age Trends" />
-              <div className="rd-tab-strip" role="tablist" aria-label="Age trends views">
-                {(['charts', 'table'] as const).map(id => (
-                  <button key={id} type="button" role="tab"
-                    aria-selected={ageTrendsTab === id}
-                    className={`rd-tab${ageTrendsTab === id ? ' rd-tab--active' : ''}`}
-                    onClick={() => setAgeTrendsTab(id)}
-                  >
-                    {id === 'charts' ? 'Charts' : 'Table'}
-                  </button>
-                ))}
-              </div>
-              {ageTrendsTab === 'charts' && (
-                <div role="tabpanel" className="rd-tab-panel">
-                  {ageFlat ? (
-                    <p className="rd-empty-group">Finisher age trends were stable across the compared years.</p>
-                  ) : (() => {
-                    const ageBarData = trends.medianFinisherAge.map(d => ({ year: d.label, age: d.value ?? 0 }));
-                    const ageVals = ageBarData.map(d => d.age).filter(v => v > 0);
-                    const ageMin = ageVals.length > 0 ? Math.floor(Math.min(...ageVals) * 0.95) : 0;
-                    return (
-                      <div className="chart-wrap chart-wrap--full" aria-hidden="true">
-                        <ResponsiveContainer width="100%" height={220}>
-                          <BarChart data={ageBarData} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="year" tick={{ fontSize: 12 }} />
-                            <YAxis tick={{ fontSize: 11 }} width={40} domain={[ageMin, 'auto']}
-                              tickFormatter={(v: number) => `${v}`} />
-                            <Tooltip contentStyle={{ fontSize: '0.8rem' }}
-                              formatter={(v: number) => [`${v.toFixed(1)} yrs`, 'Median Age']} />
-                            <Bar dataKey="age" maxBarSize={40} radius={[3, 3, 0, 0]}>
-                              {ageBarData.map((_, i) => <Cell key={i} fill={yearColors[i]} />)}
-                              <LabelList dataKey="age" position="top"
-                                formatter={(v: number) => `${v.toFixed(1)}`}
-                                style={{ fontSize: '0.7rem', fill: '#555' }} />
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-              {ageTrendsTab === 'table' && (
-                <div role="tabpanel" className="rd-tab-panel">
-                  <div className="cmp-table-scroll">
-                    <table className="stats-table cmp-table">
-                      <caption className="sr-only">Age statistics by year</caption>
-                      <thead>
-                        <tr>
-                          <th scope="col">Metric</th>
-                          {intervals.map(iv => <th scope="col" key={iv.label}>{iv.label}</th>)}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td>Median Age</td>
-                          {intervals.map(iv => (
-                            <td key={iv.label}>{iv.stats.demographics.finisherAge.median != null ? iv.stats.demographics.finisherAge.median.toFixed(1) : '—'}</td>
-                          ))}
-                        </tr>
-                        <tr>
-                          <td>Average Age</td>
-                          {intervals.map(iv => (
-                            <td key={iv.label}>{iv.stats.demographics.finisherAge.mean != null ? iv.stats.demographics.finisherAge.mean.toFixed(1) : '—'}</td>
-                          ))}
-                        </tr>
-                        <tr>
-                          <td>Youngest Finisher</td>
-                          {intervals.map(iv => <td key={iv.label}>{iv.stats.demographics.finisherAge.min ?? '—'}</td>)}
-                        </tr>
-                        <tr>
-                          <td>Oldest Finisher</td>
-                          {intervals.map(iv => <td key={iv.label}>{iv.stats.demographics.finisherAge.max ?? '—'}</td>)}
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {/* ── 8. Age Distribution ── */}
-            {(() => {
-              const distColors = yearColors;
-              const buckets = lastInterval.stats.demographics.finisherAge.buckets;
-              const distChartData = buckets.map(b => {
-                const row: Record<string, number | string> = { label: b.label };
-                intervals.forEach(iv => {
-                  const match = iv.stats.demographics.finisherAge.buckets.find(x => x.label === b.label);
-                  row[iv.label] = match?.count ?? 0;
-                });
-                return row;
+              // Per-event finisher counts by gender for each interval
+              const genderRows = intervals.map((iv, index) => {
+                const event = iv.stats.performance.events.find(e => e.eventName === activeTrendEventName);
+                const byGender = isFixedDist
+                  ? event?.finishTime?.byGender ?? null
+                  : event?.distanceAchieved?.byGender ?? null;
+                const female    = byGender?.find(g => g.gender === 'F')?.finishers  ?? 0;
+                const male      = byGender?.find(g => g.gender === 'M')?.finishers  ?? 0;
+                const nonBinary = byGender?.find(g => g.gender === 'NB')?.finishers ?? 0;
+                const total = female + male + nonBinary;
+                return {
+                  label: iv.label,
+                  yearColor: yearColors[index],
+                  female, male, nonBinary, total,
+                  femalePct:  total > 0 ? (female    / total) * 100 : 0,
+                  malePct:    total > 0 ? (male      / total) * 100 : 0,
+                  nbPct:      total > 0 ? (nonBinary / total) * 100 : 0,
+                };
               });
+              const hasNonBinary   = genderRows.some(row => row.nonBinary > 0);
+              const rowsWithData   = genderRows.filter(row => row.total > 0);
+
+              // Chart data: years on X-axis, F/M/NB as bar groups
+              const chartData = genderRows.map(row => ({
+                label:          row.label,
+                'Female':       parseFloat(row.femalePct.toFixed(1)),
+                'Male':         parseFloat(row.malePct.toFixed(1)),
+                ...(hasNonBinary ? { 'Non-Binary': parseFloat(row.nbPct.toFixed(1)) } : {}),
+              }));
+
+              // Insights: earliest-to-latest for this event
+              const firstRow  = rowsWithData[0];
+              const lastRow   = rowsWithData[rowsWithData.length - 1];
+              const genderInsights: string[] = [];
+              if (firstRow && lastRow && firstRow.label !== lastRow.label) {
+                const fDelta  = lastRow.femalePct  - firstRow.femalePct;
+                const mDelta  = lastRow.malePct    - firstRow.malePct;
+                genderInsights.push(Math.abs(fDelta) < 0.5
+                  ? `Female finishers in ${activeTrendEventName} remained stable from ${firstRow.label} to ${lastRow.label}.`
+                  : `Female finishers ${fDelta > 0 ? 'increased' : 'decreased'} by ${Math.abs(fDelta).toFixed(1)} pts from ${firstRow.label} to ${lastRow.label}.`);
+                genderInsights.push(Math.abs(mDelta) < 0.5
+                  ? `Male finishers in ${activeTrendEventName} remained stable from ${firstRow.label} to ${lastRow.label}.`
+                  : `Male finishers ${mDelta > 0 ? 'increased' : 'decreased'} by ${Math.abs(mDelta).toFixed(1)} pts from ${firstRow.label} to ${lastRow.label}.`);
+                if (hasNonBinary) {
+                  const nbDelta = lastRow.nbPct - firstRow.nbPct;
+                  if (Math.abs(nbDelta) >= 0.5) {
+                    genderInsights.push(`Non-Binary finishers ${nbDelta > 0 ? 'increased' : 'decreased'} by ${Math.abs(nbDelta).toFixed(1)} pts from ${firstRow.label} to ${lastRow.label}.`);
+                  }
+                }
+              }
+
               return (
-                <section id="rr-age-dist" className="chart-section">
-                  <SectionHeader title="Age Distribution" />
-                  <div className="rd-tab-strip" role="tablist" aria-label="Age distribution views">
+                <section id="rr-gender" className="chart-section" style={{ order: 9 }}>
+                  <SectionHeader title="Finisher Gender" contextStrip={selectedTrendContextStrip} />
+                  <div className="rd-tab-strip" role="tablist" aria-label="Finisher gender trends views">
                     {(['charts', 'table'] as const).map(id => (
                       <button key={id} type="button" role="tab"
-                        aria-selected={ageDistTab === id}
-                        className={`rd-tab${ageDistTab === id ? ' rd-tab--active' : ''}`}
-                        onClick={() => setAgeDistTab(id)}
+                        aria-selected={genderTab === id}
+                        className={`rd-tab${genderTab === id ? ' rd-tab--active' : ''}`}
+                        onClick={() => setGenderTab(id)}
                       >
                         {id === 'charts' ? 'Charts' : 'Table'}
                       </button>
                     ))}
                   </div>
+                  {genderTab === 'charts' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      {rowsWithData.length === 0 ? (
+                        <p className="rd-empty-group">Gender trend data is not available for the selected event.</p>
+                      ) : (
+                        <div className="chart-wrap chart-wrap--full" aria-hidden="true">
+                          <ResponsiveContainer width="100%" height={240}>
+                            <BarChart data={chartData} barGap={4} barCategoryGap="32%"
+                              margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                              <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} domain={[0, 100]} />
+                              <Tooltip contentStyle={{ fontSize: '0.8rem' }} formatter={(v: number, name: string) => [fmtPct(v), name]} />
+                              <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
+                              <Bar dataKey="Female" fill={gc.F} radius={[3, 3, 0, 0]}>
+                                <LabelList dataKey="Female" position="top" formatter={(v: number) => v > 0 ? `${v.toFixed(0)}%` : ''} style={{ fontSize: '0.7rem', fill: '#555' }} />
+                              </Bar>
+                              <Bar dataKey="Male" fill={gc.M} radius={[3, 3, 0, 0]}>
+                                <LabelList dataKey="Male" position="top" formatter={(v: number) => v > 0 ? `${v.toFixed(0)}%` : ''} style={{ fontSize: '0.7rem', fill: '#555' }} />
+                              </Bar>
+                              {hasNonBinary && (
+                                <Bar dataKey="Non-Binary" fill={gc.NB} radius={[3, 3, 0, 0]}>
+                                  <LabelList dataKey="Non-Binary" position="top" formatter={(v: number) => v > 0 ? `${v.toFixed(1)}%` : ''} style={{ fontSize: '0.7rem', fill: '#555' }} />
+                                </Bar>
+                              )}
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {genderTab === 'table' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      <div className="cmp-table-scroll">
+                        <table className="stats-table cmp-table">
+                          <caption className="sr-only">Finisher gender trends by year for {activeTrendEventName}</caption>
+                          <thead>
+                            <tr>
+                              <th scope="col">Year</th>
+                              <th scope="col">Female</th>
+                              <th scope="col">Female %</th>
+                              <th scope="col">Male</th>
+                              <th scope="col">Male %</th>
+                              {hasNonBinary && <th scope="col">Non-Binary</th>}
+                              {hasNonBinary && <th scope="col">Non-Binary %</th>}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {genderRows.map(row => (
+                              <tr key={row.label}>
+                                <td>{row.label}</td>
+                                <td>{row.female.toLocaleString()}</td>
+                                <td>{row.total > 0 ? fmtPct(row.femalePct) : '—'}</td>
+                                <td>{row.male.toLocaleString()}</td>
+                                <td>{row.total > 0 ? fmtPct(row.malePct) : '—'}</td>
+                                {hasNonBinary && <td>{row.nonBinary.toLocaleString()}</td>}
+                                {hasNonBinary && <td>{row.total > 0 ? fmtPct(row.nbPct) : '—'}</td>}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                  {genderInsights.length > 0 && (
+                    <div className="insight-callout">
+                      <ul className="insight-callout-list">
+                        {genderInsights.map(item => (
+                          <li key={item} className="insight-callout-item">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
+
+            {/* ── 7. Finisher Age ── */}
+            {hasEventPerformanceTrends && (() => {
+              if (!activeTrendEventName) return null;
+
+              // Per-event finisher age for each interval
+              const ageRows = intervals.map((iv, i) => {
+                const eventAge = iv.stats.ageDistributionByEvent.find(e => e.eventName === activeTrendEventName)?.finisherAge ?? null;
+                return {
+                  label:     iv.label,
+                  yearColor: yearColors[i],
+                  median:    eventAge?.median ?? null,
+                  mean:      eventAge?.mean   ?? null,
+                  min:       eventAge?.min    ?? null,
+                  max:       eventAge?.max    ?? null,
+                };
+              });
+              const firstAgeRow  = ageRows.find(r => r.median != null || r.mean != null);
+              const lastAgeRow   = [...ageRows].reverse().find(r => r.median != null || r.mean != null);
+
+              // TrendPoint arrays for ResultsTrendCard
+              const youngestTrend: TrendPoint[] = ageRows.map(r => ({ label: r.label, value: r.min }));
+              const oldestTrend:   TrendPoint[] = ageRows.map(r => ({ label: r.label, value: r.max }));
+              const medianTrend:  TrendPoint[] = ageRows.map(r => ({ label: r.label, value: r.median }));
+              const averageTrend: TrendPoint[] = ageRows.map(r => ({ label: r.label, value: r.mean   }));
+              const youngestAllYears = ageRows.reduce<typeof ageRows[number] | null>((best, row) => {
+                if (row.min == null) return best;
+                if (!best || best.min == null || row.min < best.min || row.min === best.min) return row;
+                return best;
+              }, null);
+              const oldestAllYears = ageRows.reduce<typeof ageRows[number] | null>((best, row) => {
+                if (row.max == null) return best;
+                if (!best || best.max == null || row.max > best.max || row.max === best.max) return row;
+                return best;
+              }, null);
+              const fmtAgeValue = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(1);
+              const fmtAgeDelta = (delta: number, firstLabel?: string) => {
+                if (Math.abs(delta) < 0.05) return firstLabel ? `stable since ${firstLabel}` : 'stable';
+                return `${delta > 0 ? '+' : ''}${delta.toFixed(1)} yrs${firstLabel ? ` since ${firstLabel}` : ''}`;
+              };
+
+              // Insights
+              const ageInsights: string[] = [];
+              if (firstAgeRow && lastAgeRow && firstAgeRow.label !== lastAgeRow.label) {
+                if (firstAgeRow.median != null && lastAgeRow.median != null) {
+                  const d = lastAgeRow.median - firstAgeRow.median;
+                  ageInsights.push(Math.abs(d) < 1
+                    ? `Median finisher age in ${activeTrendEventName} remained stable from ${firstAgeRow.label} to ${lastAgeRow.label}.`
+                    : `Median finisher age ${d > 0 ? 'increased' : 'decreased'} by ${Math.abs(d).toFixed(1)} yrs from ${firstAgeRow.label} to ${lastAgeRow.label}.`);
+                }
+                if (firstAgeRow.mean != null && lastAgeRow.mean != null) {
+                  const d = lastAgeRow.mean - firstAgeRow.mean;
+                  if (Math.abs(d) >= 1) {
+                    ageInsights.push(`Average age ${d > 0 ? 'increased' : 'decreased'} by ${Math.abs(d).toFixed(1)} yrs from ${firstAgeRow.label} to ${lastAgeRow.label}.`);
+                  }
+                }
+                if (firstAgeRow.max != null && lastAgeRow.max != null && firstAgeRow.max !== lastAgeRow.max) {
+                  ageInsights.push(`The oldest finisher changed from age ${firstAgeRow.max} to ${lastAgeRow.max}.`);
+                }
+              }
+
+              return (
+                <section id="rr-age-trends" className="chart-section" style={{ order: 7 }}>
+                  <SectionHeader title="Finisher Age" contextStrip={selectedTrendContextStrip} />
+                  <p className="chart-note">Track how the selected event's finisher age profile changed across years.</p>
+
+                  <div className="rd-tab-strip" role="tablist" aria-label="Finisher age trends views">
+                    {(['summary', 'table'] as const).map(id => (
+                      <button key={id} type="button" role="tab"
+                        aria-selected={ageTrendsTab === id}
+                        className={`rd-tab${ageTrendsTab === id ? ' rd-tab--active' : ''}`}
+                        onClick={() => setAgeTrendsTab(id)}
+                      >
+                        {id === 'summary' ? 'Summary' : 'Table'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {ageTrendsTab === 'summary' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      <div className="trend-cards-grid trend-cards-grid--secondary">
+                        <ResultsTrendCard
+                          title="Youngest (All Years)"
+                          data={youngestTrend}
+                          precision={0}
+                          formatValue={fmtAgeValue}
+                          featuredValue={youngestAllYears?.min ?? null}
+                          featuredSub={youngestAllYears ? `Year: ${youngestAllYears.label}` : undefined}
+                          barColors={yearColors}
+                          showBarLabels
+                        />
+                        <ResultsTrendCard
+                          title="Oldest (All Years)"
+                          data={oldestTrend}
+                          precision={0}
+                          formatValue={fmtAgeValue}
+                          featuredValue={oldestAllYears?.max ?? null}
+                          featuredSub={oldestAllYears ? `Year: ${oldestAllYears.label}` : undefined}
+                          barColors={yearColors}
+                          showBarLabels
+                        />
+                        <ResultsTrendCard
+                          title="Average Age by Year"
+                          data={averageTrend}
+                          precision={1}
+                          formatValue={fmtAgeValue}
+                          unit=" yrs"
+                          barColors={yearColors}
+                          showBarLabels
+                          formatDelta={fmtAgeDelta}
+                        />
+                        <ResultsTrendCard
+                          title="Median Age by Year"
+                          data={medianTrend}
+                          precision={1}
+                          formatValue={fmtAgeValue}
+                          unit=" yrs"
+                          barColors={yearColors}
+                          showBarLabels
+                          formatDelta={fmtAgeDelta}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {ageTrendsTab === 'table' && (
+                    <div role="tabpanel" className="rd-tab-panel">
+                      <div className="cmp-table-scroll">
+                        <table className="stats-table cmp-table">
+                          <caption className="sr-only">Finisher age trends by year for {activeTrendEventName}</caption>
+                          <thead>
+                            <tr>
+                              <th scope="col">Year</th>
+                              <th scope="col">Average Age</th>
+                              <th scope="col">Median Age</th>
+                              <th scope="col">Youngest</th>
+                              <th scope="col">Oldest</th>
+                              <th scope="col">Age Range</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ageRows.map(row => (
+                              <tr key={row.label}>
+                                <td>{row.label}</td>
+                                <td>{row.mean   != null ? row.mean.toFixed(1)   : '—'}</td>
+                                <td>{row.median != null ? row.median.toFixed(1) : '—'}</td>
+                                <td>{row.min ?? '—'}</td>
+                                <td>{row.max ?? '—'}</td>
+                                <td>{row.min != null && row.max != null ? `${row.min}–${row.max}` : '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {ageInsights.length > 0 && (
+                    <div className="insight-callout">
+                      <ul className="insight-callout-list">
+                        {ageInsights.map(item => (
+                          <li key={item} className="insight-callout-item">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
+
+            {/* ── 9. Selected Event Geography ── */}
+            {(() => {
+              if (!activeTrendEventName) return null;
+
+              const selectedGeoRows = intervals.map(iv => {
+                const geographic = iv.stats.geographicDistributionByEvent.find(event => event.eventName === activeTrendEventName)?.geographic ?? null;
+                const usStates = geographic
+                  ? Object.keys(geographic.byState).filter(state => US_STATE_CODES.has(state.toUpperCase())).length
+                  : 0;
+                const nonUsStates = geographic
+                  ? Object.keys(geographic.byState).filter(state => !US_STATE_CODES.has(state.toUpperCase())).length
+                  : 0;
+                const countries = geographic ? Object.keys(geographic.byCountry).length : 0;
+                return {
+                  label: iv.label,
+                  geographic,
+                  usStates,
+                  nonUsStates,
+                  countries,
+                };
+              });
+              const firstSelectedGeo = selectedGeoRows.find(row => row.geographic != null);
+              const latestSelectedGeo = [...selectedGeoRows].reverse().find(row => row.geographic != null);
+              const hasSelectedGeo = selectedGeoRows.some(row => row.geographic != null);
+              const selectedGeoUnknownPresent = selectedGeoRows.some(row => (row.geographic?.unknownLocationParticipants ?? 0) > 0);
+              const selectedGeoTrendSub = (latest: number, first: number, firstLabel?: string): string => {
+                const delta = latest - first;
+                if (!firstLabel) return 'comparison period';
+                if (delta === 0) return `stable since ${firstLabel}`;
+                return `${delta > 0 ? '+' : ''}${delta.toLocaleString()} since ${firstLabel}`;
+              };
+              const selectedGeoInsights = (() => {
+                if (!firstSelectedGeo?.geographic || !latestSelectedGeo?.geographic) return [];
+                const usDelta = latestSelectedGeo.geographic.usParticipants - firstSelectedGeo.geographic.usParticipants;
+                const intlDelta = latestSelectedGeo.geographic.internationalParticipants - firstSelectedGeo.geographic.internationalParticipants;
+                const stateDelta = latestSelectedGeo.usStates - firstSelectedGeo.usStates;
+                const insights: string[] = [];
+                insights.push(Math.abs(usDelta) < 5
+                  ? `${activeTrendEventName} US participation was relatively stable from ${firstSelectedGeo.label} to ${latestSelectedGeo.label}.`
+                  : `${activeTrendEventName} US participation ${usDelta > 0 ? 'increased' : 'decreased'} by ${Math.abs(usDelta).toLocaleString()} from ${firstSelectedGeo.label} to ${latestSelectedGeo.label}.`);
+                if (Math.abs(intlDelta) >= 2) {
+                  insights.push(`International participation changed from ${firstSelectedGeo.geographic.internationalParticipants.toLocaleString()} to ${latestSelectedGeo.geographic.internationalParticipants.toLocaleString()}.`);
+                }
+                if (stateDelta !== 0) {
+                  insights.push(`US state reach ${stateDelta > 0 ? 'expanded' : 'narrowed'} from ${firstSelectedGeo.usStates} to ${latestSelectedGeo.usStates} states.`);
+                }
+                return insights.slice(0, 3);
+              })();
+              return (
+                <section id="rr-selected-geography" className="chart-section rr-geography-compact rr-selected-geography-compact" style={{ order: 12 }}>
+                  <SectionHeader title="Selected Event Geography" contextStrip={selectedTrendContextStrip} />
+                  {!hasSelectedGeo ? (
+                    <p className="rd-empty-group">Selected-event geography trends need event-level geography data for each compared year.</p>
+                  ) : (
+                    <>
+                      <p className="chart-note rr-selected-geography-note">Geography reflects participants in the selected event across compared years.</p>
+                      <div className="rd-tab-strip" role="tablist" aria-label="Selected event geography views">
+                        {(['summary', 'table'] as const).map(id => (
+                          <button key={id} type="button" role="tab"
+                            aria-selected={selectedGeoTab === id}
+                            className={`rd-tab${selectedGeoTab === id ? ' rd-tab--active' : ''}`}
+                            onClick={() => setSelectedGeoTab(id)}
+                          >
+                            {id === 'summary' ? 'Summary' : 'Table'}
+                          </button>
+                        ))}
+                      </div>
+                      {selectedGeoTab === 'summary' && latestSelectedGeo?.geographic && firstSelectedGeo?.geographic && (
+                        <div role="tabpanel" className="rd-tab-panel">
+                          <div className="stat-cards-row">
+                            <StatCard label="US Participants" value={latestSelectedGeo.geographic.usParticipants.toLocaleString()} sub={selectedGeoTrendSub(latestSelectedGeo.geographic.usParticipants, firstSelectedGeo.geographic.usParticipants, firstSelectedGeo.label)} />
+                            <StatCard label="US States" value={latestSelectedGeo.usStates.toLocaleString()} sub={selectedGeoTrendSub(latestSelectedGeo.usStates, firstSelectedGeo.usStates, firstSelectedGeo.label)} />
+                            <StatCard label="International Participants" value={latestSelectedGeo.geographic.internationalParticipants.toLocaleString()} sub={selectedGeoTrendSub(latestSelectedGeo.geographic.internationalParticipants, firstSelectedGeo.geographic.internationalParticipants, firstSelectedGeo.label)} />
+                            <StatCard label="Total Countries" value={latestSelectedGeo.countries.toLocaleString()} sub={selectedGeoTrendSub(latestSelectedGeo.countries, firstSelectedGeo.countries, firstSelectedGeo.label)} />
+                            <StatCard label="Non-US States / Provinces" value={latestSelectedGeo.nonUsStates.toLocaleString()} sub={selectedGeoTrendSub(latestSelectedGeo.nonUsStates, firstSelectedGeo.nonUsStates, firstSelectedGeo.label)} />
+                          </div>
+                          {selectedGeoInsights.length > 0 && (
+                            <div className="insight-callout rr-selected-geography-insight">
+                              <ul className="insight-callout-list">
+                                {selectedGeoInsights.map(item => (
+                                  <li key={item} className="insight-callout-item">{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {selectedGeoTab === 'table' && (
+                        <div role="tabpanel" className="rd-tab-panel">
+                          <div className="cmp-table-scroll">
+                            <table className="stats-table cmp-table">
+                              <caption className="sr-only">Selected event geography summary by year for {activeTrendEventName}</caption>
+                              <thead>
+                                <tr>
+                                  <th scope="col">Year</th>
+                                  <th scope="col">US Participants</th>
+                                  <th scope="col">US States</th>
+                                  <th scope="col">International Participants</th>
+                                  <th scope="col">Total Countries</th>
+                                  <th scope="col">Non-US States / Provinces</th>
+                                  {selectedGeoUnknownPresent && <th scope="col">Unknown Location</th>}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {selectedGeoRows.map(row => (
+                                  <tr key={row.label}>
+                                    <td>{row.label}</td>
+                                    <td>{row.geographic?.usParticipants.toLocaleString() ?? '—'}</td>
+                                    <td>{row.geographic ? row.usStates.toLocaleString() : '—'}</td>
+                                    <td>{row.geographic?.internationalParticipants.toLocaleString() ?? '—'}</td>
+                                    <td>{row.geographic ? row.countries.toLocaleString() : '—'}</td>
+                                    <td>{row.geographic ? row.nonUsStates.toLocaleString() : '—'}</td>
+                                    {selectedGeoUnknownPresent && <td>{row.geographic ? (row.geographic.unknownLocationParticipants ?? 0).toLocaleString() : '—'}</td>}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </section>
+              );
+            })()}
+
+            {/* ── 8. Finisher Age Distribution ── */}
+            {(() => {
+              if (!activeTrendEventName) return null;
+              const distColors = yearColors;
+              type AgeDistGender = 'overall' | 'male' | 'female' | 'nonBinary';
+              const selectedAgeRows = intervals.map(iv => {
+                const eventAge = iv.stats.ageDistributionByEvent.find(e => e.eventName === activeTrendEventName)?.finisherAge ?? null;
+                const ageGroupRows = iv.stats.ageGroupPerformanceByEvent.find(e => e.eventName === activeTrendEventName)?.rows ?? [];
+                return {
+                  label: iv.label,
+                  eventAge,
+                  ageGroupRows,
+                };
+              });
+              const latestSelectedAgeRow = [...selectedAgeRows].reverse().find(row =>
+                row.ageGroupRows.length > 0 || (row.eventAge?.buckets?.length ?? 0) > 0
+              );
+              const bucketLabels = (() => {
+                const labels: string[] = [];
+                const addLabel = (label: string) => {
+                  if (!labels.includes(label)) labels.push(label);
+                };
+                latestSelectedAgeRow?.ageGroupRows.forEach(row => addLabel(row.ageGroup));
+                latestSelectedAgeRow?.eventAge?.buckets.forEach(bucket => addLabel(bucket.label));
+                selectedAgeRows.forEach(row => {
+                  row.ageGroupRows.forEach(item => addLabel(item.ageGroup));
+                  row.eventAge?.buckets.forEach(bucket => addLabel(bucket.label));
+                });
+                return labels;
+              })();
+              const getBucketCount = (row: typeof selectedAgeRows[number], bucketLabel: string, gender: AgeDistGender) => {
+                const ageGroupRow = row.ageGroupRows.find(item => item.ageGroup === bucketLabel);
+                if (ageGroupRow) {
+                  if (gender === 'male') return ageGroupRow.maleFinishers;
+                  if (gender === 'female') return ageGroupRow.femaleFinishers;
+                  if (gender === 'nonBinary') return ageGroupRow.nonBinaryFinishers;
+                  return ageGroupRow.finishers;
+                }
+                if (gender !== 'overall') return 0;
+                return row.eventAge?.buckets.find(bucket => bucket.label === bucketLabel)?.count ?? 0;
+              };
+              const genderOptions: Array<{ id: AgeDistGender; label: string; hasData: boolean }> = [
+                { id: 'overall', label: 'Overall', hasData: bucketLabels.some(bucket => selectedAgeRows.some(row => getBucketCount(row, bucket, 'overall') > 0)) },
+                { id: 'male', label: 'Male', hasData: bucketLabels.some(bucket => selectedAgeRows.some(row => getBucketCount(row, bucket, 'male') > 0)) },
+                { id: 'female', label: 'Female', hasData: bucketLabels.some(bucket => selectedAgeRows.some(row => getBucketCount(row, bucket, 'female') > 0)) },
+                { id: 'nonBinary', label: 'Non-Binary', hasData: bucketLabels.some(bucket => selectedAgeRows.some(row => getBucketCount(row, bucket, 'nonBinary') > 0)) },
+              ];
+              const visibleGenderOptions = genderOptions.filter(option => option.hasData || option.id === 'overall');
+              const activeAgeDistGender: AgeDistGender = visibleGenderOptions.some(option => option.id === ageDistGender)
+                ? ageDistGender
+                : 'overall';
+              const activeGenderLabel = genderOptions.find(option => option.id === activeAgeDistGender)?.label ?? 'Overall';
+              const distChartData = bucketLabels.map(bucketLabel => {
+                const row: Record<string, number | string> = { label: bucketLabel };
+                selectedAgeRows.forEach(ageRow => {
+                  row[ageRow.label] = getBucketCount(ageRow, bucketLabel, activeAgeDistGender);
+                });
+                return row;
+              });
+              const distInsights = (() => {
+                const firstRow = selectedAgeRows.find(row => bucketLabels.some(bucket => getBucketCount(row, bucket, activeAgeDistGender) > 0));
+                const latestRow = [...selectedAgeRows].reverse().find(row => bucketLabels.some(bucket => getBucketCount(row, bucket, activeAgeDistGender) > 0));
+                if (!firstRow || !latestRow) return [];
+                const bucketChanges = bucketLabels.map(label => {
+                  const first = getBucketCount(firstRow, label, activeAgeDistGender);
+                  const latest = getBucketCount(latestRow, label, activeAgeDistGender);
+                  return { label, first, latest, delta: latest - first };
+                });
+                const largestIncrease = bucketChanges.reduce<typeof bucketChanges[number] | null>((best, bucket) => {
+                  if (bucket.delta <= 0) return best;
+                  return !best || bucket.delta > best.delta ? bucket : best;
+                }, null);
+                const largestLatest = bucketChanges.reduce<typeof bucketChanges[number] | null>((best, bucket) => {
+                  if (bucket.latest <= 0) return best;
+                  return !best || bucket.latest > best.latest ? bucket : best;
+                }, null);
+                const insights: string[] = [];
+                const prefix = activeAgeDistGender === 'overall' ? 'Finishers' : `${activeGenderLabel} finishers`;
+                if (largestIncrease && firstRow.label !== latestRow.label) {
+                  insights.push(`${activeTrendEventName} ${prefix.toLowerCase()} ages ${largestIncrease.label} increased from ${largestIncrease.first.toLocaleString()} in ${firstRow.label} to ${largestIncrease.latest.toLocaleString()} in ${latestRow.label}.`);
+                }
+                if (largestLatest) {
+                  insights.push(`${largestLatest.label} was the largest ${activeAgeDistGender === 'overall' ? 'finisher' : activeGenderLabel.toLowerCase()} age group for ${activeTrendEventName} in ${latestRow.label}.`);
+                }
+                return insights.slice(0, 2);
+              })();
+              const hasDistributionData = distChartData.some(row =>
+                selectedAgeRows.some(ageRow => Number(row[ageRow.label] ?? 0) > 0)
+              );
+              return (
+                <section id="rr-age-dist" className="chart-section" style={{ order: 8 }}>
+                  <SectionHeader title="Finisher Age Distribution" contextStrip={selectedTrendContextStrip} />
+                  <p className="chart-note">Compare how finisher age bands grew or shrank across years for the selected event.</p>
+                  <div className="ce-control-row rr-age-distribution-controls">
+                    <div className="rd-tab-strip" role="tablist" aria-label="Finisher age distribution trends views">
+                      {(['charts', 'table'] as const).map(id => (
+                        <button key={id} type="button" role="tab"
+                          aria-selected={ageDistTab === id}
+                          className={`rd-tab${ageDistTab === id ? ' rd-tab--active' : ''}`}
+                          onClick={() => setAgeDistTab(id)}
+                        >
+                          {id === 'charts' ? 'Charts' : 'Table'}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="metric-pills" role="group" aria-label="Filter age distribution by gender">
+                      {visibleGenderOptions.map(option => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className={`metric-pill${activeAgeDistGender === option.id ? ' metric-pill--active' : ''}`}
+                          onClick={() => setAgeDistGender(option.id)}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   {ageDistTab === 'charts' && (
                     <div role="tabpanel" className="rd-tab-panel">
-                      <div className="chart-wrap chart-wrap--full" aria-hidden="true">
-                        <ResponsiveContainer width="100%" height={280}>
-                          <BarChart data={distChartData} margin={{ top: 22, right: 8, bottom: 36, left: 8 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-40} textAnchor="end" interval={0} />
-                            <YAxis tick={{ fontSize: 11 }} allowDecimals={false}
-                              label={{ value: 'Finishers', angle: -90, position: 'insideLeft', offset: 10, style: { fontSize: '0.72rem', fill: '#888' } }} />
-                            <Tooltip contentStyle={{ fontSize: '0.8rem' }} />
-                            <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
-                            {intervals.map((iv, i) => (
-                              <Bar key={iv.label} dataKey={iv.label} fill={distColors[i]} maxBarSize={24}>
-                                <LabelList dataKey={iv.label} position="top"
-                                  formatter={fmtBarCount}
-                                  style={{ fontSize: '0.58rem', fill: '#888' }} />
-                              </Bar>
-                            ))}
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
+                      {hasDistributionData ? (
+                        <div className="chart-wrap chart-wrap--full" aria-hidden="true">
+                          <ResponsiveContainer width="100%" height={280}>
+                            <BarChart data={distChartData} margin={{ top: 22, right: 8, bottom: 36, left: 8 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                              <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-40} textAnchor="end" interval={0} />
+                              <YAxis tick={{ fontSize: 11 }} allowDecimals={false}
+                                label={{ value: 'Finishers', angle: -90, position: 'insideLeft', offset: 10, style: { fontSize: '0.72rem', fill: '#888' } }} />
+                              <Tooltip contentStyle={{ fontSize: '0.8rem' }} />
+                              <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
+                              {selectedAgeRows.map((ageRow, i) => (
+                                <Bar key={ageRow.label} dataKey={ageRow.label} fill={distColors[i]} maxBarSize={24}>
+                                  <LabelList dataKey={ageRow.label} position="top"
+                                    formatter={fmtBarCount}
+                                    style={{ fontSize: '0.58rem', fill: '#888' }} />
+                                </Bar>
+                              ))}
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      ) : (
+                        <p className="rd-empty-group">No {activeGenderLabel.toLowerCase()} finisher age data is available for {activeTrendEventName} across the compared years.</p>
+                      )}
                     </div>
                   )}
                   {ageDistTab === 'table' && (
@@ -3670,16 +4806,16 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
                           <thead>
                             <tr>
                               <th scope="col">Age Group</th>
-                              {intervals.map(iv => <th scope="col" key={iv.label}>{iv.label}</th>)}
+                              {selectedAgeRows.map(row => <th scope="col" key={row.label}>{row.label}</th>)}
                             </tr>
                           </thead>
                           <tbody>
-                            {buckets.map(bucket => (
-                              <tr key={bucket.label}>
-                                <td>{bucket.label}</td>
-                                {intervals.map(iv => {
-                                  const b = iv.stats.demographics.finisherAge.buckets.find(x => x.label === bucket.label);
-                                  return <td key={iv.label}>{b != null ? b.count.toLocaleString() : '—'}</td>;
+                            {bucketLabels.map(bucketLabel => (
+                              <tr key={bucketLabel}>
+                                <td>{bucketLabel}</td>
+                                {selectedAgeRows.map(row => {
+                                  const count = getBucketCount(row, bucketLabel, activeAgeDistGender);
+                                  return <td key={row.label}>{count.toLocaleString()}</td>;
                                 })}
                               </tr>
                             ))}
@@ -3688,113 +4824,88 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
                       </div>
                     </div>
                   )}
+                  {distInsights.length > 0 && (
+                    <div className="insight-callout">
+                      <ul className="insight-callout-list">
+                        {distInsights.map(item => (
+                          <li key={item} className="insight-callout-item">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </section>
               );
             })()}
 
-            {/* ── 9. Geography ── */}
+            {/* ── 3. Overall Geography ── */}
             {(() => {
               const latestGeo = intervals[intervals.length - 1].stats.geographic;
               const latestLabel = intervals[intervals.length - 1].label;
               const firstGeo = intervals[0].stats.geographic;
               const firstLabel = intervals[0].label;
-              const lastStates = Object.keys(latestGeo.byState).length;
-              const firstStates = Object.keys(firstGeo.byState).length;
-              const stateDelta = lastStates - firstStates;
+              const latestUsStates = usStatesTrend[usStatesTrend.length - 1]?.value ?? 0;
+              const firstUsStates = usStatesTrend[0]?.value ?? 0;
+              const latestNonUsStates = nonUsStateProvinceTrend[nonUsStateProvinceTrend.length - 1]?.value ?? 0;
+              const firstNonUsStates = nonUsStateProvinceTrend[0]?.value ?? 0;
+              const latestCountries = Object.keys(latestGeo.byCountry).length;
+              const firstCountries = Object.keys(firstGeo.byCountry).length;
+              const hasUnknownLocation = intervals.some(iv => (iv.stats.geographic.unknownLocationParticipants ?? 0) > 0);
+              const trendSub = (latest: number, first: number): string => {
+                const delta = latest - first;
+                if (delta === 0) return `stable since ${firstLabel}`;
+                return `${delta > 0 ? '+' : ''}${delta.toLocaleString()} since ${firstLabel}`;
+              };
+              const geographyInsights = (() => {
+                const usDelta = latestGeo.usParticipants - firstGeo.usParticipants;
+                const intlDelta = latestGeo.internationalParticipants - firstGeo.internationalParticipants;
+                const usStateDelta = latestUsStates - firstUsStates;
+                const countryDelta = latestCountries - firstCountries;
+                const insights: string[] = [];
+                insights.push(Math.abs(usDelta) < 5
+                  ? `US participation was relatively stable from ${firstLabel} to ${latestLabel}.`
+                  : `US participation ${usDelta > 0 ? 'increased' : 'decreased'} by ${Math.abs(usDelta).toLocaleString()} from ${firstLabel} to ${latestLabel}.`);
+                if (Math.abs(intlDelta) >= 2) {
+                  insights.push(`International participation changed from ${firstGeo.internationalParticipants.toLocaleString()} to ${latestGeo.internationalParticipants.toLocaleString()}.`);
+                }
+                if (countryDelta === 0 && usStateDelta === 0) {
+                  insights.push(`Geographic reach stayed flat at ${latestUsStates.toLocaleString()} US states and ${latestCountries.toLocaleString()} total countries.`);
+                } else if (usStateDelta !== 0) {
+                  insights.push(`US state reach ${usStateDelta > 0 ? 'expanded' : 'narrowed'} from ${firstUsStates} to ${latestUsStates} states.`);
+                } else if (countryDelta !== 0) {
+                  insights.push(`Total country reach changed from ${firstCountries} to ${latestCountries}.`);
+                }
+                return insights.slice(0, 3);
+              })();
 
-              const noChange = intervals.length > 1
-                && usTrend.every(d => d.value === usTrend[0].value)
-                && intlTrend.every(d => d.value === intlTrend[0].value)
-                && statesTrend.every(d => d.value === statesTrend[0].value)
-                && countriesTrend.every(d => d.value === countriesTrend[0].value);
-
-              const participantData = [
-                { metric: 'US', ...Object.fromEntries(intervals.map(iv => [iv.label, iv.stats.geographic.usParticipants])) },
-                { metric: 'International', ...Object.fromEntries(intervals.map(iv => [iv.label, iv.stats.geographic.internationalParticipants])) },
-              ] as Array<Record<string, string | number>>;
-
-              const reachData = [
-                { metric: 'States / Provinces', ...Object.fromEntries(intervals.map(iv => [iv.label, Object.keys(iv.stats.geographic.byState).length])) },
-                { metric: 'Countries', ...Object.fromEntries(intervals.map(iv => [iv.label, Object.keys(iv.stats.geographic.byCountry).length])) },
-              ] as Array<Record<string, string | number>>;
+              const compactGeographySummary = geographyInsights
+                .map(item => item.replace(/\.$/, ''))
+                .join(' · ');
 
               return (
-                <section id="rr-geography" className="chart-section">
-                  <SectionHeader title="Geography" />
-                  <div className="rd-tab-strip" role="tablist" aria-label="Geography views">
-                    {(['charts', 'table'] as const).map(id => (
+                <section id="rr-overall-geography" className="chart-section rr-geography-compact" style={{ order: 4 }}>
+                  <SectionHeader title="Overall Geography" />
+                  <div className="rd-tab-strip" role="tablist" aria-label="Overall geography views">
+                    {(['summary', 'table'] as const).map(id => (
                       <button key={id} type="button" role="tab"
                         aria-selected={geoTab === id}
                         className={`rd-tab${geoTab === id ? ' rd-tab--active' : ''}`}
                         onClick={() => setGeoTab(id)}
                       >
-                        {id === 'charts' ? 'Charts' : 'Table'}
+                        {id === 'summary' ? 'Summary' : 'Table'}
                       </button>
                     ))}
                   </div>
-                  {geoTab === 'charts' && (
+                  {geoTab === 'summary' && (
                     <div role="tabpanel" className="rd-tab-panel">
-                      {noChange ? (
-                        <p className="rd-empty-group">Geographic reach did not change across the compared years.</p>
-                      ) : (
-                        <>
-                          <div className="stat-cards-row">
-                            <StatCard label="US Participants" value={latestGeo.usParticipants.toLocaleString()} sub={latestLabel} />
-                            <StatCard label="International" value={latestGeo.internationalParticipants.toLocaleString()} sub={latestLabel} />
-                            <StatCard label="States / Provinces" value={lastStates.toLocaleString()} sub={latestLabel} />
-                            <StatCard label="Countries" value={Object.keys(latestGeo.byCountry).length.toLocaleString()} sub={latestLabel} />
-                          </div>
-                          {intervals.length > 1 && stateDelta !== 0 && (
-                            <div className="insight-callout">
-                              <ul className="insight-callout-list">
-                                <li className="insight-callout-item">
-                                  Geographic reach {stateDelta > 0 ? 'expanded' : 'narrowed'} from {firstStates} to {lastStates} states/provinces between {firstLabel} and {latestLabel}.
-                                </li>
-                              </ul>
-                            </div>
-                          )}
-                          <div className="chart-subsection">
-                            <p className="chart-subsection-title">Participants</p>
-                            <div className="chart-wrap chart-wrap--full" aria-hidden="true">
-                              <ResponsiveContainer width="100%" height={220}>
-                                <BarChart data={participantData} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                  <XAxis dataKey="metric" tick={{ fontSize: 12 }} />
-                                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))} width={48} />
-                                  <Tooltip contentStyle={{ fontSize: '0.8rem' }} formatter={(v: number) => v.toLocaleString()} />
-                                  <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
-                                  {intervals.map((iv, i) => (
-                                    <Bar key={iv.label} dataKey={iv.label} fill={yearColors[i]} maxBarSize={36}>
-                                      <LabelList dataKey={iv.label} position="top"
-                                        formatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))}
-                                        style={{ fontSize: '0.65rem', fill: '#555' }} />
-                                    </Bar>
-                                  ))}
-                                </BarChart>
-                              </ResponsiveContainer>
-                            </div>
-                          </div>
-                          <div className="chart-subsection">
-                            <p className="chart-subsection-title">Geography</p>
-                            <div className="chart-wrap chart-wrap--full" aria-hidden="true">
-                              <ResponsiveContainer width="100%" height={220}>
-                                <BarChart data={reachData} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                  <XAxis dataKey="metric" tick={{ fontSize: 12 }} />
-                                  <YAxis tick={{ fontSize: 11 }} width={32} allowDecimals={false} />
-                                  <Tooltip contentStyle={{ fontSize: '0.8rem' }} />
-                                  <Legend verticalAlign="top" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '0.75rem', paddingBottom: 6 }} />
-                                  {intervals.map((iv, i) => (
-                                    <Bar key={iv.label} dataKey={iv.label} fill={yearColors[i]} maxBarSize={36}>
-                                      <LabelList dataKey={iv.label} position="top"
-                                        style={{ fontSize: '0.65rem', fill: '#555' }} />
-                                    </Bar>
-                                  ))}
-                                </BarChart>
-                              </ResponsiveContainer>
-                            </div>
-                          </div>
-                        </>
+                      <div className="stat-cards-row rr-overall-geography-cards">
+                        <StatCard label="US Participants" value={latestGeo.usParticipants.toLocaleString()} sub={trendSub(latestGeo.usParticipants, firstGeo.usParticipants)} />
+                        <StatCard label="US States" value={latestUsStates.toLocaleString()} sub={trendSub(latestUsStates, firstUsStates)} />
+                        <StatCard label="International Participants" value={latestGeo.internationalParticipants.toLocaleString()} sub={trendSub(latestGeo.internationalParticipants, firstGeo.internationalParticipants)} />
+                        <StatCard label="Total Countries" value={latestCountries.toLocaleString()} sub={trendSub(latestCountries, firstCountries)} />
+                        <StatCard label="Non-US States / Provinces" value={latestNonUsStates.toLocaleString()} sub={trendSub(latestNonUsStates, firstNonUsStates)} />
+                      </div>
+                      {compactGeographySummary && (
+                        <p className="rr-geography-summary-line">{compactGeographySummary}.</p>
                       )}
                     </div>
                   )}
@@ -3805,123 +4916,31 @@ function ComparisonDashboard({ sessions, onBack }: ComparisonDashboardProps) {
                           <caption className="sr-only">Geography summary by year</caption>
                           <thead>
                             <tr>
-                              <th scope="col">Metric</th>
-                              {intervals.map(iv => <th scope="col" key={iv.label}>{iv.label}</th>)}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td>US Participants</td>
-                              {intervals.map(iv => <td key={iv.label}>{iv.stats.geographic.usParticipants.toLocaleString()}</td>)}
-                            </tr>
-                            <tr>
-                              <td>International</td>
-                              {intervals.map(iv => <td key={iv.label}>{iv.stats.geographic.internationalParticipants.toLocaleString()}</td>)}
-                            </tr>
-                            <tr>
-                              <td>States / Provinces</td>
-                              {intervals.map(iv => <td key={iv.label}>{Object.keys(iv.stats.geographic.byState).length.toLocaleString()}</td>)}
-                            </tr>
-                            <tr>
-                              <td>Countries</td>
-                              {intervals.map(iv => <td key={iv.label}>{Object.keys(iv.stats.geographic.byCountry).length.toLocaleString()}</td>)}
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </section>
-              );
-            })()}
-
-            {/* ── 10. Race Weather ── */}
-            {(() => {
-              if (!hasWeather) {
-                return (
-                  <section id="rr-weather" className="chart-section">
-                    <SectionHeader title="Race Weather" />
-                    <p className="rd-empty-group">Race weather trends will appear here when comparable weather data is available across years.</p>
-                  </section>
-                );
-              }
-              const weatherRows = weatherIntervals.map(iv => {
-                const snaps = (iv.weatherData as WeatherData).snapshots;
-                const first = snaps[0];
-                const peakTemp = snaps.length > 0 ? Math.max(...snaps.map(s => s.tempF)) : null;
-                const peakWind = snaps.length > 0 ? Math.max(...snaps.map(s => s.windMph)) : null;
-                const startDate = new Date((iv.weatherData as WeatherData).raceStartIso)
-                  .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                return {
-                  label: iv.label,
-                  startDate,
-                  startTemp: first?.tempF ?? null,
-                  startCondition: first?.weatherDesc ?? '—',
-                  peakTemp,
-                  peakWind,
-                };
-              });
-              const startTempSeries = weatherRows
-                .filter(r => r.startTemp != null)
-                .map(r => ({ label: r.label, value: r.startTemp as number }));
-              const peakTempSeries = weatherRows
-                .filter(r => r.peakTemp != null)
-                .map(r => ({ label: r.label, value: r.peakTemp as number }));
-              const peakWindSeries = weatherRows
-                .filter(r => r.peakWind != null)
-                .map(r => ({ label: r.label, value: r.peakWind as number }));
-              return (
-                <section id="rr-weather" className="chart-section">
-                  <SectionHeader title="Race Weather" />
-                  <div className="rd-tab-strip" role="tablist" aria-label="Weather views">
-                    {(['charts', 'table'] as const).map(id => (
-                      <button key={id} type="button" role="tab"
-                        aria-selected={weatherTab === id}
-                        className={`rd-tab${weatherTab === id ? ' rd-tab--active' : ''}`}
-                        onClick={() => setWeatherTab(id)}
-                      >
-                        {id === 'charts' ? 'Charts' : 'Table'}
-                      </button>
-                    ))}
-                  </div>
-                  {weatherTab === 'charts' && (
-                    <div role="tabpanel" className="rd-tab-panel">
-                      <TrendLineChart
-                        series={[
-                          { name: 'Start Temp (°F)', data: startTempSeries },
-                          { name: 'Peak Temp (°F)', data: peakTempSeries },
-                          { name: 'Peak Wind (mph)', data: peakWindSeries },
-                        ]}
-                        formatTooltipValue={(v: number) => v.toFixed(1)}
-                      />
-                    </div>
-                  )}
-                  {weatherTab === 'table' && (
-                    <div role="tabpanel" className="rd-tab-panel">
-                      <div className="cmp-table-scroll">
-                        <table className="stats-table cmp-table">
-                          <caption className="sr-only">Race weather by year</caption>
-                          <thead>
-                            <tr>
                               <th scope="col">Year</th>
-                              <th scope="col">Race Start</th>
-                              <th scope="col">Start Temp</th>
-                              <th scope="col">Peak Temp</th>
-                              <th scope="col">Peak Wind</th>
-                              <th scope="col">Start Condition</th>
+                              <th scope="col">US Participants</th>
+                              <th scope="col">US States</th>
+                              <th scope="col">International Participants</th>
+                              <th scope="col">Total Countries</th>
+                              <th scope="col">Non-US States / Provinces</th>
+                              {hasUnknownLocation && <th scope="col">Unknown Location</th>}
                             </tr>
                           </thead>
                           <tbody>
-                            {weatherRows.map(row => (
-                              <tr key={row.label}>
-                                <td>{row.label}</td>
-                                <td>{row.startDate}</td>
-                                <td>{row.startTemp != null ? `${row.startTemp.toFixed(1)}°F` : '—'}</td>
-                                <td>{row.peakTemp != null ? `${row.peakTemp.toFixed(1)}°F` : '—'}</td>
-                                <td>{row.peakWind != null ? `${row.peakWind.toFixed(1)} mph` : '—'}</td>
-                                <td>{row.startCondition}</td>
-                              </tr>
-                            ))}
+                            {intervals.map(iv => {
+                              const usStates = Object.keys(iv.stats.geographic.byState).filter(state => US_STATE_CODES.has(state.toUpperCase())).length;
+                              const nonUsStates = Object.keys(iv.stats.geographic.byState).filter(state => !US_STATE_CODES.has(state.toUpperCase())).length;
+                              return (
+                                <tr key={iv.label}>
+                                  <td>{iv.label}</td>
+                                  <td>{iv.stats.geographic.usParticipants.toLocaleString()}</td>
+                                  <td>{usStates.toLocaleString()}</td>
+                                  <td>{iv.stats.geographic.internationalParticipants.toLocaleString()}</td>
+                                  <td>{Object.keys(iv.stats.geographic.byCountry).length.toLocaleString()}</td>
+                                  <td>{nonUsStates.toLocaleString()}</td>
+                                  {hasUnknownLocation && <td>{(iv.stats.geographic.unknownLocationParticipants ?? 0).toLocaleString()}</td>}
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>

@@ -191,6 +191,18 @@ input[type="datetime-local"].datetime-empty {
   color: #111827;
 }
 
+.rr-report-title-main,
+.rr-report-title-subline {
+  display: block;
+}
+
+.rr-report-title-subline {
+  margin-top: 0.18rem;
+  color: #374151;
+  font-size: clamp(1.1rem, 1.8vw, 1.45rem);
+  font-weight: 800;
+}
+
 .rr-report-subtitle {
   margin: 0.35rem 0 0;
   color: #6b7280;
@@ -228,6 +240,51 @@ input[type="datetime-local"].datetime-empty {
   color: #111827;
   font-size: 0.9rem;
   font-weight: 650;
+}
+
+.rr-report-date-list {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.rr-report-date-row {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.35rem;
+  align-items: baseline;
+}
+
+.rr-report-date-year {
+  color: #4b5563;
+  font-weight: 800;
+}
+
+.rr-report-header .comparison-intervals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.95rem;
+}
+
+.rr-report-header .comparison-interval-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.26rem 0.58rem;
+  border: 1px solid #d7dde5;
+  border-radius: 999px;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 0.82rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.rr-report-header .comparison-interval-pill-swatch {
+  width: 0.68rem;
+  height: 0.68rem;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
 }
 
 .rr-report-controls {
@@ -278,6 +335,14 @@ input[type="datetime-local"].datetime-empty {
   border: 0;
   border-top: 1px solid #e5e7eb;
   border-radius: 0;
+}
+
+.rr-trend-report-nav {
+  padding: 0.95rem 1rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .rr-report-controls--nav-only .rr-report-nav {
@@ -381,6 +446,10 @@ input[type="datetime-local"].datetime-empty {
   line-height: 1.35;
 }
 
+.rr-selected-event-context--section-header {
+  margin: 0.38rem 0 0.4rem;
+}
+
 .rr-selected-event-context strong {
   color: #1f2933;
   font-weight: 800;
@@ -390,6 +459,10 @@ input[type="datetime-local"].datetime-empty {
   color: var(--color-primary);
   font-weight: 700;
   text-decoration: none;
+}
+
+.rr-selected-event-context--section-header a {
+  font-weight: 500;
 }
 
 .rr-selected-event-context a:hover,
@@ -1018,10 +1091,453 @@ input[type="datetime-local"].datetime-empty {
 
 /* ── Multi-year trend cards ───────────────────────────────────────────────── */
 
+.trend-card-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.trend-cards-grid {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.trend-cards-grid--primary {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.trend-cards-grid--secondary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.trend-cards-grid--five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.trend-card-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.trend-card-secondary-label {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.trend-gender-mix {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.trend-gender-mix-label {
+  white-space: nowrap;
+}
+
+.trend-gender-mix .trend-gender-row {
+  display: grid;
+  width: min(100%, 430px);
+  gap: 0.32rem;
+}
+
+.trend-gender-mix .trend-gender-item {
+  display: grid;
+  grid-template-columns: minmax(6.8rem, max-content) minmax(5.8rem, max-content) minmax(8.5rem, max-content);
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.trend-gender-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.trend-gender-latest {
+  color: #1f2937;
+  font-size: 0.82rem;
+  font-weight: 750;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.trend-gender-delta {
+  color: #6b7280;
+  font-size: 0.74rem;
+  font-weight: 650;
+  text-align: left;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .trend-gender-mix .trend-gender-item {
+    grid-template-columns: minmax(6.8rem, 1fr) max-content;
+  }
+
+  .trend-gender-delta {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+}
+
+.rr-trend-key-changes .key-changes-list {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.rr-trend-key-changes .key-changes-metric {
+  line-height: 1.25;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.trend-weather-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.55rem;
+  margin: 0.65rem 0 0.85rem;
+}
+
+.trend-weather-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  min-width: 0;
+  padding: 0.66rem 0.78rem;
+  border: 1px solid #e5e7eb;
+  border-left: 3px solid var(--color-primary);
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.trend-weather-card--year {
+  min-height: 0;
+}
+
+.trend-weather-year-row,
+.trend-weather-condition {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  min-width: 0;
+}
+
+.trend-weather-year-dot {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
+}
+
+.trend-weather-year {
+  color: #111827;
+  font-size: 0.82rem;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.trend-weather-condition {
+  color: #374151;
+  font-size: 0.84rem;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.trend-weather-icon {
+  font-size: 1rem;
+  line-height: 1.2;
+  flex: 0 0 auto;
+}
+
+.trend-weather-card-body {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.trend-weather-label {
+  color: #6b7280;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.trend-weather-value {
+  color: #111827;
+  font-size: 1.08rem;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.trend-weather-sub {
+  color: #6b7280;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.trend-weather-line {
+  margin: 0;
+  color: #4b5563;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.28;
+}
+
+.trend-weather-chart {
+  margin-top: 0.15rem;
+}
+
+.trend-weather-condition-timeline {
+  margin-top: 0.55rem;
+}
+
+.trend-weather-condition-title {
+  margin: 0 0 0.25rem;
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.trend-weather-condition-grid {
+  display: grid;
+  gap: 0.12rem 0.18rem;
+  align-items: center;
+  overflow-x: hidden;
+  padding: 0.15rem 0 0.1rem;
+  width: 100%;
+}
+
+.trend-weather-condition-cell {
+  min-width: 0;
+  color: #4b5563;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.trend-weather-condition-heading {
+  color: #6b7280;
+  font-size: 0.6rem;
+  font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trend-weather-condition-year {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.22rem;
+  color: #374151;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.trend-weather-condition-icon {
+  font-size: 0.82rem;
+  filter: saturate(0.95);
+}
+
+.chart-subsection--compact {
+  margin-top: 0.35rem;
+}
+
+.rr-geography-compact {
+  gap: 0.65rem;
+}
+
+.rr-geography-compact .rd-tab-panel {
+  gap: 0.6rem;
+}
+
+.rr-geography-compact .stat-cards-row {
+  gap: 0.55rem;
+  margin-bottom: 0.45rem;
+}
+
+.rr-overall-geography-cards {
+  margin-top: 0.35rem;
+}
+
+.rr-geography-compact .chart-subsection {
+  margin-top: 0.45rem;
+}
+
+.rr-geography-compact .chart-subsection-title {
+  margin-bottom: 0.2rem;
+}
+
+.rr-geography-compact .insight-callout {
+  margin-top: 0.55rem;
+  padding-block: 0.65rem;
+}
+
+.rr-geography-summary-line {
+  margin: 0.15rem 0 0;
+  color: #4b5563;
+  font-size: 0.86rem;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.rr-selected-geography-compact .stat-cards-row {
+  margin-top: 0.45rem;
+  margin-bottom: 0.75rem;
+}
+
+.rr-selected-geography-note {
+  margin: 0.1rem 0 0.65rem;
+}
+
+.rr-selected-geography-compact .rd-tab-strip {
+  margin-top: 0.25rem;
+}
+
+.rr-selected-geography-insight {
+  margin-top: 0.7rem;
+  padding-block: 0.7rem;
+}
+
+@media (max-width: 600px) {
+  .trend-weather-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.trend-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.75rem 0.875rem 0.5rem;
+}
+
 .trend-card-header {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
+}
+
+.trend-card-title {
+  color: #666;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.trend-card-value {
+  color: var(--color-primary);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.trend-card-chart {
+  margin-top: auto;
+  padding-top: 0.2rem;
+}
+
+.trend-card--labeled {
+  padding-bottom: 0.65rem;
+}
+
+.trend-card--labeled .trend-card-chart {
+  padding-top: 0.35rem;
+}
+
+.rr-finish-performance-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0.75rem;
+  border: 1px solid #edf0f3;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(249, 250, 251, 0.88), rgba(255, 255, 255, 0.96));
+}
+
+.rr-finish-panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #374151;
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.rr-finish-trend-cards {
+  gap: 0.7rem;
+}
+
+.rr-finish-trend-cards .trend-card {
+  padding-inline: 0.95rem;
+}
+
+.rr-finish-trend-cards .trend-card-chart {
+  min-height: 96px;
+}
+
+.rr-finish-trend-cards .trend-card-value {
+  font-size: 1.34rem;
+}
+
+.rr-finish-chart-toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 0.1rem;
+}
+
+.rr-finish-line-chart {
+  margin-top: -0.2rem;
+}
+
+/* ── Event Performance Trends: blue-tinted visual distinction ─────────────── */
+
+.rr-event-performance-section .rr-finish-performance-panel {
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.9), rgba(248, 252, 255, 0.97));
+  border-color: #bfdbfe;
+}
+
+.rr-event-performance-section .rr-finish-panel-heading {
+  color: #1d4ed8;
+}
+
+.rr-event-performance-helper {
+  font-size: 0.81rem;
+  color: #4b5563;
+  margin: -0.25rem 0 0.6rem;
+  line-height: 1.45;
+}
+
+.rr-event-perf-chart-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #374151;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 0.35rem;
 }
 
 .trend-card-delta {
@@ -1033,6 +1549,15 @@ input[type="datetime-local"].datetime-empty {
 .trend-card-delta--good    { color: #166534; }
 .trend-card-delta--bad     { color: #991b1b; }
 .trend-card-delta--neutral { color: #6b7280; }
+
+@media (max-width: 900px) {
+  .trend-cards-grid--primary,
+  .trend-cards-grid--secondary,
+  .trend-cards-grid--five {
+    grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+  }
+
+}
 
 /* ── Summary section helpers ──────────────────────────────────────────────── */
 

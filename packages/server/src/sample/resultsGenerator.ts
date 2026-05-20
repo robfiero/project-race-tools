@@ -260,161 +260,89 @@ function nhSeptemberWeather(startIso: string, endIso: string): SampleWeather {
   };
 }
 
-function nhOctoberWeather(startIso: string, endIso: string, rainy: boolean): SampleWeather {
+type OctoberWeatherProfile = 'overcast' | 'rainy' | 'clear';
+
+function nhOctoberWeather(startIso: string, endIso: string, profile: OctoberWeatherProfile): SampleWeather {
   const d = startIso.slice(0, 11); // day 1 prefix
   const nd = (h: number) => nextDayHour(startIso, h); // day 2 helper
+  const offsets = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36];
+  const timeForOffset = (offset: number) => {
+    if (offset === 0) return startIso;
+    if (offset === 36) return endIso;
+    if (offset < 20) return `${d}${String(5 + offset).padStart(2, '0')}:00`;
+    return nd(offset - 19);
+  };
+  const profileData: Record<OctoberWeatherProfile, { temps: number[]; winds: number[]; gusts: number[]; dirs: string[] }> = {
+    overcast: {
+      temps: [42, 43, 46, 49, 52, 54, 53, 50, 47, 44, 41, 40, 42, 44, 48, 52, 53, 52, 50],
+      winds: [7.2, 7.8, 8.4, 8.9, 9.1, 8.7, 8.0, 7.2, 6.4, 5.8, 5.0, 4.4, 4.2, 4.8, 5.6, 6.4, 6.8, 6.3, 5.7],
+      gusts: [13.4, 14.2, 15.8, 16.7, 17.2, 16.4, 15.1, 13.8, 12.1, 10.6, 9.2, 8.0, 7.8, 8.6, 10.1, 11.8, 12.6, 11.4, 10.2],
+      dirs: ['NE', 'NE', 'E', 'E', 'ENE', 'ENE', 'E', 'NE', 'N', 'N', 'NW', 'NW', 'NW', 'W', 'W', 'W', 'WNW', 'NW', 'NW'],
+    },
+    rainy: {
+      temps: [45, 46, 47, 49, 51, 52, 50, 48, 46, 44, 42, 41, 42, 43, 45, 48, 50, 49, 47],
+      winds: [9.2, 10.4, 11.0, 11.6, 11.3, 10.8, 9.7, 8.8, 7.9, 7.0, 6.2, 5.4, 4.8, 5.2, 6.1, 7.0, 7.4, 6.8, 6.0],
+      gusts: [18.7, 20.8, 22.4, 23.6, 22.9, 21.7, 19.2, 16.8, 14.5, 12.9, 11.4, 9.6, 8.8, 9.4, 11.2, 13.1, 14.0, 12.8, 11.3],
+      dirs: ['NE', 'NE', 'E', 'E', 'E', 'ENE', 'NE', 'NE', 'N', 'N', 'NW', 'NW', 'NW', 'WNW', 'W', 'W', 'W', 'NW', 'NW'],
+    },
+    clear: {
+      temps: [41, 43, 49, 54, 58, 57, 53, 48, 43, 39, 36, 35, 38, 42, 49, 55, 57, 56, 54],
+      winds: [4.2, 4.8, 5.6, 6.4, 7.0, 6.6, 5.4, 4.2, 3.4, 2.8, 2.2, 2.0, 2.6, 3.5, 4.8, 5.8, 6.3, 5.6, 4.9],
+      gusts: [7.8, 8.6, 10.2, 11.8, 13.0, 12.1, 9.8, 7.6, 6.1, 4.9, 3.8, 3.4, 4.8, 6.6, 8.9, 10.7, 11.6, 10.2, 9.1],
+      dirs: ['NW', 'NW', 'NNW', 'N', 'N', 'NNE', 'NE', 'E', 'E', 'W', 'W', 'W', 'W', 'SW', 'SW', 'SW', 'WSW', 'W', 'W'],
+    },
+  };
+  const current = profileData[profile];
+  const weatherFor = (index: number): Pick<WeatherSnapshot, 'weatherCode' | 'weatherDesc' | 'cloudCoverPct' | 'precipInch' | 'precipType' | 'precipIntensity'> => {
+    if (profile === 'rainy') {
+      if (index <= 5) {
+        return {
+          weatherCode: index <= 1 ? 61 : 63,
+          weatherDesc: index <= 1 ? 'Slight rain' : 'Moderate rain',
+          cloudCoverPct: index <= 5 ? 96 : 88,
+          precipInch: index <= 5 ? (index <= 1 ? 0.05 : 0.14) : 0.02,
+          precipType: 'rain',
+          precipIntensity: index <= 1 ? 'light' : 'moderate',
+        };
+      }
+      if (index <= 8) {
+        return { weatherCode: 61, weatherDesc: 'Light rain', cloudCoverPct: 90, precipInch: 0.04, precipType: 'rain', precipIntensity: 'light' };
+      }
+      if (index <= 12) return { weatherCode: 3, weatherDesc: 'Overcast', cloudCoverPct: 82, precipInch: 0, precipType: '', precipIntensity: '' };
+      return { weatherCode: 2, weatherDesc: 'Partly cloudy', cloudCoverPct: 45, precipInch: 0, precipType: '', precipIntensity: '' };
+    }
+    if (profile === 'overcast') {
+      if (index <= 6) return { weatherCode: 3, weatherDesc: 'Overcast', cloudCoverPct: 88, precipInch: 0, precipType: '', precipIntensity: '' };
+      if (index <= 9) return { weatherCode: 2, weatherDesc: 'Mostly cloudy', cloudCoverPct: 68, precipInch: 0, precipType: '', precipIntensity: '' };
+      return { weatherCode: 2, weatherDesc: 'Partly cloudy', cloudCoverPct: 42, precipInch: 0, precipType: '', precipIntensity: '' };
+    }
+    if (index <= 2) return { weatherCode: 1, weatherDesc: 'Mainly clear', cloudCoverPct: 12, precipInch: 0, precipType: '', precipIntensity: '' };
+    if (index <= 6) return { weatherCode: 2, weatherDesc: 'Partly cloudy', cloudCoverPct: 28, precipInch: 0, precipType: '', precipIntensity: '' };
+    if (index <= 11) return { weatherCode: 0, weatherDesc: 'Clear sky', cloudCoverPct: 6, precipInch: 0, precipType: '', precipIntensity: '' };
+    return { weatherCode: 1, weatherDesc: 'Mainly clear', cloudCoverPct: 18, precipInch: 0, precipType: '', precipIntensity: '' };
+  };
   return {
     venueAddress: '1 Mason Road, Brookline, NH 03033',
     raceStart: startIso,
     raceEnd: endIso,
-    snapshots: [
-      // ── Day 1 ─────────────────────────────────────────────────────────────
-      {
-        timeIso: startIso, label: 'Race Start',
-        tempF: rainy ? 44 : 41, feelsLikeF: rainy ? 40 : 36,
-        weatherCode: rainy ? 61 : 3, weatherDesc: rainy ? 'Slight rain' : 'Overcast',
-        cloudCoverPct: rainy ? 95 : 88,
-        windMph: rainy ? 9.2 : 6.4, windGustMph: rainy ? 18.7 : 11.8, windDir: 'NE',
-        precipInch: rainy ? 0.04 : 0, precipType: rainy ? 'rain' : '', precipIntensity: rainy ? 'light' : '',
-      },
-      {
-        timeIso: d + '07:00', label: '+2h',
-        tempF: rainy ? 45 : 42, feelsLikeF: rainy ? 41 : 37,
-        weatherCode: rainy ? 63 : 3, weatherDesc: rainy ? 'Moderate rain' : 'Overcast',
-        cloudCoverPct: rainy ? 97 : 82,
-        windMph: rainy ? 10.4 : 7.1, windGustMph: rainy ? 20.8 : 13.4, windDir: 'NE',
-        precipInch: rainy ? 0.12 : 0, precipType: rainy ? 'rain' : '', precipIntensity: rainy ? 'moderate' : '',
-      },
-      {
-        timeIso: d + '09:00', label: '+4h',
-        tempF: rainy ? 46 : 46, feelsLikeF: rainy ? 42 : 42,
-        weatherCode: rainy ? 63 : 2, weatherDesc: rainy ? 'Moderate rain' : 'Partly cloudy',
-        cloudCoverPct: rainy ? 98 : 65,
-        windMph: rainy ? 11.0 : 8.2, windGustMph: rainy ? 21.6 : 15.7, windDir: 'E',
-        precipInch: rainy ? 0.15 : 0, precipType: rainy ? 'rain' : '', precipIntensity: rainy ? 'moderate' : '',
-      },
-      {
-        timeIso: d + '11:00', label: '+6h',
-        tempF: rainy ? 47 : 51, feelsLikeF: rainy ? 43 : 47,
-        weatherCode: rainy ? 63 : 2, weatherDesc: rainy ? 'Moderate rain' : 'Partly cloudy',
-        cloudCoverPct: rainy ? 98 : 50,
-        windMph: rainy ? 11.3 : 7.8, windGustMph: rainy ? 22.4 : 14.9, windDir: rainy ? 'E' : 'ENE',
-        precipInch: rainy ? 0.18 : 0, precipType: rainy ? 'rain' : '', precipIntensity: rainy ? 'moderate' : '',
-      },
-      {
-        timeIso: d + '13:00', label: '+8h',
-        tempF: rainy ? 48 : 55, feelsLikeF: rainy ? 44 : 51,
-        weatherCode: rainy ? 61 : 1, weatherDesc: rainy ? 'Slight rain' : 'Mainly clear',
-        cloudCoverPct: rainy ? 96 : 35,
-        windMph: rainy ? 10.8 : 6.9, windGustMph: rainy ? 21.0 : 13.2, windDir: 'E',
-        precipInch: rainy ? 0.09 : 0, precipType: rainy ? 'rain' : '', precipIntensity: rainy ? 'light' : '',
-      },
-      {
-        timeIso: d + '15:00', label: '+10h',
-        tempF: rainy ? 47 : 54, feelsLikeF: rainy ? 43 : 50,
-        weatherCode: rainy ? 61 : 1, weatherDesc: rainy ? 'Slight rain' : 'Mainly clear',
-        cloudCoverPct: rainy ? 94 : 28,
-        windMph: rainy ? 9.9 : 6.1, windGustMph: rainy ? 18.5 : 11.5, windDir: rainy ? 'NE' : 'SE',
-        precipInch: rainy ? 0.07 : 0, precipType: rainy ? 'rain' : '', precipIntensity: rainy ? 'light' : '',
-      },
-      {
-        timeIso: d + '17:00', label: '+12h',
-        tempF: rainy ? 45 : 50, feelsLikeF: rainy ? 41 : 46,
-        weatherCode: rainy ? 61 : 2, weatherDesc: rainy ? 'Slight rain' : 'Partly cloudy',
-        cloudCoverPct: rainy ? 90 : 40,
-        windMph: rainy ? 8.6 : 5.4, windGustMph: rainy ? 17.1 : 10.2, windDir: rainy ? 'NE' : 'S',
-        precipInch: rainy ? 0.07 : 0, precipType: rainy ? 'rain' : '', precipIntensity: rainy ? 'light' : '',
-      },
-      {
-        timeIso: d + '19:00', label: '+14h',
-        tempF: rainy ? 43 : 45, feelsLikeF: rainy ? 39 : 41,
-        weatherCode: rainy ? 3 : 2, weatherDesc: rainy ? 'Overcast' : 'Partly cloudy',
-        cloudCoverPct: rainy ? 88 : 55,
-        windMph: rainy ? 7.4 : 4.8, windGustMph: rainy ? 13.8 : 8.6, windDir: 'N',
-        precipInch: 0, precipType: '', precipIntensity: '',
-      },
-      {
-        timeIso: d + '21:00', label: '+16h',
-        tempF: rainy ? 42 : 40, feelsLikeF: rainy ? 38 : 36,
-        weatherCode: rainy ? 3 : 0, weatherDesc: rainy ? 'Overcast' : 'Clear sky',
-        cloudCoverPct: rainy ? 85 : 12,
-        windMph: rainy ? 6.8 : 3.6, windGustMph: rainy ? 12.1 : 6.4, windDir: rainy ? 'N' : 'W',
-        precipInch: 0, precipType: '', precipIntensity: '',
-      },
-      {
-        timeIso: d + '23:00', label: '+18h',
-        tempF: rainy ? 41 : 37, feelsLikeF: rainy ? 37 : 33,
-        weatherCode: rainy ? 3 : 0, weatherDesc: rainy ? 'Overcast' : 'Clear sky',
-        cloudCoverPct: rainy ? 82 : 6,
-        windMph: rainy ? 6.1 : 2.9, windGustMph: rainy ? 11.4 : 5.2, windDir: 'N',
-        precipInch: 0, precipType: '', precipIntensity: '',
-      },
-      // ── Day 2 ─────────────────────────────────────────────────────────────
-      {
-        timeIso: nd(1), label: '+20h',
-        tempF: rainy ? 39 : 34, feelsLikeF: rainy ? 35 : 30,
-        weatherCode: rainy ? 2 : 0, weatherDesc: rainy ? 'Partly cloudy' : 'Clear sky',
-        cloudCoverPct: rainy ? 65 : 4,
-        windMph: rainy ? 5.2 : 2.4, windGustMph: rainy ? 9.4 : 4.1, windDir: 'NW',
-        precipInch: 0, precipType: '', precipIntensity: '',
-      },
-      {
-        timeIso: nd(3), label: '+22h',
-        tempF: rainy ? 37 : 32, feelsLikeF: rainy ? 32 : 27,
-        weatherCode: rainy ? 2 : 0, weatherDesc: rainy ? 'Partly cloudy' : 'Clear sky',
-        cloudCoverPct: rainy ? 52 : 3,
-        windMph: rainy ? 4.6 : 2.1, windGustMph: rainy ? 8.1 : 3.6, windDir: 'NW',
-        precipInch: 0, precipType: '', precipIntensity: '',
-      },
-      {
-        timeIso: nd(5), label: '+24h',
-        tempF: 38, feelsLikeF: rainy ? 33 : 34,
-        weatherCode: rainy ? 1 : 0, weatherDesc: rainy ? 'Mainly clear' : 'Clear sky',
-        cloudCoverPct: rainy ? 20 : 5,
-        windMph: 2.9, windGustMph: 4.8, windDir: 'NW',
-        precipInch: 0, precipType: '', precipIntensity: '',
-      },
-      {
-        timeIso: nd(7), label: '+26h',
-        tempF: rainy ? 38 : 36, feelsLikeF: rainy ? 34 : 32,
-        weatherCode: 1, weatherDesc: 'Mainly clear',
-        cloudCoverPct: rainy ? 22 : 14,
-        windMph: rainy ? 3.4 : 3.8, windGustMph: rainy ? 6.2 : 7.1, windDir: 'NNW',
-        precipInch: 0, precipType: '', precipIntensity: '',
-      },
-      {
-        timeIso: nd(9), label: '+28h',
-        tempF: rainy ? 42 : 42, feelsLikeF: rainy ? 39 : 39,
-        weatherCode: 1, weatherDesc: 'Mainly clear',
-        cloudCoverPct: rainy ? 20 : 20,
-        windMph: rainy ? 3.8 : 5.1, windGustMph: rainy ? 7.1 : 9.7, windDir: 'NW',
-        precipInch: 0, precipType: '', precipIntensity: '',
-      },
-      {
-        timeIso: nd(11), label: '+30h',
-        tempF: 48, feelsLikeF: 45,
-        weatherCode: 1, weatherDesc: 'Mainly clear',
-        cloudCoverPct: 18,
-        windMph: 5.4, windGustMph: 9.7, windDir: 'NW',
-        precipInch: 0, precipType: '', precipIntensity: '',
-      },
-      {
-        timeIso: nd(13), label: '+32h',
-        tempF: rainy ? 51 : 54, feelsLikeF: rainy ? 48 : 51,
-        weatherCode: 2, weatherDesc: 'Partly cloudy',
-        cloudCoverPct: rainy ? 28 : 32,
-        windMph: rainy ? 6.2 : 6.8, windGustMph: rainy ? 10.8 : 11.4, windDir: 'W',
-        precipInch: 0, precipType: '', precipIntensity: '',
-      },
-      {
-        timeIso: nd(15), label: '+34h',
-        tempF: rainy ? 49 : 52, feelsLikeF: rainy ? 46 : 49,
-        weatherCode: 2, weatherDesc: 'Partly cloudy',
-        cloudCoverPct: rainy ? 35 : 40,
-        windMph: rainy ? 6.8 : 7.1, windGustMph: rainy ? 11.4 : 12.6, windDir: 'W',
-        precipInch: 0, precipType: '', precipIntensity: '',
-      },
-    ],
+    snapshots: offsets.map((offset, index) => {
+      const weather = weatherFor(index);
+      return {
+        timeIso: timeForOffset(offset),
+        label: offset === 0 ? 'Race Start' : offset === 36 ? 'Race End' : `+${offset}h`,
+        tempF: current.temps[index],
+        feelsLikeF: current.temps[index] - (profile === 'clear' ? (index >= 10 && index <= 13 ? 4 : 2) : profile === 'rainy' ? 4 : 3),
+        weatherCode: weather.weatherCode,
+        weatherDesc: weather.weatherDesc,
+        cloudCoverPct: weather.cloudCoverPct,
+        windMph: current.winds[index],
+        windGustMph: current.gusts[index],
+        windDir: current.dirs[index],
+        precipInch: weather.precipInch,
+        precipType: weather.precipType,
+        precipIntensity: weather.precipIntensity,
+      };
+    }),
   };
 }
 
@@ -608,7 +536,7 @@ export const RESULTS_SAMPLE_CONFIGS: Record<string, ResultsSampleConfig> = {
     ],
     stateWeights: LARGE_ULTRA_STATES,
     genderM: 0.60, ageMean: 39, ageStd: 9,
-    weather: nhOctoberWeather('2022-10-08T05:00', '2022-10-09T17:00', false),
+    weather: nhOctoberWeather('2022-10-08T05:00', '2022-10-09T17:00', 'overcast'),
   },
 
   'mountain-endurance-results-2023': {
@@ -637,7 +565,7 @@ export const RESULTS_SAMPLE_CONFIGS: Record<string, ResultsSampleConfig> = {
     ],
     stateWeights: LARGE_ULTRA_STATES,
     genderM: 0.59, ageMean: 39, ageStd: 9,
-    weather: nhOctoberWeather('2023-10-14T05:00', '2023-10-15T17:00', true),
+    weather: nhOctoberWeather('2023-10-14T05:00', '2023-10-15T17:00', 'rainy'),
   },
 
   'mountain-endurance-results-2024': {
@@ -666,7 +594,7 @@ export const RESULTS_SAMPLE_CONFIGS: Record<string, ResultsSampleConfig> = {
     ],
     stateWeights: LARGE_ULTRA_STATES,
     genderM: 0.58, ageMean: 39, ageStd: 9,
-    weather: nhOctoberWeather('2024-10-12T05:00', '2024-10-13T17:00', false),
+    weather: nhOctoberWeather('2024-10-12T05:00', '2024-10-13T17:00', 'clear'),
   },
 
   // ── Coyote Ridge 24-Hour Endurance Run ────────────────────────────────────

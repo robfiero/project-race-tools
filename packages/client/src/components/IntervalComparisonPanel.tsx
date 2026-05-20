@@ -100,10 +100,11 @@ interface TrendLineChartProps {
   formatTooltipValue?: (v: number, name: string, label?: string) => string;
   yUnit?: string;
   emptyMessage?: string;
+  height?: number;
 }
 
 export function TrendLineChart({
-  series, formatY, formatTooltipValue, yUnit = '', emptyMessage,
+  series, formatY, formatTooltipValue, yUnit = '', emptyMessage, height = 240,
 }: TrendLineChartProps) {
   const { theme } = useTheme();
   const colors = chartPalette(theme, series.length);
@@ -129,7 +130,7 @@ export function TrendLineChart({
 
   return (
     <div className="trend-line-chart">
-      <ResponsiveContainer width="100%" height={240}>
+      <ResponsiveContainer width="100%" height={height}>
         <LineChart data={chartData} margin={{ top: 8, right: 24, bottom: 4, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
           <XAxis dataKey="label" tick={{ fontSize: 12 }} />
