@@ -21,11 +21,11 @@ const GUIDE_SECTIONS: GuideSection[] = [
     id: 'participant',
     heading: 'Registration Analytics',
     intro:
-      'Participant analytics are drawn from your race registration export — the data your ' +
+      'Registration Analytics is drawn from your race registration export — the data your ' +
       'registration platform collects when someone signs up. Because it captures behavior ' +
-      'before race day, it tells a different story than results data: who is choosing your ' +
-      'race, when they decide, where they come from, and how they engage with pricing and ' +
-      'event options. Taken together, these statistics describe the health and trajectory ' +
+      'before race day, it tells a different story than Race Results: who is choosing your ' +
+      'race, when they register, where they come from, and how they engage with pricing, ' +
+      'waitlists, drops, and event options. Taken together, these statistics describe the health and trajectory ' +
       'of your race as a community event.',
     entries: [
       {
@@ -270,14 +270,14 @@ const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: 'results',
-    heading: 'Race Analytics',
+    heading: 'Race Results',
     intro:
-      'Race analytics are drawn from your timing and results export — the data captured ' +
-      'on race day itself. Where registration analytics tell you who came and why, results ' +
-      'analytics tell you what happened once the race actually started: who finished, how long it ' +
-      'took, who dropped and when, and how performance varied across gender, age, and ' +
-      'distance. Combined with participant data and — where available — weather conditions, ' +
-      'results analytics give you the most complete picture of your race\'s character.',
+      'Race Results reports are drawn from your timing or results export — the data captured ' +
+      'on race day itself. Where Registration Analytics explains who registered and when, Race Results ' +
+      'explains what happened once the race actually started: who started, who finished, who did not start, ' +
+      'who did not finish, and how performance varied across gender, age, event, and ' +
+      'distance. Where race date, time, and venue are supplied, weather context helps explain ' +
+      'how conditions shaped those outcomes.',
     entries: [
       {
         title: 'Summary & Race Overview',
@@ -299,7 +299,7 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'Separating DNS from DNF is important context that\'s easy to overlook. A high ' +
           'DNS rate — runners who registered and never reached the start line, regardless ' +
           'of whether they attended bib pickup — can indicate last-minute injury or illness ' +
-          'patterns, or it can point to weather forecasts that spooked participants the ' +
+          'patterns, or it can point to weather forecasts that spooked starters the ' +
           'night before. Both are different from a runner who started and chose to stop.',
         ],
       },
@@ -317,7 +317,7 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'variable. If your finish rate dropped sharply in one year and that year saw ' +
           'significantly warmer or wetter conditions, the course and operations probably ' +
           'performed exactly as expected — and the weather context makes that case clearly ' +
-          'to participants and stakeholders.',
+          'to runners and stakeholders.',
           'Warmer-than-usual years with elevated DNF rates may suggest that your aid ' +
           'station hydration options, cooling resources, or heat protocols deserve a second ' +
           'look before the next edition. Data that shows a pattern over two or three years ' +
@@ -332,7 +332,7 @@ const GUIDE_SECTIONS: GuideSection[] = [
         title: 'Finish Time Performance',
         overview:
           'Finish time statistics describe the distribution of how long your race took ' +
-          'participants to complete — including the median (the middle of the field), the ' +
+          'finishers to complete — including the median (the middle of the field), the ' +
           'fastest and last finishers, and how times spread across gender groups. ' +
           'Finish time data is useful both for logistical planning — when does the bulk ' +
           'of your field cross the finish line? — and for understanding the competitive ' +
@@ -361,7 +361,7 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'by gender, event, and age group — and what rate they\'re doing so. Unlike ' +
           'pre-race attrition, DNFs happen on course and tell you about the race ' +
           'experience itself: the difficulty, the conditions, the support infrastructure, ' +
-          'and whether certain groups of participants are disproportionately affected.',
+          'and whether certain groups of starters are disproportionately affected.',
         ideas: [
           'If your DNF rate is notably higher for one gender or age group, it\'s worth ' +
           'asking whether your aid station support, pacer policies, cutoff structure, or ' +
@@ -382,7 +382,7 @@ const GUIDE_SECTIONS: GuideSection[] = [
         title: 'Finisher Demographics (Gender & Age)',
         overview:
           'Finisher demographics show the gender and age breakdown specifically of the ' +
-          'participants who completed your race — not just those who started. Comparing ' +
+          'finishers who completed your race — not just those who started. Comparing ' +
           'finisher demographics to starter demographics reveals whether the race ' +
           'experience is equitable across groups: does a group that starts at 40% of ' +
           'your field finish at 40%, or does it finish at a meaningfully different rate?',
@@ -405,13 +405,13 @@ const GUIDE_SECTIONS: GuideSection[] = [
       {
         title: 'Geographic Reach of Finishers',
         overview:
-          'Geographic data for finishers shows where your completing participants traveled ' +
+          'Geographic data for finishers shows where finishers traveled ' +
           'from — which states are most represented, and how far people came to cross your ' +
           'finish line. As a complement to registration geography, finisher geography ' +
-          'can reveal whether participants from certain regions perform differently, and ' +
+          'can reveal whether finishers from certain regions perform differently, and ' +
           'whether your race\'s pull extends beyond its immediate region.',
         ideas: [
-          'If participants who travel long distances show notably different finish rates ' +
+          'If starters who travel long distances show notably different finish rates ' +
           'than local runners, familiarity with the terrain, climate, or race-day logistics ' +
           'may be a factor. Out-of-region runners who can\'t preview the course or ' +
           'acclimatize to your local conditions may benefit from better pre-race ' +
@@ -432,7 +432,7 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'In multi-distance races, the cross-event comparison puts your different event ' +
           'offerings side by side: finish rates, median times, demographic makeup, course ' +
           'records, and last finisher times. Each distance attracts a distinct audience ' +
-          'and tests participants in different ways. Understanding how each event performs ' +
+          'and tests starters in different ways. Understanding how each event performs ' +
           'relative to the others is essential for resource allocation and race design.',
         ideas: [
           'Is one distance consistently outperforming the others in finish rate? That ' +

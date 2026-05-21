@@ -44,10 +44,11 @@ export default function AboutPage() {
         </div>
 
         <p>
-          RaceOps is a data analytics platform for race directors. It analyzes exported race
-          registration data and turns it into actionable insights — participant demographics,
-          geographic reach, registration timing, participation trends, and year-over-year growth
-          — without storing personally identifiable information.
+          RaceOps is a data analytics platform for race directors. It turns race registration
+          and race results CSV exports into operational reports — registration trends, drops,
+          waitlist behavior, demographics, geography, finish outcomes, DNF/DNS patterns,
+          performance trends, and weather context where supplied — without storing personally
+          identifiable information.
         </p>
         <p>
           The project was built from a race director's perspective: practical, privacy-conscious,
@@ -67,8 +68,8 @@ export default function AboutPage() {
           <h2>Why I built it</h2>
           <p className="about-section-subtitle">A real problem in a niche I know well.</p>
           <ul>
-            <li>As a race director, I wanted a clearer way to understand the data my races already generate: who signs up, where participants come from, when registrations happen, how distances compare, and how those patterns change year over year.</li>
-            <li>Registration platforms do a lot of the heavy lifting for race operations. RaceOps explores a complementary layer: what can race directors learn from the exported data they already have?</li>
+            <li>As a race director, I wanted a clearer way to understand the data my races already generate: who signs up, who starts and finishes, where people come from, when registrations happen, how events compare, and how those patterns change year over year.</li>
+            <li>Registration and timing platforms do a lot of the heavy lifting for race operations. RaceOps explores a complementary layer: what can race directors learn from the exported CSV data they already have?</li>
             <li>Privacy was a core requirement from the start. The goal was to make the analysis useful without retaining names, emails, addresses, phone numbers, or other personally identifiable participant details.</li>
           </ul>
         </div>
@@ -93,7 +94,7 @@ export default function AboutPage() {
             <h3>Frontend</h3>
             <ul>
               <li><strong>React 18 + TypeScript</strong> — hooks-based state management with no external state library</li>
-              <li><strong>Vite 6</strong> — fast development builds with HMR and API proxy</li>
+              <li><strong>Vite 5</strong> — fast development builds with HMR and API proxy</li>
               <li><strong>Recharts</strong> — composable charting with theme-aware color palettes</li>
               <li>Discriminated union types for type-safe session state across upload, single-year, and comparison modes</li>
               <li>Theme system with holiday variants and WCAG-compliant contrast across all palette options</li>
@@ -103,9 +104,9 @@ export default function AboutPage() {
             <h3>Backend</h3>
             <ul>
               <li><strong>Node.js + Express + TypeScript</strong> — REST API with adapter-based file parsing</li>
-              <li><strong>Adapter pattern</strong> — each registration platform (UltraSignup, more planned) implements a single detect/transform interface</li>
+              <li><strong>Adapter pattern</strong> — each supported export source (UltraSignup, more planned) implements a detect/transform interface</li>
               <li><strong>In-memory sessions</strong> — no database; parsed data lives only for the duration of the browser session</li>
-              <li><strong>CSV and Excel</strong> — file parsing via PapaParse and SheetJS; personal data columns are identified and excluded at parse time</li>
+              <li><strong>CSV uploads</strong> — file parsing via PapaParse; Excel exports should be saved as CSV before upload</li>
               <li><strong>ZIP centroid geocoding</strong> — distance-from-venue statistics without storing participant addresses</li>
             </ul>
           </div>

@@ -14,15 +14,15 @@ interface Props {
 // ─── Demo data definitions ────────────────────────────────────────────────────
 
 const SINGLE_DEMOS = [
-  { id: 'pinecrest-5k-2024',         label: 'Pinecrest 5K — local race, ~100 participants',            year: '2024' },
-  { id: 'white-mountains-2024',       label: 'White Mountains Challenge — multi-event, ~350 participants', year: '2024' },
-  { id: 'autumn-ridge-trail-festival-2024', label: 'Autumn Ridge Trail Festival — waitlist-focused, ~500 records', year: '2024' },
-  { id: 'mountain-endurance-2024',    label: 'Mountain Endurance Challenge — large race, ~850 participants', year: '2024' },
+  { id: 'pinecrest-5k-2024',         label: 'Pinecrest 5K — local registration demo, ~100 records',            year: '2024' },
+  { id: 'white-mountains-2024',       label: 'White Mountains Challenge — multi-event registration demo, ~350 records', year: '2024' },
+  { id: 'autumn-ridge-trail-festival-2024', label: 'Autumn Ridge Trail Festival — waitlist-focused registration demo, ~500 records', year: '2024' },
+  { id: 'mountain-endurance-2024',    label: 'Mountain Endurance Challenge — large registration demo, ~850 records', year: '2024' },
 ];
 
 const MULTI_DEMOS = [
   {
-    label: 'White Mountains Challenge — 2022, 2023, 2024',
+    label: 'White Mountains Challenge — registration trends, 2022–2024',
     years: [
       { id: 'white-mountains-2022', year: '2022' },
       { id: 'white-mountains-2023', year: '2023' },
@@ -30,7 +30,7 @@ const MULTI_DEMOS = [
     ],
   },
   {
-    label: 'Mountain Endurance Challenge — 2022, 2023, 2024',
+    label: 'Mountain Endurance Challenge — registration trends, 2022–2024',
     years: [
       { id: 'mountain-endurance-2022', year: '2022' },
       { id: 'mountain-endurance-2023', year: '2023' },
@@ -50,19 +50,19 @@ async function fetchSample(sampleId: string): Promise<UploadResponse> {
   return data as unknown as UploadResponse;
 }
 
-// ─── Race Analytics demo data ─────────────────────────────────────────────────
+// ─── Race Results demo data ───────────────────────────────────────────────────
 
 const RESULTS_SINGLE_DEMOS = [
-  { id: 'harbor-park-5k-results-2024',      label: 'Harbor Park 5K — single event, ~450 participants', year: '2024' },
-  { id: 'ghost-train-2024',                label: 'Ridgeline Trail Races — 25K + 50K, ~150 starters',   year: '2024' },
-  { id: 'white-mountains-results-2024',    label: 'White Mountains Challenge — HM + 50K, ~240 starters',  year: '2024' },
-  { id: 'mountain-endurance-results-2024', label: 'Mountain Endurance Challenge — 4 events, ~650 starters', year: '2024' },
-  { id: 'coyote-ridge-24hr-2024',          label: 'Coyote Ridge 24-Hour Endurance Run — fixed-time, ~88 starters', year: '2024' },
+  { id: 'harbor-park-5k-results-2024',      label: 'Harbor Park 5K — single-event results demo, ~450 finishers', year: '2024' },
+  { id: 'ghost-train-2024',                label: 'Ridgeline Trail Races — 25K + 50K results demo, ~150 starters',   year: '2024' },
+  { id: 'white-mountains-results-2024',    label: 'White Mountains Challenge — HM + 50K results demo, ~240 starters',  year: '2024' },
+  { id: 'mountain-endurance-results-2024', label: 'Mountain Endurance Challenge — 4-event results demo, ~650 starters', year: '2024' },
+  { id: 'coyote-ridge-24hr-2024',          label: 'Coyote Ridge 24-Hour Endurance Run — fixed-time results demo, ~88 starters', year: '2024' },
 ];
 
 const RESULTS_MULTI_DEMOS = [
   {
-    label: 'Riverside Community 5K — 2020–2024',
+    label: 'Riverside Community 5K — race results, 2020–2024',
     years: [
       { id: 'riverside-5k-results-2020', year: '2020' },
       { id: 'riverside-5k-results-2021', year: '2021' },
@@ -72,14 +72,14 @@ const RESULTS_MULTI_DEMOS = [
     ],
   },
   {
-    label: 'Foothill 6-Hour Challenge — 2023, 2024',
+    label: 'Foothill 6-Hour Challenge — fixed-time results, 2023–2024',
     years: [
       { id: 'foothill-6hr-results-2023', year: '2023' },
       { id: 'foothill-6hr-results-2024', year: '2024' },
     ],
   },
   {
-    label: 'Ridgeline Trail Races — 2022, 2023, 2024',
+    label: 'Ridgeline Trail Races — race results, 2022–2024',
     years: [
       { id: 'ghost-train-2022', year: '2022' },
       { id: 'ghost-train-2023', year: '2023' },
@@ -87,7 +87,7 @@ const RESULTS_MULTI_DEMOS = [
     ],
   },
   {
-    label: 'Mountain Endurance Challenge — 2022, 2023, 2024',
+    label: 'Mountain Endurance Challenge — race results, 2022–2024',
     years: [
       { id: 'mountain-endurance-results-2022', year: '2022' },
       { id: 'mountain-endurance-results-2023', year: '2023' },
@@ -105,41 +105,6 @@ async function fetchResultsSample(sampleId: string): Promise<ResultsUploadRespon
   const data = await res.json() as Record<string, unknown>;
   if (!res.ok) throw new Error((data.error as string) ?? 'Failed to load results sample');
   return data as unknown as ResultsUploadResponse;
-}
-
-// ─── Tool card ────────────────────────────────────────────────────────────────
-
-interface ToolCardProps {
-  title: string;
-  description: string;
-  section: Section;
-  available: boolean;
-  onNavigate: (section: Section) => void;
-}
-
-function ToolCard({ title, description, section, available, onNavigate }: ToolCardProps) {
-  return (
-    <div className={`tool-card${available ? '' : ' tool-card--soon'}`}>
-      <div className="tool-card-header">
-        <h3 className="tool-card-title">{title}</h3>
-        {!available && <span className="tool-card-badge">Coming soon</span>}
-      </div>
-      <p className="tool-card-desc">{description}</p>
-      {available ? (
-        <button
-          type="button"
-          className="btn btn-primary tool-card-btn"
-          onClick={() => onNavigate(section)}
-        >
-          Open tool →
-        </button>
-      ) : (
-        <button type="button" className="btn tool-card-btn tool-card-btn--disabled" disabled>
-          Not yet available
-        </button>
-      )}
-    </div>
-  );
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -243,10 +208,10 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
       <section className="home-hero">
         <h1 className="home-hero-title">Race Director Analytics</h1>
         <p className="home-hero-subtitle">
-          This project is a suite of data tools for race directors to perform deeper analytics
-          on various race-related data. Upload various files from your registration and results
-          hosting systems to explore demographics, registration trends, and year-over-year
-          growth — with no personally identifiable information ever stored.
+          RaceOps helps race directors turn registration and results CSV exports into
+          deeper insight about registration patterns, participant geography, finish
+          outcomes, and race-day conditions, without storing personally identifiable
+          information.
         </p>
       </section>
 
@@ -254,12 +219,10 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
       <section className="home-analytics-pitch card">
         <p className="home-analytics-pitch-text">
           <strong className="home-analytics-pitch-lead">
-            Numbers alone don't capture what makes a race meaningful — but analytics can
-            surface the story behind them.
+            Find the story behind the numbers.
           </strong>{' '}
-          Whether it's understanding why your finish rate dropped, who your participants
-          really are, or how conditions shaped the day, the data your race already
-          generates is full of insight waiting to be read.
+          Explore registration timing, waitlist movement, travel distance, finish outcomes,
+          pace or distance trends, and weather context from the data your race already has.
         </p>
         <button
           type="button"
@@ -272,13 +235,22 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
 
       {/* ── Demo launcher ── */}
       <section className="home-demo card">
-        <h2 className="home-demo-title">Explore analytics with our sample data</h2>
+        <h2 className="home-demo-title">Try RaceOps with sample data</h2>
         <p className="home-demo-desc">
-          Explore the tools without uploading your own files. Choose a sample race below and
+          Explore the tools without uploading your own files. Choose a sample dataset below and
           launch the analysis instantly.
         </p>
+        <div className="home-demo-chips" aria-label="Analytics available in sample data">
+          <span className="home-demo-chip">Registration timing</span>
+          <span className="home-demo-chip">Waitlist behavior</span>
+          <span className="home-demo-chip">Drops & coupons</span>
+          <span className="home-demo-chip">Travel distance</span>
+          <span className="home-demo-chip">Finish outcomes</span>
+          <span className="home-demo-chip">Pace/distance trends</span>
+          <span className="home-demo-chip">Weather context</span>
+        </div>
 
-        {/* ── Participant Analytics demos ── */}
+        {/* ── Registration Analytics demos ── */}
         <div className="home-demo-tool-label">
           <span className="home-demo-tool-name">Registration Analytics</span>
         </div>
@@ -291,7 +263,7 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
                 className="demo-select"
                 value={singleDemoIdx}
                 onChange={e => setSingleDemoIdx(Number(e.target.value))}
-                aria-label="Select sample race for single-year participant demo"
+                aria-label="Select sample dataset for single-year registration demo"
               >
                 {SINGLE_DEMOS.map((d, i) => (
                   <option key={d.id} value={i}>{d.label}</option>
@@ -302,7 +274,7 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
                 className="btn btn-primary demo-btn"
                 onClick={launchSingleDemo}
                 disabled={anyLoading}
-                aria-label="Launch single-year participant demo"
+                aria-label="Launch single-year registration demo"
               >
                 {singleLoading ? 'Loading…' : 'See demo →'}
               </button>
@@ -312,13 +284,13 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
           <div className="demo-divider" aria-hidden="true" />
 
           <div className="demo-row">
-            <span className="demo-row-label">Multi-year comparison</span>
+            <span className="demo-row-label">Multi-year trend analysis</span>
             <div className="demo-row-controls">
               <select
                 className="demo-select"
                 value={multiDemoIdx}
                 onChange={e => setMultiDemoIdx(Number(e.target.value))}
-                aria-label="Select sample race series for multi-year participant demo"
+                aria-label="Select sample race series for multi-year registration demo"
               >
                 {MULTI_DEMOS.map((d, i) => (
                   <option key={i} value={i}>{d.label}</option>
@@ -329,7 +301,7 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
                 className="btn btn-primary demo-btn"
                 onClick={launchMultiDemo}
                 disabled={anyLoading}
-                aria-label="Launch multi-year participant demo"
+                aria-label="Launch multi-year registration demo"
               >
                 {multiLoading ? 'Loading…' : 'See demo →'}
               </button>
@@ -337,9 +309,9 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
           </div>
         </div>
 
-        {/* ── Race Analytics demos ── */}
+        {/* ── Race Results demos ── */}
         <div className="home-demo-tool-label home-demo-tool-label--spaced">
-          <span className="home-demo-tool-name">Race Analytics</span>
+          <span className="home-demo-tool-name">Race Results</span>
         </div>
 
         <div className="home-demo-rows">
@@ -371,7 +343,7 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
           <div className="demo-divider" aria-hidden="true" />
 
           <div className="demo-row">
-            <span className="demo-row-label">Multi-year comparison</span>
+            <span className="demo-row-label">Multi-year trend analysis</span>
             <div className="demo-row-controls">
               <select
                 className="demo-select"
@@ -404,28 +376,6 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
           aggregate statistics are computed and displayed.
         </p>
       </section>
-
-      {/* ── Tool cards ── */}
-      <section className="home-tools">
-        <h2 className="home-tools-title">Available tools</h2>
-        <div className="home-tools-grid">
-          <ToolCard
-            title="Registration Analytics"
-            description="Upload UltraSignup exports to explore registration demographics, age and gender breakdowns, geographic reach, registration timing, coupon usage, and year-over-year comparisons."
-            section="participants"
-            available={true}
-            onNavigate={onNavigate}
-          />
-          <ToolCard
-            title="Race Analytics"
-            description="Analyze finish times, DNF rates, pace distributions, attrition patterns, and weather correlations across one or multiple years of race results."
-            section="results"
-            available={true}
-            onNavigate={onNavigate}
-          />
-        </div>
-      </section>
-
     </div>
   );
 }

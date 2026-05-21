@@ -376,20 +376,27 @@ function UploadPhase({ onComplete }: UploadPhaseProps) {
 
   const submitLabel = uploading
     ? (filledRows.length > 1 ? `Uploading ${filledRows.length} files…` : 'Analyzing…')
-    : (filledRows.length >= 2 ? `Compare ${filledRows.length} years` : 'Analyze race data');
+    : (filledRows.length >= 2 ? `Compare ${filledRows.length} years` : 'Analyze race results');
 
   return (
     <div className="rr-upload-page">
       <div className="rr-upload-intro">
-        <h1 ref={headingRef} tabIndex={-1}>Race Analytics</h1>
+        <h1 ref={headingRef} tabIndex={-1}>Race Results</h1>
         <p>
-          Upload race results exports from your timing platform. Personal information
-          in uploaded files is never read or analyzed — only aggregate statistics are
-          computed and displayed.
+          Upload a race results or timing CSV export to analyze starters, finishers,
+          DNF/DNS outcomes, finish times, pace or distance trends, demographics,
+          geography, and weather when supplied.
+        </p>
+        <p>
+          Personal information in uploaded files is never read or analyzed — only
+          aggregate statistics are computed and displayed.
         </p>
         <p className="rr-upload-supported">
           Supported platforms: <strong>UltraSignup</strong> &nbsp;·&nbsp; More coming soon
           &nbsp;·&nbsp; Format: <strong>CSV</strong>
+        </p>
+        <p className="rr-upload-format-hint">
+          RaceOps accepts CSV uploads. If your provider gives you an Excel file, save or export it as CSV before uploading.
         </p>
         <p className="rr-upload-format-note">
           <strong>Note:</strong> Your results file must include the required UltraSignup column headers.

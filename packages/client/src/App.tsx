@@ -33,7 +33,7 @@ const NAV_ITEMS: Array<{ id: Section; label: string; shortLabel: string }> = [
   { id: 'home',         label: 'Home',                  shortLabel: 'Home' },
   { id: 'learn',        label: 'Analytics Guide',        shortLabel: 'Guide' },
   { id: 'participants', label: 'Registration Analytics', shortLabel: 'Registration' },
-  { id: 'results',      label: 'Race Analytics',          shortLabel: 'Results' },
+  { id: 'results',      label: 'Race Results',            shortLabel: 'Results' },
   { id: 'about',        label: 'About',                  shortLabel: 'About' },
 ];
 

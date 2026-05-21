@@ -251,20 +251,29 @@ export default function UploadPage({ onUploadComplete }: Props) {
 
   const submitLabel = uploading
     ? (filledRows.length > 1 ? `Uploading ${filledRows.length} files…` : 'Analyzing…')
-    : (filledRows.length >= 2 ? `Compare ${filledRows.length} years` : 'Analyze race data');
+    : (filledRows.length >= 2 ? `Compare ${filledRows.length} years` : 'Analyze registration data');
 
   return (
     <div className="upload-page">
       <div className="upload-intro">
-        <h1 ref={pageHeadingRef} tabIndex={-1}>Race Registration Analytics</h1>
+        <h1 ref={pageHeadingRef} tabIndex={-1}>Registration Analytics</h1>
         <p>
-          Upload participant exports from your race registration platform. Personal
-          information in uploaded files is never read or analyzed — only aggregate
-          statistics are computed and displayed.
+          Upload a registration CSV export to understand who registered, when they
+          registered, where they came from, and how registration changed across events
+          or years.
+        </p>
+        <p>
+          Use this for registration timing, drops, waitlist behavior, coupon usage,
+          demographics, geography, and travel-distance analysis. Personal information
+          is never read or analyzed — only aggregate statistics are computed and displayed.
         </p>
         <p className="upload-supported">
           Supported platforms: <strong>UltraSignup</strong> &nbsp;·&nbsp; More coming soon
           &nbsp;·&nbsp; Format: <strong>CSV</strong>
+        </p>
+        <p className="upload-hint">
+          <InfoIcon />
+          <span>RaceOps accepts CSV uploads. If your provider gives you an Excel file, save or export it as CSV before uploading.</span>
         </p>
         <p className="upload-hint upload-hint--tip">
           <InfoIcon />
@@ -371,7 +380,7 @@ export default function UploadPage({ onUploadComplete }: Props) {
           </div>
 
           <p className="upload-files-footer-hint">
-            Upload one file for a single race analysis, or multiple files (same race,
+            Upload one file for a single-year analysis, or multiple files (same race,
             different years) for year-over-year comparison. Year is auto-detected from
             the filename when available.
           </p>

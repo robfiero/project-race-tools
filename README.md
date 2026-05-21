@@ -1,6 +1,31 @@
-# RaceStats
+# RaceOps
 
-Race participant analytics for trail and ultra race directors. Upload a CSV or Excel export from UltraSignup and get instant demographic, geographic, registration timing, and participation statistics — with all PII stripped at ingest.
+RaceOps is a data analytics tool for race directors. It turns race registration exports and race results exports into practical, export-friendly reports without retaining personally identifiable information.
+
+The app currently supports CSV uploads. If a platform provides an Excel export, save or export it as CSV before uploading.
+
+## Current Workflows
+
+### Registration Analytics
+
+Upload registration/export CSVs from UltraSignup to analyze registrants and participants before race day. Registration Analytics supports single-year reports and multi-year comparisons, including:
+
+- registration totals and active participant counts
+- registration trends, timing, drops, waitlist/status breakdowns, coupons, and comped entries
+- demographics, age distribution, geography, distance traveled, teams, and cross-event comparisons
+- report headers that identify the registration import source
+
+### Race Results
+
+Upload results/timing CSVs from UltraSignup to analyze what happened on race day. Race Results supports single-year reports and multi-year comparisons, including:
+
+- total participants/entrants, starters, finishers, DNS, DNF, and finish rate
+- finish times, pace, and distance where applicable to the race format
+- finisher demographics, age-group/division performance, geography, and cross-event results
+- weather context when race date/time and venue are supplied
+- report headers that retain results format terminology
+
+RaceOps also includes synthetic demo data for both workflows and report views that can be saved as PDF from the browser.
 
 ---
 
@@ -24,9 +49,9 @@ racestats/
 ├── packages/
 │   ├── server/        Node.js/Express API (TypeScript)
 │   │   ├── src/
-│   │   │   ├── adapters/      Platform-specific CSV/Excel parsers
+│   │   │   ├── adapters/      Platform-specific CSV parsers
 │   │   │   ├── geo/           Geocoding and distance calculations
-│   │   │   ├── parser/        File parsing (CSV + Excel)
+│   │   │   ├── parser/        CSV parsing
 │   │   │   ├── routes/        Express route handlers
 │   │   │   ├── session/       Session store (in-memory or S3)
 │   │   │   └── stats/         Statistics engine
