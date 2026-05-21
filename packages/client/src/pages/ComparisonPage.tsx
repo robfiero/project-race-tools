@@ -25,7 +25,7 @@ import IntervalComparisonPanel, {
 import './ComparisonPage.css';
 
 interface Props {
-  sessions: Array<{ sessionId: string; label: string; raceName: string }>;
+  sessions: Array<{ sessionId: string; label: string; raceName: string; adapterName: string }>;
   onBack: () => void;
 }
 
@@ -1398,18 +1398,56 @@ export default function ComparisonPage({ sessions, onBack }: Props) {
 
   const raceName = sessions[0]?.raceName ?? 'Race';
   const intervalCount = sessions.length;
+  const totalRecords = data?.intervals.reduce((sum, interval) => sum + interval.participantCount, 0) ?? 0;
+  const comparedYears = sessions.map(session => session.label).join(', ');
+  const importSource = Array.from(new Set(sessions.map(session => session.adapterName).filter(Boolean))).join(', ') || 'Registration Analytics';
+  const eventCount = allEvents.length;
+  const eventTypeLabel = eventCount > 1
+    ? `Multi-year registration comparison · ${eventCount} events`
+    : 'Multi-year registration comparison';
+  const venueAddress = data?.intervals
+    .map(interval => interval.stats.distance?.venueAddress?.trim())
+    .find((value): value is string => !!value) ?? null;
 
   return (
     <div className="comparison-page">
-      <div className="comparison-header">
+      <header className="comparison-header">
         <div className="comparison-header-left">
           <button type="button" className="btn-ghost dashboard-back no-print" onClick={onBack}>
             ← New analysis
           </button>
           <h1 ref={pageHeadingRef} tabIndex={-1} className="comparison-title">
-            {raceName} — {intervalCount}-Interval Comparison
+            <span className="comparison-title-main">{raceName}</span>
+            <span className="comparison-title-subline">{intervalCount}-Year Comparison</span>
           </h1>
-          <div className="comparison-intervals" aria-label="Intervals being compared">
+          <p className="comparison-subtitle">Registration Trend Analysis</p>
+          <dl className="comparison-meta">
+            <div className="comparison-meta-item">
+              <dt>Compared Years</dt>
+              <dd>{comparedYears}</dd>
+            </div>
+            {totalRecords > 0 && (
+              <div className="comparison-meta-item">
+                <dt>Imported Records</dt>
+                <dd>{totalRecords.toLocaleString()}</dd>
+              </div>
+            )}
+            <div className="comparison-meta-item">
+              <dt>Import Source</dt>
+              <dd>{importSource}</dd>
+            </div>
+            <div className="comparison-meta-item">
+              <dt>Event Type</dt>
+              <dd>{eventTypeLabel}</dd>
+            </div>
+            {venueAddress && (
+              <div className="comparison-meta-item comparison-meta-item--wide">
+                <dt>Venue</dt>
+                <dd>{venueAddress}</dd>
+              </div>
+            )}
+          </dl>
+          <div className="comparison-intervals" aria-label="Years being compared">
             {sessions.map((s, i) => (
               <span
                 key={s.sessionId}
@@ -1434,7 +1472,7 @@ export default function ComparisonPage({ sessions, onBack }: Props) {
         >
           Save as PDF
         </button>
-      </div>
+      </header>
 
       {allEvents.length > 1 && (
         <EventFilter

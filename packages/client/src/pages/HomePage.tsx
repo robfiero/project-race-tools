@@ -16,6 +16,7 @@ interface Props {
 const SINGLE_DEMOS = [
   { id: 'pinecrest-5k-2024',         label: 'Pinecrest 5K — local race, ~100 participants',            year: '2024' },
   { id: 'white-mountains-2024',       label: 'White Mountains Challenge — multi-event, ~350 participants', year: '2024' },
+  { id: 'autumn-ridge-trail-festival-2024', label: 'Autumn Ridge Trail Festival — waitlist-focused, ~500 records', year: '2024' },
   { id: 'mountain-endurance-2024',    label: 'Mountain Endurance Challenge — large race, ~850 participants', year: '2024' },
 ];
 
@@ -185,6 +186,7 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
           sessionId: r.session.sessionId,
           label: r.label,
           raceName: r.session.raceName,
+          adapterName: r.session.adapterName,
         })),
       });
     } catch (e) {

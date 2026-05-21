@@ -26,7 +26,7 @@ const HOLIDAY_BADGES: Record<string, string> = {
 
 export type ParticipantSession =
   | { mode: 'single'; session: UploadResponse; label: string }
-  | { mode: 'comparison'; sessions: Array<{ sessionId: string; label: string; raceName: string }> }
+  | { mode: 'comparison'; sessions: Array<{ sessionId: string; label: string; raceName: string; adapterName: string }> }
   | null;
 
 const NAV_ITEMS: Array<{ id: Section; label: string; shortLabel: string }> = [
@@ -73,6 +73,7 @@ function AppShell() {
           sessionId: s.response.sessionId,
           label: s.label,
           raceName: s.response.raceName,
+          adapterName: s.response.adapterName,
         })),
       });
     }

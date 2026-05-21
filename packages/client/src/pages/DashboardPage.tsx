@@ -56,29 +56,57 @@ export default function DashboardPage({ session, label, onBack }: Props) {
   }, [session.sessionId]);
 
   const stats = data?.stats;
+  const reportYear = /^\d{4}$/.test(label) ? label : null;
+  const eventTypeLabel = session.events.length > 1
+    ? `Single-year registration · ${session.events.length} events`
+    : 'Single-year registration';
+  const venueAddress = stats?.distance?.venueAddress?.trim() || null;
 
   return (
     <div className="dashboard">
-      <div className="dashboard-header">
+      <header className="dashboard-header">
         <div className="dashboard-header-left">
           <button type="button" className="btn-ghost dashboard-back no-print" onClick={onBack}>
             ← New analysis
           </button>
           <h1 ref={pageHeadingRef} tabIndex={-1} className="dashboard-title">
-            {session.raceName} — Registration Analysis{/^\d{4}$/.test(label) && ` ${label}`}
+            {session.raceName}
           </h1>
+          <p className="dashboard-subtitle">
+            Registration Analysis{reportYear ? ` · ${reportYear}` : ''}
+          </p>
           <dl className="dashboard-meta">
+            {reportYear && (
+              <div className="dashboard-meta-row">
+                <dt>Year</dt>
+                <dd>{reportYear}</dd>
+              </div>
+            )}
             <div className="dashboard-meta-row">
               <dt>Imported Records</dt>
               <dd>{session.participantCount.toLocaleString()}</dd>
             </div>
             <div className="dashboard-meta-row">
+              <dt>Import Source</dt>
+              <dd>{session.adapterName || 'Registration Analytics'}</dd>
+            </div>
+            <div className="dashboard-meta-row">
               <dt>Time zone</dt>
               <dd>{session.timezone}</dd>
             </div>
-            {!session.venueGeocoded && (
+            <div className="dashboard-meta-row">
+              <dt>Event Type</dt>
+              <dd>{eventTypeLabel}</dd>
+            </div>
+            {venueAddress && (
+              <div className="dashboard-meta-row">
+                <dt>Venue</dt>
+                <dd>{venueAddress}</dd>
+              </div>
+            )}
+            {!venueAddress && !session.venueGeocoded && (
               <div className="dashboard-meta-row dashboard-no-venue">
-                <dt>Travel distance stats</dt>
+                <dt>Venue</dt>
                 <dd>Unavailable — no venue address provided</dd>
               </div>
             )}
@@ -92,7 +120,7 @@ export default function DashboardPage({ session, label, onBack }: Props) {
         >
           Save as PDF
         </button>
-      </div>
+      </header>
 
       <EventFilter
         events={session.events}
@@ -106,13 +134,16 @@ export default function DashboardPage({ session, label, onBack }: Props) {
       {stats && !loading && (
         <>
           <nav className="report-nav no-print" aria-label="Jump to section">
-            <a href="#dash-summary" className="report-nav-link">Summary</a>
-            <a href="#dash-participation" className="report-nav-link">Registration & Drops</a>
-            <a href="#dash-registration" className="report-nav-link">Registration Timing</a>
-            <a href="#dash-cross-event" className="report-nav-link">Event Comparison</a>
-            <a href="#dash-demographics" className="report-nav-link">Gender</a>
-            <a href="#dash-age" className="report-nav-link">Age Distribution</a>
-            <a href="#dash-geography" className="report-nav-link">Geography</a>
+            <span className="report-nav-label">Jump To:</span>
+            <div className="report-nav-links">
+              <a href="#dash-summary" className="report-nav-link">Summary</a>
+              <a href="#dash-participation" className="report-nav-link">Registration & Drops</a>
+              <a href="#dash-registration" className="report-nav-link">Registration Timing</a>
+              <a href="#dash-cross-event" className="report-nav-link">Event Comparison</a>
+              <a href="#dash-demographics" className="report-nav-link">Gender</a>
+              <a href="#dash-age" className="report-nav-link">Age Distribution</a>
+              <a href="#dash-geography" className="report-nav-link">Geography</a>
+            </div>
           </nav>
           <div className="dashboard-sections">
             <section id="dash-summary" className="chart-section">
@@ -125,9 +156,6 @@ export default function DashboardPage({ session, label, onBack }: Props) {
                     : stats.summary.activeParticipants
                   ).toLocaleString()}
                 />
-                <StatCard label="Female" value={`${stats.gender.femalePercent}%`} />
-                <StatCard label="Non-Binary" value={`${stats.gender.nonBinaryPercent}%`} />
-                <StatCard label="Male" value={`${stats.gender.malePercent}%`} />
                 <StatCard
                   label="Coupon Usage"
                   value={`${stats.registration.couponUsagePercent}%`}
@@ -143,12 +171,15 @@ export default function DashboardPage({ session, label, onBack }: Props) {
                   sub={!stats.participation.statusBreakdown.hasStatementData ? 'not available' : undefined}
                 />
                 <StatCard
-                  label="Waitlist Not Invited"
+                  label="Not Invited From Waitlist"
                   value={stats.participation.statusBreakdown.hasStatementData
                     ? stats.participation.statusBreakdown.waitlistNeverInvited.toLocaleString()
                     : '—'}
                   sub={!stats.participation.statusBreakdown.hasStatementData ? 'not available' : undefined}
                 />
+                <StatCard label="Female" value={`${stats.gender.femalePercent}%`} />
+                <StatCard label="Male" value={`${stats.gender.malePercent}%`} />
+                <StatCard label="Non-Binary" value={`${stats.gender.nonBinaryPercent}%`} />
               </div>
             </section>
 
@@ -173,7 +204,7 @@ export default function DashboardPage({ session, label, onBack }: Props) {
               <AgeSection stats={stats.age} />
             </div>
             <div id="dash-geography">
-              <GeographicSection stats={stats.geographic} />
+              <GeographicSection stats={stats.geographic} summaryMode="race-results" stateChartBarColor="#1F7A7A" />
               {stats.distance && <DistanceSection stats={stats.distance} />}
             </div>
           </div>

@@ -48,6 +48,7 @@ interface Props {
   contextStrip?: ReactNode;
   insightsPosition?: 'top' | 'bottom';
   summaryMode?: 'default' | 'race-results';
+  stateChartBarColor?: string;
 }
 
 export default function GeographicSection({
@@ -59,6 +60,7 @@ export default function GeographicSection({
   contextStrip,
   insightsPosition = 'top',
   summaryMode = 'default',
+  stateChartBarColor,
 }: Props) {
   const { theme } = useTheme();
   const [tab, setTab] = useState<GeoTab>('chart');
@@ -148,7 +150,7 @@ export default function GeographicSection({
                   <XAxis type="number" tick={{ fontSize: 11 }} />
                   <YAxis type="category" dataKey="state" interval={0} tick={{ fontSize: 11 }} width={96} />
                   <Tooltip formatter={(v: number) => [v, 'Participants']} />
-                  <Bar dataKey="count" radius={[0, 4, 4, 0]} name="Participants" fill={theme.chart[0]}>
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]} name="Participants" fill={stateChartBarColor ?? theme.chart[0]}>
                     <LabelList
                       dataKey="count"
                       position="right"

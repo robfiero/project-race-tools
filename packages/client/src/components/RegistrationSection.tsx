@@ -117,6 +117,14 @@ export default function RegistrationSection({ stats, compact = false }: Props) {
     <section className="chart-section">
       <SectionHeader title="Registration Timing" />
 
+      <div className="insight-callout registration-timing-hint">
+        <ul className="insight-callout-list">
+          <li className="insight-callout-item">
+            Use timing patterns to schedule social posts, email reminders, and registration pushes when participants are most likely to act.
+          </li>
+        </ul>
+      </div>
+
       <div className="stat-cards-row">
         <StatCard label="Peak Day" value={peakDay.day} sub={`${peakDay.count} registrations`} />
         <StatCard label="Peak Hour" value={peakHour.label} sub={`${peakHour.count} registrations`} />

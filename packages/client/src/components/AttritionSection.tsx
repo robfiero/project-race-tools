@@ -45,7 +45,7 @@ const DROPPED_ROW_DEFS: StatusRowDef[] = [
 ];
 
 const WAITLIST_ROW_DEFS: StatusRowDef[] = [
-  { key: 'waitlistNeverInvited',      label: 'Waitlist Not Invited',                   chartLabel: 'Waitlist Not Invited' },
+  { key: 'waitlistNeverInvited',      label: 'Not Invited From Waitlist',              chartLabel: 'Not Invited From Waitlist' },
   { key: 'waitlistWithdrawnDeclined', label: 'Waitlist Withdrawn/Declined Invitation', chartLabel: 'Waitlist Withdrawn' },
 ];
 
@@ -237,7 +237,7 @@ export default function ParticipationSection({
   // ── Charts tab content ──
   const chartsPanel = hasStatement ? (
     <>
-      <StatusChartGroup title="Current Registration Status" defs={ACTIVE_ROW_DEFS}   sb={statusBreakdown} color={c0} />
+      <StatusChartGroup title="Active Registration Status" defs={ACTIVE_ROW_DEFS}   sb={statusBreakdown} color={c0} />
       <StatusChartGroup title="Dropped Status"              defs={DROPPED_ROW_DEFS}  sb={statusBreakdown} color={c0} />
       <StatusChartGroup title="Waitlist Status"             defs={WAITLIST_ROW_DEFS} sb={statusBreakdown} color={c0} />
       {hasUnclassified && (
@@ -265,7 +265,7 @@ export default function ParticipationSection({
   const tablePanel = hasStatement ? (
     <>
       <StatusTableGroup
-        title="Current Registration Status"
+        title="Active Registration Status"
         defs={ACTIVE_ROW_DEFS}
         sb={statusBreakdown}
         totalLabel="Total Active"

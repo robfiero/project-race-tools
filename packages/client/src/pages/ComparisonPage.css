@@ -21,40 +21,121 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.5rem;
+  padding: 1.1rem 1.25rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.comparison-header-left {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .comparison-title {
-  font-size: 1.5rem;
+  margin: 0;
+  font-size: clamp(1.65rem, 2.6vw, 2.35rem);
+  line-height: 1.1;
+  font-weight: 850;
+  letter-spacing: 0;
+  color: #111827;
+}
+
+.comparison-title-main,
+.comparison-title-subline {
+  display: block;
+}
+
+.comparison-title-subline {
+  margin-top: 0.18rem;
+  color: #374151;
+  font-size: clamp(1.1rem, 1.8vw, 1.45rem);
+  font-weight: 800;
+}
+
+.comparison-subtitle {
+  margin: 0.35rem 0 0;
+  color: #6b7280;
+  font-size: 0.95rem;
   font-weight: 700;
-  margin-bottom: 0.5rem;
+}
+
+.comparison-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(8.5rem, 1fr));
+  gap: 0.85rem 1.35rem;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.comparison-meta-item {
+  min-width: 0;
+}
+
+.comparison-meta-item--wide {
+  grid-column: span 2;
+}
+
+.comparison-meta-item dt {
+  margin: 0 0 0.15rem;
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.comparison-meta-item dd {
+  margin: 0;
+  color: #111827;
+  font-size: 0.9rem;
+  font-weight: 650;
 }
 
 .comparison-intervals {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.45rem;
+  margin-top: 0.95rem;
 }
 
 .comparison-interval-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  border: 1px solid var(--color-primary);
+  gap: 0.42rem;
+  background: #f9fafb;
+  color: #374151;
+  border: 1px solid #d7dde5;
   border-radius: 999px;
-  padding: 0.15rem 0.65rem;
+  padding: 0.26rem 0.58rem;
   font-size: 0.82rem;
-  font-weight: 600;
+  font-weight: 750;
+  line-height: 1.2;
 }
 
 .comparison-interval-pill-swatch {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 0.68rem;
+  height: 0.68rem;
   border-radius: 50%;
   flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
+}
+
+@media (max-width: 760px) {
+  .comparison-header {
+    flex-direction: column;
+  }
+
+  .comparison-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .comparison-meta-item--wide {
+    grid-column: auto;
+  }
 }
 
 .comparison-loading,
@@ -347,4 +428,3 @@
   padding-top: 0.875rem;
   border-top: 1px solid #e5e7eb;
 }
-

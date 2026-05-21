@@ -49,6 +49,7 @@ const STATE_ZIPS: Record<string, string[]> = {
   VT: ['05001', '05060', '05201', '05301', '05401', '05602'],
   MA: ['01002', '01060', '01201', '01420', '01701', '01851', '02101', '02301', '02401'],
   CT: ['06001', '06101', '06201', '06401', '06701', '06801'],
+  RI: ['02801', '02840', '02901', '02906'],
   NY: ['10001', '10601', '12001', '12401', '13001', '14001'],
   NJ: ['07001', '07101', '07301', '07501', '07901'],
   PA: ['15001', '15201', '17001', '17601', '18001', '19001'],
@@ -67,6 +68,14 @@ interface EventConfig {
   name: string;
   fraction: number;
   price: number;
+  genderM?: number;
+  genderF?: number;
+  ageMean?: number;
+  ageStd?: number;
+  couponRate?: number;
+  paidDropRate?: number;
+  waitlistNeverInvitedRate?: number;
+  waitlistWithdrawnRate?: number;
 }
 
 interface StateWeight {
@@ -92,6 +101,9 @@ interface SampleConfig {
   compRate: number;
   removeRate: number;
   dropRate: number;
+  paidDropRate?: number;
+  waitlistNeverInvitedRate?: number;
+  waitlistWithdrawnRate?: number;
   statementId: number;
 }
 
@@ -229,6 +241,48 @@ export const SAMPLE_CONFIGS: Record<string, SampleConfig> = {
     couponRate: 0.08, compRate: 0.03, removeRate: 0.015, dropRate: 0.025,
     statementId: 45003,
   },
+
+  'autumn-ridge-trail-festival-2024': {
+    raceName: 'Autumn Ridge Trail Festival',
+    venueAddress: '28 Depot Rd, Keene, NH 03431',
+    count: 524, year: 2024, raceMonth: 10, raceDay: 19, regOpenMonthsBefore: 7,
+    events: [
+      {
+        name: '5K', fraction: 0.30, price: 40,
+        genderM: 0.46, genderF: 0.52, ageMean: 34, ageStd: 11,
+        couponRate: 0.12, paidDropRate: 0.025,
+        waitlistNeverInvitedRate: 0.006, waitlistWithdrawnRate: 0.004,
+      },
+      {
+        name: '10K', fraction: 0.27, price: 55,
+        genderM: 0.50, genderF: 0.48, ageMean: 37, ageStd: 10,
+        couponRate: 0.10, paidDropRate: 0.035,
+        waitlistNeverInvitedRate: 0.010, waitlistWithdrawnRate: 0.006,
+      },
+      {
+        name: 'Half Marathon', fraction: 0.28, price: 82,
+        genderM: 0.53, genderF: 0.45, ageMean: 40, ageStd: 9,
+        couponRate: 0.08, paidDropRate: 0.045,
+        waitlistNeverInvitedRate: 0.050, waitlistWithdrawnRate: 0.018,
+      },
+      {
+        name: '50K', fraction: 0.15, price: 125,
+        genderM: 0.58, genderF: 0.39, ageMean: 42, ageStd: 8,
+        couponRate: 0.06, paidDropRate: 0.070,
+        waitlistNeverInvitedRate: 0.140, waitlistWithdrawnRate: 0.040,
+      },
+    ],
+    stateWeights: [
+      { state: 'NH', weight: 34 }, { state: 'MA', weight: 22 }, { state: 'VT', weight: 11 },
+      { state: 'ME', weight: 9 }, { state: 'CT', weight: 6 }, { state: 'NY', weight: 6 },
+      { state: 'RI', weight: 3 }, { state: 'NJ', weight: 3 }, { state: 'PA', weight: 2 },
+      { state: 'CO', weight: 2 }, { state: 'CA', weight: 1 }, { state: 'NC', weight: 1 },
+    ],
+    genderM: 0.52, genderF: 0.46, ageMean: 38, ageStd: 10,
+    couponRate: 0.09, compRate: 0.015, removeRate: 0.006, dropRate: 0.018,
+    paidDropRate: 0.04, waitlistNeverInvitedRate: 0.025, waitlistWithdrawnRate: 0.010,
+    statementId: 46001,
+  },
 };
 
 const CSV_HEADER = [
@@ -315,16 +369,18 @@ export function generateCSV(sampleId: string): string {
     return { state, zip: rng.pick(zips) };
   }
 
-  function pickGender(): { gender: string; identifiedGender: string } {
+  function pickGender(event: EventConfig): { gender: string; identifiedGender: string } {
+    const genderM = event.genderM ?? config.genderM;
+    const genderF = event.genderF ?? config.genderF;
     const r = rng.next();
-    if (r < config.genderM) return { gender: 'M', identifiedGender: '' };
-    if (r < config.genderM + config.genderF) return { gender: 'F', identifiedGender: '' };
+    if (r < genderM) return { gender: 'M', identifiedGender: '' };
+    if (r < genderM + genderF) return { gender: 'F', identifiedGender: '' };
     // Non-binary: use identifiedGender='x' with either M or F in the gender column
     return { gender: rng.bool(0.5) ? 'M' : 'F', identifiedGender: 'x' };
   }
 
-  function pickAge(): number {
-    return Math.max(16, Math.min(75, Math.round(rng.normal(config.ageMean, config.ageStd))));
+  function pickAge(event: EventConfig): number {
+    return Math.max(16, Math.min(75, Math.round(rng.normal(event.ageMean ?? config.ageMean, event.ageStd ?? config.ageStd))));
   }
 
   const rows: string[] = [CSV_HEADER];
@@ -335,21 +391,30 @@ export function generateCSV(sampleId: string): string {
     orderId += rng.int(1, 5);
     const event = pickEvent();
     const { state, zip } = pickStateZip();
-    const { gender, identifiedGender } = pickGender();
-    const age = pickAge();
+    const { gender, identifiedGender } = pickGender(event);
+    const age = pickAge(event);
     const regDate = pickRegDate();
 
-    const isComped = rng.bool(config.compRate);
-    const hasCoupon = !isComped && rng.bool(config.couponRate);
-    const isRemoved = rng.bool(config.removeRate);
-    const isDropping = !isRemoved && rng.bool(config.dropRate);
+    const waitlistNeverInvitedRate = event.waitlistNeverInvitedRate ?? config.waitlistNeverInvitedRate ?? 0;
+    const waitlistWithdrawnRate = event.waitlistWithdrawnRate ?? config.waitlistWithdrawnRate ?? 0;
+    const statusRoll = rng.next();
+    const isWaitlistWithdrawn = statusRoll < waitlistWithdrawnRate;
+    const isWaitlistNeverInvited = !isWaitlistWithdrawn && statusRoll < waitlistWithdrawnRate + waitlistNeverInvitedRate;
+    const isWaitlist = isWaitlistWithdrawn || isWaitlistNeverInvited;
+
+    const isComped = !isWaitlist && rng.bool(config.compRate);
+    const hasCoupon = !isComped && !isWaitlist && rng.bool(event.couponRate ?? config.couponRate);
+    const isRemoved = !isWaitlist && rng.bool(config.removeRate);
+    const isPaidDrop = !isComped && !isWaitlist && !isRemoved && rng.bool(event.paidDropRate ?? config.paidDropRate ?? 0);
+    const isDropping = !isRemoved && !isWaitlist && rng.bool(config.dropRate);
+    const removed = isWaitlistWithdrawn || isRemoved || isPaidDrop;
 
     const price = event.price;
     const couponAmt = hasCoupon ? rng.pick([5, 10, 15, 20]) : 0;
     const discount = isComped ? price : 0;
-    const usFee = isComped ? 0 : parseFloat((price * 0.04 + 1.0).toFixed(2));
-    const total = isComped ? 0 : price + usFee - couponAmt;
-    const orderType = isComped ? 'Comp' : rng.bool(0.85) ? 'Credit Card' : 'PayPal';
+    const usFee = isComped || isWaitlist ? 0 : parseFloat((price * 0.04 + 1.0).toFixed(2));
+    const total = isComped || isWaitlist ? 0 : price + usFee - couponAmt;
+    const orderType = isWaitlist ? 'Pending CC' : isComped ? 'Comp' : rng.bool(0.85) ? 'Credit Card' : 'PayPal';
 
     const dateStr = formatRegDate(regDate.year, regDate.month, regDate.day, regDate.hour, regDate.minute, regDate.second);
     const priceOption = `${event.name} - Registration - $${price}`;
@@ -377,19 +442,19 @@ export function generateCSV(sampleId: string): string {
       zip,
       'USA',
       '5550000000',                 // Phone (PII — stripped)
-      isRemoved ? 'True' : 'False',
+      removed ? 'True' : 'False',
       String(bib++),
       'No',
       '',
       'Emergency Contact',          // emergency_name (PII — stripped)
       '5550000001',                 // emergency_phone (PII — stripped)
-      isComped ? '' : String(config.statementId),
+      isComped || isWaitlist ? '' : String(config.statementId),
       discount.toFixed(4),
       '0.00',
       usFee.toFixed(2),
       total.toFixed(2),
       '',
-      isDropping ? 'Dropping from the Race' : '',
+      isDropping || isPaidDrop ? 'Dropping from the Race' : '',
     ].map(csvField);
 
     rows.push(fields.join(','));
