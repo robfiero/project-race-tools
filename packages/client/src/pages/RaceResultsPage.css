@@ -1,12 +1,24 @@
 /* ── Upload phase ─────────────────────────────────────────────────────────── */
 
 .rr-upload-page {
-  max-width: 720px;
+  max-width: 1000px;
   margin: 0 auto;
 }
 
 .rr-upload-intro {
   margin-bottom: 1.25rem;
+}
+
+.rr-upload-hero-image {
+  display: block;
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  object-position: center 42%;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 0.85rem;
+  background: #f8fafc;
 }
 
 .rr-upload-intro h1 {
@@ -19,9 +31,44 @@
   color: #444;
 }
 
+.rr-upload-before {
+  margin-top: 0.75rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #e5e7eb;
+  border-left: 3px solid var(--color-primary, #2563eb);
+  border-radius: 0 6px 6px 0;
+  background: #f8fafc;
+}
+
+.rr-upload-before h2 {
+  margin: 0 0 0.45rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #374151;
+}
+
+.rr-upload-before ul {
+  margin: 0.55rem 0 0;
+  padding-left: 1.1rem;
+  color: #4b5563;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.rr-upload-before li + li {
+  margin-top: 0.25rem;
+}
+
 .rr-upload-supported {
   font-size: 0.88rem;
   color: #666;
+}
+
+.rr-upload-page .rr-venue-field {
+  grid-column: 1 / -1;
+  max-width: 80%;
 }
 
 /* ── Per-row race date fields ─────────────────────────────────────────────── */
@@ -121,9 +168,10 @@ input[type="datetime-local"].datetime-empty {
 .rr-upload-format-links {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
   font-size: 0.85rem;
-  margin: 0.2rem 0 0;
+  margin: 0.75rem 0 0;
 }
 
 .rr-upload-format-sep {
@@ -148,6 +196,14 @@ input[type="datetime-local"].datetime-empty {
 }
 
 @media (max-width: 560px) {
+  .rr-upload-hero-image {
+    height: 104px;
+  }
+
+  .rr-upload-page .rr-venue-field {
+    max-width: 100%;
+  }
+
   .rr-upload-details-grid {
     grid-template-columns: 1fr;
   }

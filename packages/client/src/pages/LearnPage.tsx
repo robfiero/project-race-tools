@@ -21,12 +21,11 @@ const GUIDE_SECTIONS: GuideSection[] = [
     id: 'participant',
     heading: 'Registration Analytics',
     intro:
-      'Registration Analytics is drawn from your race registration export — the data your ' +
-      'registration platform collects when someone signs up. Because it captures behavior ' +
-      'before race day, it tells a different story than Race Results: who is choosing your ' +
-      'race, when they register, where they come from, and how they engage with pricing, ' +
-      'waitlists, drops, and event options. Taken together, these statistics describe the health and trajectory ' +
-      'of your race as a community event.',
+      'Registration Analytics is drawn from your race registration export, which captures ' +
+      'what happens before race day. It shows how registration builds over time, which ' +
+      'events people choose, how drops, coupons, and waitlists behave, and where ' +
+      'participants are coming from. These patterns can help you understand demand, ' +
+      'timing, reach, and operational pressure before the race ever starts.',
     entries: [
       {
         title: 'Summary & Participation Overview',
@@ -44,10 +43,9 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'to competing events, or whether your entry price has drifted above what your ' +
           'market will bear.',
           'A large gap between registered and active participants — more than 8–10% — ' +
-          'can signal early buyer\'s remorse, overly optimistic pre-registration, or a ' +
-          'refund/transfer policy that allows easy exits. It may also be completely normal ' +
-          'for your race type and worth comparing against prior years rather than ' +
-          'an industry average.',
+          'can suggest that your drop, removal, or transfer patterns deserve a closer ' +
+          'look. It may also be normal for your race type, which makes prior-year ' +
+          'comparison more useful than a broad industry average.',
           'If you offer multiple distances, the event breakdown shows which options are ' +
           'attracting the most participants. A distance that consistently fills fastest is ' +
           'often a candidate for a capacity increase; one that struggles to fill may not ' +
@@ -65,13 +63,14 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'marketing, and race experience design.',
         ideas: [
           'Is your female participation trending upward, flat, or declining over multiple ' +
-          'years? Races with strong and growing female representation tend to benefit from ' +
-          'better word-of-mouth within running communities, where women\'s networks are ' +
-          'particularly influential.',
+          'years? Those trends can help you evaluate whether your outreach, imagery, ' +
+          'race experience, and community relationships are reaching the field you intend ' +
+          'to serve.',
           'A heavily skewed ratio — well below 30% female, for instance — may reflect ' +
           'the norms of your distance and discipline, or it may signal that your marketing ' +
           'imagery, race culture, or course difficulty is perceived as unwelcoming. Those ' +
-          'are very different problems with very different solutions.',
+          'are different possibilities, and the data can help you decide what deserves ' +
+          'more direct review.',
           'Non-binary representation is small in most datasets but worth tracking. ' +
           'Whether you offer a non-binary division, display inclusive language on your ' +
           'registration form, and provide appropriate facilities are details that runners ' +
@@ -85,8 +84,8 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'and how participation breaks down across age groups. Age demographics affect ' +
           'medical planning, marketing channels, course design considerations, and even ' +
           'sponsorship opportunities. A race whose median age is rising year over year ' +
-          'is telling you something important about who is — and who isn\'t — finding ' +
-          'their way into your event.',
+          'may indicate that your participant base is changing, which is worth reviewing ' +
+          'alongside your event distances, pricing, and outreach.',
         ideas: [
           'Is your median age creeping upward with each passing year? This is common in ' +
           'trail ultramarathons and can indicate difficulty attracting newer or younger ' +
@@ -112,18 +111,16 @@ const GUIDE_SECTIONS: GuideSection[] = [
         ideas: [
           'If most participants are within a 2–3 hour drive, you\'re operating primarily ' +
           'as a regional race. That\'s not a weakness — many beloved races are deeply ' +
-          'regional — but it does mean that growing your field likely requires investing ' +
-          'in outreach to running clubs and communities within that radius rather than ' +
+          'regional — but it may mean that local and regional outreach matters more than ' +
           'national marketing.',
           'A significant draw from distant states or other countries signals that your ' +
-          'race has a reputation worth building on. Participants who travel far tend to ' +
-          'be highly committed and often bring friends or family. Lodging partnerships, ' +
-          'travel guides, and group hotel blocks can dramatically improve their experience ' +
-          'and increase the likelihood they return.',
+          'race is reaching beyond its immediate market. Lodging partnerships, travel ' +
+          'guides, and group hotel blocks may improve the experience for participants ' +
+          'who are planning from farther away.',
           'Year-over-year shifts in your geographic distribution can be revealing: a ' +
-          'sudden increase in out-of-state participants may follow a feature in a running ' +
-          'publication or a strong finish-line photo going viral. Knowing what caused the ' +
-          'shift helps you replicate it intentionally.',
+          'sudden increase in out-of-state participants may be worth comparing against ' +
+          'recent marketing, partnerships, media coverage, or calendar changes. Pairing ' +
+          'the data with that context can help you understand what may have contributed.',
         ],
       },
       {
@@ -131,9 +128,9 @@ const GUIDE_SECTIONS: GuideSection[] = [
         overview:
           'Registration timing charts show when participants are signing up — by hour of ' +
           'the day, day of the week, and how registrations accumulate across the entire ' +
-          'registration window. This reveals your audience\'s decision-making habits and ' +
-          'gives you a factual basis for timing your marketing pushes, early-bird deadlines, ' +
-          'and reminder campaigns.',
+          'registration window. This can help you spot when registration activity is ' +
+          'strongest and gives you a factual basis for timing marketing pushes, early-bird ' +
+          'deadlines, and reminder campaigns.',
         ideas: [
           'If registrations spike heavily in the final two to three weeks before your ' +
           'cutoff, a structured early-bird pricing tier could shift some of that demand ' +
@@ -141,13 +138,12 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'Conversely, if your race fills in the first few days, a tiered pricing model ' +
           'may already be working in your favor without you realizing it.',
           'Evening and weekend registration peaks tell you that your audience is signing ' +
-          'up on personal time. That shapes when promotional emails and social posts are ' +
-          'most likely to convert — Thursday evenings and Sunday mornings often outperform ' +
-          'Monday morning announcements for recreational endurance audiences.',
+          'up outside normal workday hours. That can inform when promotional emails and ' +
+          'social posts are most likely to be seen and acted on.',
           'A registration curve that plateaus early and then barely moves until a ' +
-          'late-window surge may indicate that your race has a loyal core audience but ' +
-          'lacks a mechanism to reach new runners. A referral incentive or club partnership ' +
-          'that activates mid-registration-window can help fill the lull.',
+          'late-window surge may indicate that your race has a loyal core audience, while ' +
+          'also showing where mid-window visibility could help. A referral incentive or club partnership ' +
+          'can be one way to test whether additional outreach helps fill the lull.',
         ],
       },
       {
@@ -156,13 +152,13 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'Coupon statistics show how many participants used a discount code and the ' +
           'aggregate revenue impact of those discounts. Discount codes are a common and ' +
           'useful tool, but without visibility into how they\'re actually being used, ' +
-          'they can quietly undercut revenue without delivering the growth they were ' +
-          'intended to create.',
+          'it can be hard to tell whether they are supporting registration goals or ' +
+          'mainly reducing per-participant revenue.',
         ideas: [
           'Are discount codes going primarily to runners who would have signed up anyway? ' +
           'If your codes are widely shared on social media rather than targeted at ' +
           'specific clubs or first-time participants, you may be reducing revenue from ' +
-          'committed registrants rather than driving new ones.',
+          'existing demand rather than creating measurable new reach.',
           'High coupon uptake — more than 10–15% of participants using a code — combined ' +
           'with strong overall registration suggests price sensitivity in your audience. ' +
           'That\'s useful information: it may mean a modest price reduction could ' +
@@ -199,14 +195,14 @@ const GUIDE_SECTIONS: GuideSection[] = [
         overview:
           'For races offering multiple distances or categories, the cross-event breakdown ' +
           'compares participation numbers, growth rates, and demographics side by side ' +
-          'across your event options. Each distance is effectively its own product with ' +
-          'its own audience, and understanding how they differ helps you allocate resources ' +
+          'across your event options. Each distance may attract a different mix of ' +
+          'participants, and understanding those differences helps you allocate resources ' +
           'and make informed decisions about the race\'s lineup.',
         ideas: [
           'Is your flagship distance still your fastest-growing option, or has a shorter ' +
           'distance quietly started outpacing it? A shorter option that\'s growing rapidly ' +
-          'is often your best pipeline for future long-distance participants — runners who ' +
-          'start at your 25K and return for your 50K next year.',
+          'may be an important entry point for participants who later consider your longer ' +
+          'events.',
           'An event distance that consistently underperforms in registrations is worth ' +
           'evaluating honestly. Is it priced correctly relative to its distance? Does it ' +
           'serve a genuinely different audience, or does it largely duplicate another ' +
@@ -214,31 +210,30 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'done proactively than reactively.',
           'Cross-event demographics can reveal surprises: if your shorter distance skews ' +
           'significantly younger or more female than your longer options, those are ' +
-          'audiences you could actively cultivate as pathways into your harder events ' +
-          'over time.',
+          'participant groups you may want to support intentionally as part of your ' +
+          'broader event lineup.',
         ],
       },
       {
         title: 'Team & Relay Participation',
         overview:
           'Team statistics show how many participants are entering as part of relay or ' +
-          'team entries versus as individuals. Team entries are a distinctive growth ' +
-          'lever: a single conversion — one person convincing their workplace team or ' +
-          'running club to enter together — yields multiple registrations and often ' +
-          'creates a stronger attachment to the event than any individual entry does.',
+          'team entries versus as individuals. Team entries can be a useful growth lever ' +
+          'because one team captain or group organizer can bring multiple registrations ' +
+          'into the same event.',
         ideas: [
           'Is your relay or team option underutilized relative to your total field size? ' +
           'A well-promoted team option can be particularly effective with corporate ' +
           'wellness programs, running clubs, and social running groups who want to ' +
-          'participate together but where individual members might not commit alone.',
+          'participate together.',
           'Teams tend to create memorable shared experiences that generate the kind of ' +
           'photos and stories that spread organically on social media. If your team ' +
           'participation is growing, investing in team-specific finish-line moments — ' +
-          'group photos, team awards — can amplify that effect.',
+          'group photos, team awards — may make that part of the event more visible.',
           'If team participation is declining, it\'s worth asking whether the logistics ' +
           'are too complicated. Registration flows that require a team captain to manage ' +
-          'multiple entries can create enough friction that groups abandon the idea ' +
-          'and register individually or not at all.',
+          'multiple entries can create enough friction that some groups choose individual ' +
+          'registration or skip the team option.',
         ],
       },
       {
@@ -247,9 +242,8 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'Pre-race attrition tracks participants who registered and then formally ' +
           'withdrew before race day — distinct from DNS (did not start), which happens ' +
           'on race day itself. Understanding when and how often this happens helps ' +
-          'you design smarter refund policies, manage waitlists, and distinguish between ' +
-          'participants who disengaged and those who had legitimate life circumstances ' +
-          'force a withdrawal.',
+          'you review refund policies, manage waitlists, and separate documented drops ' +
+          'from race-day outcomes that belong in Race Results.',
         ideas: [
           'A high drop rate in the weeks immediately before the race — rather than ' +
           'spread throughout the registration window — may suggest course difficulty ' +
@@ -258,12 +252,11 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'alternate runners engaged rather than disappointed.',
           'If drops are concentrated in a specific event or distance, that\'s a signal ' +
           'worth investigating. A course distance that sees 15% pre-race attrition when ' +
-          'your others see 5% may have a reputation issue, an intimidating cut-off time, ' +
-          'or a training commitment that participants underestimated at registration.',
-          'Pre-race drops that go unfilled represent direct revenue loss. Knowing your ' +
-          'typical drop rate gives you a defensible basis for designing a no-refund ' +
-          'policy with a transfer option, or a tiered refund schedule that recovers ' +
-          'some revenue while treating participants fairly.',
+          'your others see 5% may point to pricing, schedule, cutoff, training-load, or ' +
+          'communication issues worth reviewing.',
+          'Pre-race drops that go unfilled can create revenue and capacity gaps. Tracking ' +
+          'your typical drop rate gives you a better basis for refund, transfer, and ' +
+          'waitlist policies that fit your race.',
         ],
       },
     ],
@@ -272,12 +265,11 @@ const GUIDE_SECTIONS: GuideSection[] = [
     id: 'results',
     heading: 'Race Results',
     intro:
-      'Race Results reports are drawn from your timing or results export — the data captured ' +
-      'on race day itself. Where Registration Analytics explains who registered and when, Race Results ' +
-      'explains what happened once the race actually started: who started, who finished, who did not start, ' +
-      'who did not finish, and how performance varied across gender, age, event, and ' +
-      'distance. Where race date, time, and venue are supplied, weather context helps explain ' +
-      'how conditions shaped those outcomes.',
+      'Race Results reports are drawn from your timing or results export, which captures ' +
+      'what happened on race day. They show who started, who finished, who did not start, ' +
+      'who did not finish, and how outcomes and performance varied across events, years, ' +
+      'gender, age, distance, and geography. When race date, time, and venue are supplied, ' +
+      'weather context can help frame finish rates, pace or distance trends, and race-day conditions.',
     entries: [
       {
         title: 'Summary & Race Overview',
@@ -289,18 +281,17 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'perceives a race\'s difficulty and overall experience quality.',
         ideas: [
           'Is your finish rate consistent year over year, or does it swing significantly? ' +
-          'Wide swings often correlate with weather, course condition changes, or cutoff ' +
-          'adjustments — the weather section of this tool is designed specifically to help ' +
-          'you see those correlations. Unexplained swings are worth investigating.',
+          'Wide swings may line up with weather, course condition changes, or cutoff ' +
+          'adjustments. Weather and race metadata can provide context, while unexplained ' +
+          'swings are worth investigating.',
           'A consistently high DNF rate isn\'t automatically a problem. Some races cultivate ' +
           'a reputation for genuine difficulty, and runners who sign up understand the ' +
           'challenge. What matters is whether the rate is intentional and whether your ' +
           'medical and sweep infrastructure is appropriately sized for it.',
           'Separating DNS from DNF is important context that\'s easy to overlook. A high ' +
-          'DNS rate — runners who registered and never reached the start line, regardless ' +
-          'of whether they attended bib pickup — can indicate last-minute injury or illness ' +
-          'patterns, or it can point to weather forecasts that spooked starters the ' +
-          'night before. Both are different from a runner who started and chose to stop.',
+          'DNS rate — runners who appear in results data but never reached the start line ' +
+          '— can suggest pre-race issues such as injury, illness, travel problems, or ' +
+          'weather concerns. That is different from a runner who started and then stopped.',
         ],
       },
       {
@@ -315,17 +306,16 @@ const GUIDE_SECTIONS: GuideSection[] = [
         ideas: [
           'When comparing multiple years side by side, weather is often the single biggest ' +
           'variable. If your finish rate dropped sharply in one year and that year saw ' +
-          'significantly warmer or wetter conditions, the course and operations probably ' +
-          'performed exactly as expected — and the weather context makes that case clearly ' +
-          'to runners and stakeholders.',
+          'significantly warmer or wetter conditions, weather context can help frame the ' +
+          'result for runners, volunteers, and stakeholders.',
           'Warmer-than-usual years with elevated DNF rates may suggest that your aid ' +
           'station hydration options, cooling resources, or heat protocols deserve a second ' +
           'look before the next edition. Data that shows a pattern over two or three years ' +
-          'is far more compelling than a one-off incident report.',
+          'can be more useful for planning than a one-off incident report.',
           'For long races covering multiple weather snapshots — overnight 100-milers ' +
           'in particular — the progression from evening to overnight to morning conditions ' +
-          'can explain dropout clusters. A wave of DNFs at the 3 a.m. aid station may ' +
-          'correlate directly with a temperature drop visible in the weather data.',
+          'can add context around dropout clusters. A wave of DNFs at a 3 a.m. aid station ' +
+          'may be worth reviewing alongside a visible temperature drop in the weather data.',
         ],
       },
       {
@@ -339,19 +329,16 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'character of your event.',
         ideas: [
           'Is your median finish time drifting slower year over year? This often reflects ' +
-          'a broadening field — more first-time participants, more runners completing the ' +
-          'distance for the first time rather than racing it — which is generally a sign ' +
-          'of healthy growth and greater accessibility. It may also suggest your course ' +
-          'conditions or trail maintenance have changed.',
+          'a changing finisher field — for example, more runners completing the distance ' +
+          'rather than racing it. It may also suggest changes in course conditions, trail ' +
+          'maintenance, cutoffs, or weather.',
           'Knowing where most of your finishers land helps you staff the finish line ' +
           'appropriately. If 60% of your 50K finishers cross between hours 7 and 10, ' +
           'that\'s when you need your announcer, your finisher medals, your food, and ' +
           'your medical team at peak readiness.',
-          'Time distributions by gender can reveal whether your course or conditions ' +
-          'affect men and women differently. In most ultra distances, women\'s median ' +
-          'times are slower in absolute terms but often faster relative to cutoff — a ' +
-          'pattern that\'s well-documented in the sport and worth understanding in the ' +
-          'context of your specific race.',
+          'Time distributions by gender can help you review whether course demands, ' +
+          'cutoffs, or race-day conditions appear to affect groups differently. Those ' +
+          'patterns are most useful when interpreted in the context of your specific race.',
         ],
       },
       {
@@ -365,17 +352,17 @@ const GUIDE_SECTIONS: GuideSection[] = [
         ideas: [
           'If your DNF rate is notably higher for one gender or age group, it\'s worth ' +
           'asking whether your aid station support, pacer policies, cutoff structure, or ' +
-          'course marking may be creating unintentional barriers for that group. The answer ' +
-          'may simply be that the course is objectively harder for certain body types or ' +
-          'fitness levels — but it\'s worth ruling out operational factors first.',
+          'course marking may be creating unintentional barriers for that group. The data ' +
+          'does not prove the cause, but it can help you decide what operational factors ' +
+          'deserve review.',
           'In multi-event races, comparing DNF rates across distances reveals a lot about ' +
           'each event\'s character. An event where 30% of starters drop is not necessarily ' +
           'a failure — it may be precisely as difficult as you intended — but if it\'s ' +
-          'unexpected, the data gives you somewhere to start looking.',
+          'unexpected, the data gives you a focused place to start reviewing.',
           'Year-over-year DNF rate trends are more informative than any single year\'s ' +
           'number. A rate that is gradually rising despite consistent weather and course ' +
-          'conditions may reflect a field that is becoming less prepared on average — ' +
-          'a coaching or community education opportunity rather than a course problem.',
+          'conditions may suggest a field, cutoff, support, or preparation pattern worth ' +
+          'reviewing before assuming the course itself is the issue.',
         ],
       },
       {
@@ -383,19 +370,18 @@ const GUIDE_SECTIONS: GuideSection[] = [
         overview:
           'Finisher demographics show the gender and age breakdown specifically of the ' +
           'finishers who completed your race — not just those who started. Comparing ' +
-          'finisher demographics to starter demographics reveals whether the race ' +
-          'experience is equitable across groups: does a group that starts at 40% of ' +
-          'your field finish at 40%, or does it finish at a meaningfully different rate?',
+          'finisher demographics to starter demographics can help you spot meaningful ' +
+          'differences across groups: does a group that starts at 40% of your field finish ' +
+          'at 40%, or does it finish at a meaningfully different rate?',
         ideas: [
           'A significant gap between a group\'s representation at the start versus at the ' +
           'finish is a signal worth investigating. If women represent 38% of starters but ' +
-          'only 30% of finishers, the race experience — cutoffs, course conditions, ' +
-          'support structures — may be working against them in some way that isn\'t ' +
-          'immediately obvious.',
-          'Age group finisher data can reveal where your course\'s demands most diverge ' +
-          'from participant capability. Very high finish rates for older age groups often ' +
-          'indicate experienced, well-prepared runners; very low rates in younger groups ' +
-          'may reflect first-timers underestimating the challenge.',
+          'only 30% of finishers, cutoffs, course conditions, support structures, or other ' +
+          'race-day factors may deserve review.',
+          'Age group finisher data can help you spot where finish rates differ across ' +
+          'age bands. Very high finish rates for older age groups may indicate experienced, ' +
+          'well-prepared runners; very low rates in younger groups may point to preparation, ' +
+          'pacing, cutoff, or course-fit questions.',
           'Finisher age data can also inform your awards structure. If your masters ' +
           'divisions (50+, 60+) consistently produce large, competitive fields, robust ' +
           'age-group recognition in those brackets may mean more to your community than ' +
@@ -407,23 +393,20 @@ const GUIDE_SECTIONS: GuideSection[] = [
         overview:
           'Geographic data for finishers shows where finishers traveled ' +
           'from — which states are most represented, and how far people came to cross your ' +
-          'finish line. As a complement to registration geography, finisher geography ' +
-          'can reveal whether finishers from certain regions perform differently, and ' +
-          'whether your race\'s pull extends beyond its immediate region.',
+          'finish line. Finisher geography can help you review whether results vary by ' +
+          'region and whether your race\'s reach extends beyond its immediate area.',
         ideas: [
           'If starters who travel long distances show notably different finish rates ' +
           'than local runners, familiarity with the terrain, climate, or race-day logistics ' +
           'may be a factor. Out-of-region runners who can\'t preview the course or ' +
           'acclimatize to your local conditions may benefit from better pre-race ' +
           'course information and more detailed aid station guidance.',
-          'Strong out-of-state finisher representation suggests your race has a reputation ' +
-          'that travels — a meaningful asset for partnership conversations with gear ' +
-          'companies, local tourism boards, and running publications looking for ' +
-          'content worth covering.',
-          'Geographic data can also surface unexpected loyalty. If the same states appear ' +
-          'year after year in your top-10 finisher list, those communities are strong ' +
-          'candidates for targeted outreach, club partnerships, or even satellite packet ' +
-          'pickup arrangements.',
+          'Strong out-of-state finisher representation suggests your race is drawing ' +
+          'beyond its local market, which can be useful context for partnership conversations ' +
+          'with gear companies, local tourism boards, and running publications.',
+          'Geographic data can also surface recurring regional patterns. If the same states ' +
+          'appear year after year in your top-10 finisher list, those communities may be ' +
+          'candidates for targeted outreach, club partnerships, or packet-pickup planning.',
         ],
       },
       {
@@ -431,24 +414,23 @@ const GUIDE_SECTIONS: GuideSection[] = [
         overview:
           'In multi-distance races, the cross-event comparison puts your different event ' +
           'offerings side by side: finish rates, median times, demographic makeup, course ' +
-          'records, and last finisher times. Each distance attracts a distinct audience ' +
-          'and tests starters in different ways. Understanding how each event performs ' +
+          'records, and last finisher times. Each distance can attract a different field ' +
+          'and challenge starters in different ways. Understanding how each event performs ' +
           'relative to the others is essential for resource allocation and race design.',
         ideas: [
           'Is one distance consistently outperforming the others in finish rate? That ' +
-          'event may be operating in a particularly well-calibrated difficulty window for ' +
-          'your course and typical conditions — worth studying as a reference point when ' +
+          'event may be operating in a well-calibrated difficulty window for your course ' +
+          'and typical conditions, making it worth reviewing as a reference point when ' +
           'designing or adjusting other distances.',
           'Course record data tells you something about the competitiveness of your field ' +
           'over time. A course record that hasn\'t been threatened in several years may ' +
-          'indicate your race is becoming less competitive (the top runners have moved on) ' +
-          'or simply that the record was set in exceptional conditions — two very ' +
-          'different situations.',
+          'suggest changes in field depth, course conditions, or race-day conditions. It ' +
+          'may also simply mean the record was set in an exceptional year.',
           'Last finisher data is often overlooked but carries genuine meaning. A last ' +
           'finisher who crosses well within the cutoff time suggests healthy capacity; ' +
           'one who barely makes it suggests your cutoff may be the limiting factor for ' +
-          'a portion of your field, and relaxing it slightly could dramatically improve ' +
-          'their finish rate without changing the course.',
+          'a portion of your field, and is worth reviewing before changing the course or ' +
+          'support plan.',
         ],
       },
       {
@@ -457,23 +439,22 @@ const GUIDE_SECTIONS: GuideSection[] = [
           'Multi-year comparison brings everything together across time — total entrants, ' +
           'finish rates, finisher demographics, and median performance — so you can see ' +
           'trajectory rather than just snapshots. Any single year\'s data tells you what ' +
-          'happened once. Multi-year data begins to tell you why, and what is likely to ' +
-          'happen next.',
+          'happened once. Multi-year data helps you spot patterns worth planning around.',
         ideas: [
           'A downward trend in total entrants warrants honest examination of what changed. ' +
           'Pricing, course modifications, competition from newer events, or broader market ' +
           'saturation in your distance category are all worth considering — and they have ' +
-          'very different solutions. Trending data gives you the timeline to work backward ' +
-          'from.',
+          'different operational responses. Trending data gives you a timeline to compare ' +
+          'against known changes.',
           'An upward trend in finish rate following a course adjustment or infrastructure ' +
-          'investment is strong evidence that the change worked. Multi-year data is how ' +
-          'you build the case that a decision was correct, both for your own confidence ' +
-          'and for conversations with stakeholders, sponsors, or co-directors.',
+          'investment may suggest that the change helped. Multi-year data can support ' +
+          'better conversations with stakeholders, sponsors, or co-directors, especially ' +
+          'when paired with operational context.',
           'Trends that don\'t match your intuition are often the most valuable. If you ' +
           'believe your race is growing but the data shows stagnation, or if you think ' +
           'your finish rate is declining when it\'s actually stable, the data is giving ' +
-          'you a more reliable read than anecdote. That correction is exactly what ' +
-          'analytics is for.',
+          'you a useful check against anecdote. That correction is exactly what analytics ' +
+          'is for.',
         ],
       },
     ],
@@ -522,6 +503,11 @@ export default function LearnPage() {
 
       {/* ── Intro ── */}
       <section className="learn-hero">
+        <img
+          className="learn-hero-image"
+          src="/analytics-guide-hero.svg"
+          alt="Illustrated banner representing analytics guidance and data exploration"
+        />
         <h1 className="learn-hero-title">Learn Analytical Impacts</h1>
         <blockquote className="learn-hero-tagline">
           The goal isn't to turn race directors into analysts.<br />
@@ -529,15 +515,15 @@ export default function LearnPage() {
         </blockquote>
         <div className="learn-hero-body">
           <p>
-            Your registration and timing platforms already collect the data. Analytics
-            turns it into a coherent story: who came, why they came, what happened on
-            course, and how this year compares to last.
+            Your registration and timing platforms already collect useful race data.
+            RaceOps turns those CSV exports into a clearer story about registration
+            timing, participant mix, travel patterns, finish outcomes, pace or distance
+            trends, and race-day conditions.
           </p>
           <p>
-            You don't need to be a data scientist — you need to know what questions to
-            ask. Each section below explains one category of statistics, what it measures,
-            and a few ideas for what it might be telling you. The same data is useful
-            whether you're directing your first race or your fifteenth.
+            The goal is not to make race directors become data scientists. RaceOps
+            surfaces the patterns that are already there, so you can understand what
+            changed, what held steady, and where your race may need attention next.
           </p>
         </div>
       </section>

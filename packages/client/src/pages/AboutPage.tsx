@@ -29,7 +29,7 @@ export default function AboutPage() {
                 rel="noopener noreferrer"
                 className="about-link"
               >
-                View GitHub repository<span className="sr-only"> (opens in new tab)</span> →
+                View GitHub profile<span className="sr-only"> (opens in new tab)</span> →
               </a>
               <a
                 href="https://www.robfiero.net/"
@@ -44,22 +44,16 @@ export default function AboutPage() {
         </div>
 
         <p>
-          RaceOps is a data analytics platform for race directors. It turns race registration
-          and race results CSV exports into operational reports — registration trends, drops,
-          waitlist behavior, demographics, geography, finish outcomes, DNF/DNS patterns,
-          performance trends, and weather context where supplied — without storing personally
-          identifiable information.
+          RaceOps helps race directors turn exported data into summarized and detailed reports
+          without storing personally identifiable information.
         </p>
+        <ul>
+          <li>Registration Analytics focuses on pre-race data: registration timing, drops, waitlists, coupons, demographics, geography, and travel distance.</li>
+          <li>Race Results focuses on race-day data: starters, finishers, DNS/DNF outcomes, finish times, pace or distance trends, and weather context where supplied.</li>
+        </ul>
         <p>
-          The project was built from a race director's perspective: practical, privacy-conscious,
-          and focused on the questions that come up when planning, improving, and communicating
-          about an event.
-        </p>
-        <p>
-          RaceOps is intentionally designed as a production-style system rather than a prototype.
-          It uses a privacy-first import pipeline, session-scoped analysis, clear visualizations,
-          and plain-language summaries so race directors can understand their data without needing
-          to become analysts.
+          The reports are designed to make race data easier to review, compare, and explain
+          without requiring race directors to sort through raw exports by hand.
         </p>
       </div>
 
@@ -68,8 +62,8 @@ export default function AboutPage() {
           <h2>Why I built it</h2>
           <p className="about-section-subtitle">A real problem in a niche I know well.</p>
           <ul>
-            <li>As a race director, I wanted a clearer way to understand the data my races already generate: who signs up, who starts and finishes, where people come from, when registrations happen, how events compare, and how those patterns change year over year.</li>
-            <li>Registration and timing platforms do a lot of the heavy lifting for race operations. RaceOps explores a complementary layer: what can race directors learn from the exported CSV data they already have?</li>
+            <li>As a race director, I wanted a clearer way to understand the data my races already generate: registration patterns before race day and results patterns after the event.</li>
+            <li>Registration and timing platforms handle core operations. RaceOps adds a complementary reporting layer around the exported CSV data race directors already have.</li>
             <li>Privacy was a core requirement from the start. The goal was to make the analysis useful without retaining names, emails, addresses, phone numbers, or other personally identifiable participant details.</li>
           </ul>
         </div>
@@ -80,7 +74,7 @@ export default function AboutPage() {
           <ul>
             <li>Personal information in uploaded files is never read or analyzed — PII columns are structurally excluded at parse time, not discarded after the fact.</li>
             <li>Make complex race statistics accessible through clear visualizations and plain-language labels.</li>
-            <li>Support year-over-year comparison so race directors can track growth, spot trends, and compare race editions.</li>
+            <li>Support year-over-year comparison so race directors can review growth, trends, and race editions over time.</li>
             <li>Build the system incrementally so additional registration platforms, result formats, and analysis modules can be added over time.</li>
           </ul>
         </div>
@@ -124,7 +118,7 @@ export default function AboutPage() {
 
       <div className="about-section card">
         <h2>AI-assisted engineering workflow</h2>
-        <p className="about-section-subtitle">This project used AI tools at different stages of development, while architecture, product direction, and engineering judgment remained hands-on.</p>
+        <p className="about-section-subtitle">AI tools supported iteration, while architecture, product direction, and engineering judgment stayed hands-on.</p>
         <p>
           <strong>ChatGPT</strong> was used for early ideation — exploring implementation approaches
           and architecture tradeoffs before committing to a direction.
@@ -135,9 +129,8 @@ export default function AboutPage() {
         </p>
         <p>
           <strong>Claude Code</strong> (Anthropic's CLI agent) became the primary AI engineering partner
-          for the current development phase. The workflow included exploring large parts of the codebase
-          with natural language queries, iterating on multi-file features in a single session, refining
-          data models, and reviewing architectural tradeoffs.
+          for the current development phase, supporting codebase exploration, multi-file iteration,
+          data model refinement, and architectural review.
         </p>
         <p>
           All AI-assisted code was reviewed, tested, and held to the same standard as hand-written
@@ -146,29 +139,25 @@ export default function AboutPage() {
         </p>
       </div>
 
-      <div className="about-grid">
-        <div className="about-section card">
-          <h2>What I learned</h2>
-          <p className="about-section-subtitle">The polish comes from small, repeatable decisions.</p>
-          <ul>
-            <li>Designing privacy constraints up front is much easier than retrofitting them — the adapter pattern made personal data exclusion structural rather than optional.</li>
-            <li>Multi-year comparison requires careful sorting and normalization; race names and event names vary across years in ways that need explicit handling.</li>
-            <li>Synthetic sample data generation is harder to make realistic than it looks — distribution shapes matter as much as value ranges.</li>
-            <li>Session-based in-memory storage is sufficient for a single-user tool but requires thoughtful lifetime management to avoid stale data.</li>
-          </ul>
-        </div>
-
-        <div className="about-section card">
-          <h2>Why this project matters</h2>
-          <p className="about-section-subtitle">A practical demo of product thinking, privacy-aware architecture, and end-to-end engineering execution.</p>
-          <ul>
-            <li>Demonstrates full-stack ownership across import workflows, API design, session management, analytics, visualization, and deployment.</li>
-            <li>Privacy-first architecture that treats constraints as design requirements, not afterthoughts.</li>
-            <li>Built to be demo-friendly without sacrificing production-quality structure — real parsing, real analytics, real deployment.</li>
-            <li>Complements registration platforms by adding analysis and reporting around exported data.</li>
-            <li>Active project evolving through incremental releases, with additional analysis modules planned.</li>
-          </ul>
-        </div>
+      <div className="about-section card">
+        <h2>Architecture Summary</h2>
+        <img
+          className="about-architecture-diagram"
+          src="/raceops_architecture_summary.svg"
+          alt="Diagram showing RaceOps CSV exports flowing through frontend workflow, backend analysis pipeline, and report presentation layers."
+        />
+        <p>
+          RaceOps is organized around two upload workflows: Registration Analytics and Race
+          Results. Each workflow accepts a source CSV, sends it through the appropriate analysis
+          pipeline, and returns aggregate report data for the browser to display.
+        </p>
+        <p>
+          The backend handles file parsing, validation, normalization, summary generation, and
+          optional geography or weather enrichment. The frontend manages upload state, report
+          configuration, charts, tables, and print-friendly presentation. Uploaded race data is
+          not written to a database, and personal information is excluded from the reporting
+          pipeline.
+        </p>
       </div>
 
     </div>

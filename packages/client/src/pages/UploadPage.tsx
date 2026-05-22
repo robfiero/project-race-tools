@@ -55,6 +55,72 @@ function InfoIcon() {
   return <span className="info-icon" aria-hidden="true">i</span>;
 }
 
+function UltraSignupExportExample() {
+  return (
+    <svg
+      className="ultrasignup-export-example"
+      viewBox="0 0 720 230"
+      role="img"
+      aria-labelledby="ultrasignup-export-example-title ultrasignup-export-example-desc"
+    >
+      <title id="ultrasignup-export-example-title">UltraSignup export filter example</title>
+      <desc id="ultrasignup-export-example-desc">
+        Set the Status and Removed filters to All before exporting registration data.
+      </desc>
+      <rect width="720" height="230" rx="10" fill="#f8fafc" />
+      <text x="24" y="38" fill="#2f8f24" fontSize="22" fontWeight="700">Master Grid</text>
+
+      <g transform="translate(24 68)">
+        <text x="0" y="0" className="ultrasignup-export-label">Paid Out Status</text>
+        <rect x="0" y="12" width="142" height="34" fill="#fff" stroke="#cbd5e1" />
+        <text x="12" y="35" className="ultrasignup-export-value">All</text>
+
+        <text x="178" y="0" className="ultrasignup-export-label">Payment</text>
+        <rect x="178" y="12" width="142" height="34" fill="#fff" stroke="#cbd5e1" />
+        <text x="190" y="35" className="ultrasignup-export-value">All</text>
+
+        <g className="ultrasignup-export-highlight">
+          <rect x="356" y="-15" width="132" height="68" rx="6" fill="none" />
+          <text x="368" y="0" className="ultrasignup-export-label">Status</text>
+          <rect x="368" y="12" width="96" height="34" fill="#fff" stroke="#cbd5e1" />
+          <text x="380" y="35" className="ultrasignup-export-value">Current</text>
+        </g>
+
+        <text x="548" y="0" className="ultrasignup-export-label">Item</text>
+        <rect x="548" y="12" width="148" height="34" fill="#fff" stroke="#cbd5e1" />
+        <text x="560" y="35" className="ultrasignup-export-value">All Distances</text>
+
+        <text x="0" y="88" className="ultrasignup-export-label">Statement</text>
+        <rect x="0" y="100" width="154" height="34" fill="#fff" stroke="#cbd5e1" />
+        <text x="12" y="123" className="ultrasignup-export-value">All</text>
+
+        <g className="ultrasignup-export-highlight">
+          <rect x="178" y="73" width="172" height="68" rx="6" fill="none" />
+          <text x="190" y="88" className="ultrasignup-export-label">Removed</text>
+          <rect x="190" y="100" width="136" height="34" fill="#fff" stroke="#cbd5e1" />
+          <text x="202" y="123" className="ultrasignup-export-value">Currently In</text>
+        </g>
+
+        <text x="380" y="88" className="ultrasignup-export-label">Search</text>
+        <rect x="380" y="100" width="300" height="34" fill="#fff" stroke="#cbd5e1" />
+        <text x="392" y="123" className="ultrasignup-export-placeholder">Search by name or order ID...</text>
+      </g>
+
+      <g className="ultrasignup-export-callout">
+        <path d="M 488 84 L 526 84" />
+        <rect x="526" y="66" width="108" height="36" rx="5" fill="#fff" />
+        <text x="544" y="90">Set to All</text>
+      </g>
+
+      <g className="ultrasignup-export-callout">
+        <path d="M 350 191 L 386 191 L 386 166 L 416 166" />
+        <rect x="416" y="148" width="108" height="36" rx="5" fill="#fff" />
+        <text x="434" y="172">Set to All</text>
+      </g>
+    </svg>
+  );
+}
+
 // ─── File row ─────────────────────────────────────────────────────────────────
 
 interface FileRowProps {
@@ -160,7 +226,7 @@ export default function UploadPage({ onUploadComplete }: Props) {
   const [rows, setRows] = useState<UploadRow[]>(() => [makeRow()]);
   const [raceName, setRaceName] = useState('');
   const [venueAddress, setVenueAddress] = useState('');
-  const [timezone, setTimezone] = useState('UTC');
+  const [timezone, setTimezone] = useState('America/Los_Angeles');
   const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -256,29 +322,39 @@ export default function UploadPage({ onUploadComplete }: Props) {
   return (
     <div className="upload-page">
       <div className="upload-intro">
+        <img
+          className="upload-hero-image"
+          src="/registration-analytics-hero.svg"
+          alt="Illustrated banner representing race registration analytics"
+        />
         <h1 ref={pageHeadingRef} tabIndex={-1}>Registration Analytics</h1>
-        <p>
-          Upload a registration CSV export to understand who registered, when they
-          registered, where they came from, and how registration changed across events
-          or years.
+        <p className="upload-intro-lede">
+          Upload registration CSV exports to analyze registration timing, drops, waitlists,
+          coupons, demographics, geography, and travel distance.
         </p>
-        <p>
-          Use this for registration timing, drops, waitlist behavior, coupon usage,
-          demographics, geography, and travel-distance analysis. Personal information
-          is never read or analyzed — only aggregate statistics are computed and displayed.
-        </p>
-        <p className="upload-supported">
-          Supported platforms: <strong>UltraSignup</strong> &nbsp;·&nbsp; More coming soon
-          &nbsp;·&nbsp; Format: <strong>CSV</strong>
-        </p>
-        <p className="upload-hint">
-          <InfoIcon />
-          <span>RaceOps accepts CSV uploads. If your provider gives you an Excel file, save or export it as CSV before uploading.</span>
-        </p>
-        <p className="upload-hint upload-hint--tip">
-          <InfoIcon />
-          <span>When exporting from UltraSignup, set all filter criteria to <strong>All</strong> — including <strong>Status</strong> and <strong>Removed</strong>, which default to other values.</span>
-        </p>
+
+        <div className="upload-before">
+          <h2>Before uploading</h2>
+          <p className="upload-supported">
+            Supported source: <strong>UltraSignup</strong> &nbsp;·&nbsp; More coming soon
+            &nbsp;·&nbsp; Format: <strong>CSV</strong>
+          </p>
+          <ul>
+            <li>Use CSV files. If your export is Excel, save it as CSV first.</li>
+            <li>
+              For UltraSignup, export the full registration dataset and set all filters to <strong>All</strong>, including <strong>Status</strong> and <strong>Removed</strong>.
+              <details className="upload-example">
+                <summary>Show UltraSignup export example</summary>
+                <figure>
+                  <UltraSignupExportExample />
+                  <figcaption>Set Status and Removed to All before exporting.</figcaption>
+                </figure>
+              </details>
+            </li>
+            <li>For multi-year reports, verify that event names are consistent across files so that RaceOps can properly compare races.</li>
+            <li>RaceOps computes aggregate statistics and does not store personal information.</li>
+          </ul>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} noValidate>
@@ -379,11 +455,10 @@ export default function UploadPage({ onUploadComplete }: Props) {
             ) : null}
           </div>
 
-          <p className="upload-files-footer-hint">
-            Upload one file for a single-year analysis, or multiple files (same race,
-            different years) for year-over-year comparison. Year is auto-detected from
-            the filename when available.
-          </p>
+          <ul className="upload-files-footer-hint">
+            <li>Single-year: upload one registration CSV.</li>
+            <li>Multi-year: upload the same race across different years. RaceOps will use the filename year when available.</li>
+          </ul>
         </div>
 
         {error && <p className="upload-error" role="alert">{error}</p>}

@@ -12,6 +12,18 @@
   padding: 0.5rem 0;
 }
 
+.learn-hero-image {
+  display: block;
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  object-position: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 0.85rem;
+  background: #f8fafc;
+}
+
 .learn-hero-title {
   font-size: 1.8rem;
   font-weight: 700;
@@ -34,6 +46,7 @@
 }
 
 @media (max-width: 600px) {
+  .learn-hero-image { height: 104px; }
   .learn-hero-tagline { font-size: 1.1rem; }
 }
 

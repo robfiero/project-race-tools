@@ -206,6 +206,11 @@ export default function HomePage({ onDemoLaunch, onResultsDemoLaunch, onNavigate
 
       {/* ── Welcome ── */}
       <section className="home-hero">
+        <img
+          className="home-hero-image"
+          src="/home_page_hero_banner.svg"
+          alt="Illustrated banner representing RaceOps race data analytics"
+        />
         <h1 className="home-hero-title">Race Director Analytics</h1>
         <p className="home-hero-subtitle">
           RaceOps helps race directors turn registration and results CSV exports into

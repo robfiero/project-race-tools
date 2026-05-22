@@ -381,48 +381,48 @@ function UploadPhase({ onComplete }: UploadPhaseProps) {
   return (
     <div className="rr-upload-page">
       <div className="rr-upload-intro">
+        <img
+          className="rr-upload-hero-image"
+          src="/race-results-hero.svg"
+          alt="Illustrated banner representing race results analytics"
+        />
         <h1 ref={headingRef} tabIndex={-1}>Race Results</h1>
         <p>
-          Upload a race results or timing CSV export to analyze starters, finishers,
-          DNF/DNS outcomes, finish times, pace or distance trends, demographics,
-          geography, and weather when supplied.
+          Upload race results to analyze starters, finishers, DNF/DNS outcomes,
+          finish times, demographics, and race-day weather.
         </p>
-        <p>
-          Personal information in uploaded files is never read or analyzed — only
-          aggregate statistics are computed and displayed.
-        </p>
-        <p className="rr-upload-supported">
-          Supported platforms: <strong>UltraSignup</strong> &nbsp;·&nbsp; More coming soon
-          &nbsp;·&nbsp; Format: <strong>CSV</strong>
-        </p>
-        <p className="rr-upload-format-hint">
-          RaceOps accepts CSV uploads. If your provider gives you an Excel file, save or export it as CSV before uploading.
-        </p>
-        <p className="rr-upload-format-note">
-          <strong>Note:</strong> Your results file must include the required UltraSignup column headers.
-        </p>
-        <p className="rr-upload-format-links">
-          <a
-            href="https://help.ultrasignup.com/hc/en-us/articles/30339325435917-How-to-Format-Race-Result-Files"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rr-upload-format-link"
-          >
-            Formatting requirements<span className="sr-only"> (opens in new tab)</span> ↗
-          </a>
-          <span className="rr-upload-format-sep" aria-hidden="true">·</span>
-          <a
-            href="/ultrasignup-results-template.csv"
-            download
-            className="rr-upload-format-link"
-          >
-            Download CSV template
-          </a>
-        </p>
-        <p className="rr-upload-format-hint">
-          If you don't have the original export file, results data that you have legitimate
-          access to can be copied into the CSV template manually.
-        </p>
+        <div className="rr-upload-before">
+          <h2>Before Uploading</h2>
+          <p className="rr-upload-supported">
+            Supported source: <strong>UltraSignup</strong> &nbsp;·&nbsp; More coming soon
+            &nbsp;·&nbsp; Format: <strong>CSV</strong>
+          </p>
+          <ul>
+            <li>Use CSV files. If your export is Excel, save it as CSV first.</li>
+            <li>Use the original results export when available, or copy legitimate results data into the CSV template.</li>
+            <li>Include the required UltraSignup column headers so RaceOps can read starters, finishers, DNS, and DNF outcomes.</li>
+            <li>Race start and duration are optional, but enable weather context when supplied.</li>
+            <li>RaceOps computes aggregate statistics and does not store personal information.</li>
+          </ul>
+          <p className="rr-upload-format-links">
+            <a
+              href="https://help.ultrasignup.com/hc/en-us/articles/30339325435917-How-to-Format-Race-Result-Files"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rr-upload-format-link"
+            >
+              Formatting requirements<span className="sr-only"> (opens in new tab)</span> ↗
+            </a>
+            <span className="rr-upload-format-sep" aria-hidden="true">·</span>
+            <a
+              href="/ultrasignup-results-template.csv"
+              download
+              className="rr-upload-format-link"
+            >
+              Download CSV template
+            </a>
+          </p>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} noValidate>
@@ -440,7 +440,7 @@ function UploadPhase({ onComplete }: UploadPhaseProps) {
               onChange={e => setRaceName(e.target.value)}
             />
           </div>
-          <div className="upload-field">
+          <div className="upload-field rr-venue-field">
             <label htmlFor="rr-venue-address">
               Venue address <span className="optional">(optional)</span>
             </label>
@@ -453,8 +453,8 @@ function UploadPhase({ onComplete }: UploadPhaseProps) {
             />
             <p className="upload-hint">
               <span className="info-icon" aria-hidden="true">i</span>
-              Enables weather conditions in the analysis. Geocoded once at upload
-              and never stored with results data.
+              Enables weather context in the report. Geocoded once at upload and
+              never stored with results data.
             </p>
           </div>
         </div>
@@ -522,11 +522,10 @@ function UploadPhase({ onComplete }: UploadPhaseProps) {
             )}
           </div>
 
-          <p className="upload-files-footer-hint">
-            Upload one file for a single-year analysis, or multiple files (same
-            race, different years) for year-over-year comparison. Year is
-            auto-detected from the filename when available.
-          </p>
+          <ul className="upload-files-footer-hint">
+            <li>Single-year: upload one results CSV.</li>
+            <li>Multi-year: upload the same race across different years. RaceOps will use the filename year when available.</li>
+          </ul>
         </div>
 
         {error && <p className="rr-upload-error" role="alert">{error}</p>}
