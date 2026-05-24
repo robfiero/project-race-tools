@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { getSession } from '../session/store.js';
 import { computeStats, filterByEvents } from '../stats/index.js';
+import { incrementReportRun } from '../usage/reportUsage.js';
 
 const router = Router();
 
@@ -35,6 +36,8 @@ router.get('/:sessionId', async (req: Request, res: Response) => {
     session.venueAddress,
     session.timezone,
   );
+
+  incrementReportRun('registration_single_year');
 
   res.json({
     sessionId,

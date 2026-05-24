@@ -10,6 +10,7 @@ import resultsUploadRouter from './routes/resultsUpload.js';
 import resultsStatsRouter from './routes/resultsStats.js';
 import resultsCompareRouter from './routes/resultsCompare.js';
 import resultsSampleRouter from './routes/resultsSample.js';
+import usageSummaryRouter from './routes/usageSummary.js';
 import { loadZipCentroids } from './geo/zipLoader.js';
 import { buildAllowedOrigins, makeOriginCallback } from './corsOrigins.js';
 
@@ -60,6 +61,7 @@ async function main() {
   app.use('/api/compare',         apiLimiter,    compareRouter);
   app.use('/api/results/stats',   apiLimiter,    resultsStatsRouter);
   app.use('/api/results/compare', apiLimiter,    resultsCompareRouter);
+  app.use('/api/usage-summary',   apiLimiter,    usageSummaryRouter);
 
   app.listen(PORT, () => {
     console.info(`[server] RaceStats API listening on http://localhost:${PORT}`);

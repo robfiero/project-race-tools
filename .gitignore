@@ -5,3 +5,11 @@ build/
 *.local
 .DS_Store
 coverage/
+.claude/settings.json
+sanitized/CoyoteRidge24Hour2024.csv
+sanitized/GhostTrain2017.csv
+sanitized/GhostTrain2018.csv
+sanitized/GhostTrain2019.csv
+sanitized/GhostTrain2024.csv
+sanitized/GhostTrain2025.csv
+sanitized/GhostTrain2026.csv

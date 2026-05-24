@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { getResultsSession } from '../session/resultsStore.js';
 import { computeResultsStats } from '../stats/results.js';
+import { incrementReportRun } from '../usage/reportUsage.js';
 
 const router = Router();
 
@@ -15,6 +16,8 @@ router.get('/:sessionId', async (req: Request, res: Response) => {
   }
 
   const stats = computeResultsStats(session.results);
+
+  incrementReportRun('results_single_year');
 
   res.json({ sessionId, raceName: session.raceName, stats, weatherData: session.weatherData ?? null });
 });

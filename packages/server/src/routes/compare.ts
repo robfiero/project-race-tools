@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { getSession } from '../session/store.js';
 import { computeComparisonStats, MAX_COMPARISON_INTERVALS } from '../stats/comparison.js';
+import { incrementReportRun } from '../usage/reportUsage.js';
 
 const router = Router();
 
@@ -70,6 +71,8 @@ router.post('/', async (req: Request, res: Response) => {
   );
 
   const result = computeComparisonStats(filteredSessions, labels);
+
+  incrementReportRun('registration_multi_year');
 
   res.json(result);
 });

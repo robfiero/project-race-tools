@@ -4,6 +4,7 @@ import {
   computeResultsComparisonStats,
   MAX_RESULTS_COMPARISON_INTERVALS,
 } from '../stats/resultsComparison.js';
+import { incrementReportRun } from '../usage/reportUsage.js';
 
 const router = Router();
 
@@ -61,6 +62,8 @@ router.post('/', async (req: Request, res: Response) => {
     sessions as NonNullable<(typeof sessions)[number]>[],
     labels,
   );
+
+  incrementReportRun('results_multi_year');
 
   res.json(result);
 });

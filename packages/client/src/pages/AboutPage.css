@@ -173,3 +173,11 @@
   flex-direction: column;
   gap: 0.35rem;
 }
+
+.about-usage-summary {
+  margin: -0.25rem 0 0;
+  color: #777;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  text-align: center;
+}

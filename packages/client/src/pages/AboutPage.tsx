@@ -1,6 +1,70 @@
+import { useEffect, useState } from 'react';
+import { apiUrl } from '../api.ts';
 import './AboutPage.css';
 
+interface ReportRunCounts {
+  registration_single_year: number;
+  registration_multi_year: number;
+  results_single_year: number;
+  results_multi_year: number;
+}
+
+function parseReportRunCounts(data: unknown): ReportRunCounts | null {
+  if (!data || typeof data !== 'object') return null;
+
+  const reportRuns = (data as { reportRuns?: unknown }).reportRuns;
+  if (!reportRuns || typeof reportRuns !== 'object') return null;
+
+  const counts = reportRuns as Partial<Record<keyof ReportRunCounts, unknown>>;
+  const registrationSingleYear = counts.registration_single_year;
+  const registrationMultiYear = counts.registration_multi_year;
+  const resultsSingleYear = counts.results_single_year;
+  const resultsMultiYear = counts.results_multi_year;
+
+  if (
+    typeof registrationSingleYear !== 'number' ||
+    typeof registrationMultiYear !== 'number' ||
+    typeof resultsSingleYear !== 'number' ||
+    typeof resultsMultiYear !== 'number'
+  ) {
+    return null;
+  }
+
+  return {
+    registration_single_year: registrationSingleYear,
+    registration_multi_year: registrationMultiYear,
+    results_single_year: resultsSingleYear,
+    results_multi_year: resultsMultiYear,
+  };
+}
+
 export default function AboutPage() {
+  const [reportRuns, setReportRuns] = useState<ReportRunCounts | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadUsageSummary() {
+      try {
+        const res = await fetch(apiUrl('/api/usage-summary'));
+        if (!res.ok) return;
+
+        const parsed = parseReportRunCounts(await res.json());
+        if (isMounted && parsed) {
+          setReportRuns(parsed);
+        }
+      } catch {
+        // Usage summary is non-essential; hide it if unavailable.
+      }
+    }
+
+    loadUsageSummary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <div className="about-page">
 
@@ -159,6 +223,12 @@ export default function AboutPage() {
           pipeline.
         </p>
       </div>
+
+      {reportRuns && (
+        <p className="about-usage-summary">
+          Report runs: Reg 1Y {reportRuns.registration_single_year} · Reg MY {reportRuns.registration_multi_year} · Results 1Y {reportRuns.results_single_year} · Results MY {reportRuns.results_multi_year}
+        </p>
+      )}
 
     </div>
   );
